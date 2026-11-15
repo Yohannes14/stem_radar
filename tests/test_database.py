@@ -116,3 +116,33 @@ async def test_repository_get_recent_articles_sorting(test_session_factory):
 
         articles = await repo.get_recent_articles(limit=10)
         assert len(articles) == 2
+
+
+@pytest.mark.asyncio
+async def test_repository_source_health_telemetry(test_session_factory):
+    async with test_session_factory() as session:
+        repo = Repository(session)
+        source = (await repo.get_sources())[0]
+
+        # Initially no errors and no collection time
+        assert source.error_count == 0
+        assert source.last_collected_at is None
+
+        # Simulate failure
+        await repo.update_source_health(source.id, success=False, error_message="HTTP 500 Connection reset")
+        s_fail = await repo.get_source_by_slug(source.slug)
+        assert s_fail.error_count == 1
+        assert "HTTP 500" in s_fail.last_error
+
+        # Simulate second failure
+        await repo.update_source_health(source.id, success=False, error_message="HTTP 502 Bad Gateway")
+        s_fail2 = await repo.get_source_by_slug(source.slug)
+        assert s_fail2.error_count == 2
+        assert "HTTP 502" in s_fail2.last_error
+
+        # Simulate success
+        await repo.update_source_health(source.id, success=True)
+        s_success = await repo.get_source_by_slug(source.slug)
+        assert s_success.error_count == 0
+        assert s_success.last_error is None
+        assert s_success.last_collected_at is not None

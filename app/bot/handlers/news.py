@@ -20,6 +20,7 @@ async def send_article_view(
     update: Update,
     category_slug: Optional[str] = None,
     source_slug: Optional[str] = None,
+    source_type: Optional[str] = None,
     offset: int = 0,
     is_edit: bool = False,
 ) -> None:
@@ -32,6 +33,7 @@ async def send_article_view(
         offset=0,
         category_slug=category_slug if category_slug != "all" else None,
         source_slug=source_slug,
+        source_type=source_type,
     )
 
     if not articles:
@@ -120,13 +122,13 @@ async def programming_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 @authorized_only
 async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fetch latest arXiv research papers."""
-    await send_article_view(update, source_slug="arxiv-ai", offset=0)
+    await send_article_view(update, source_type="arxiv", offset=0)
 
 
 @authorized_only
 async def github_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fetch trending repositories on GitHub."""
-    await send_article_view(update, source_slug="github-trending", offset=0)
+    await send_article_view(update, source_type="github", offset=0)
 
 
 @authorized_only
@@ -209,6 +211,7 @@ async def saved_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 # ------------------ Callback Query Handler ------------------
 
 
+@authorized_only
 async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Route callback queries from inline keyboard buttons."""
     query = update.callback_query

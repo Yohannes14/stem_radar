@@ -2,6 +2,7 @@
 
 import hashlib
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
 from sqlalchemy import desc, or_, select
@@ -58,6 +59,23 @@ class Repository:
         await self.session.refresh(source)
         return source
 
+    async def update_source_health(
+        self, source_id: int, success: bool, error_message: Optional[str] = None
+    ) -> None:
+        """Update last collection time and error telemetry for a source."""
+        stmt = select(Source).where(Source.id == source_id)
+        result = await self.session.execute(stmt)
+        source = result.scalar_one_or_none()
+        if source:
+            if success:
+                source.last_collected_at = datetime.now(timezone.utc)
+                source.last_error = None
+                source.error_count = 0
+            else:
+                source.last_error = error_message
+                source.error_count += 1
+            await self.session.commit()
+
     # ------------------ Categories ------------------
 
     async def get_categories(self) -> List[Category]:
@@ -90,6 +108,7 @@ class Repository:
         content: Optional[str] = None,
         published_at=None,
         category_ids: Optional[List[int]] = None,
+        commit: bool = True,
     ) -> Tuple[Optional[Article], bool]:
         """Save a new article with duplicate detection.
         Returns: (Article, created: bool)
@@ -122,16 +141,19 @@ class Repository:
                 link = ArticleCategory(article_id=article.id, category_id=cat_id, confidence=1.0)
                 self.session.add(link)
 
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
 
-        # Reload with relationships
-        stmt_full = (
-            select(Article)
-            .where(Article.id == article.id)
-            .options(selectinload(Article.source), selectinload(Article.categories))
-        )
-        res_full = await self.session.execute(stmt_full)
-        return res_full.scalar_one(), True
+            # Reload with relationships
+            stmt_full = (
+                select(Article)
+                .where(Article.id == article.id)
+                .options(selectinload(Article.source), selectinload(Article.categories))
+            )
+            res_full = await self.session.execute(stmt_full)
+            return res_full.scalar_one(), True
+
+        return article, True
 
     async def get_recent_articles(
         self,
@@ -139,6 +161,7 @@ class Repository:
         offset: int = 0,
         category_slug: Optional[str] = None,
         source_slug: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> List[Article]:
         """Fetch recent articles sorted by published_at or collected_at."""
         stmt = select(Article).options(selectinload(Article.source), selectinload(Article.categories))
@@ -146,8 +169,12 @@ class Repository:
         if category_slug:
             stmt = stmt.join(Article.categories).where(Category.slug == category_slug)
 
-        if source_slug:
-            stmt = stmt.join(Article.source).where(Source.slug == source_slug)
+        if source_slug or source_type:
+            stmt = stmt.join(Article.source)
+            if source_slug:
+                stmt = stmt.where(Source.slug == source_slug)
+            if source_type:
+                stmt = stmt.where(Source.source_type == source_type)
 
         stmt = (
             stmt.order_by(

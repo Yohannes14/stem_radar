@@ -22,7 +22,9 @@ class NewsService:
 
     async def collect_from_all_sources(self) -> Dict[str, int]:
         """Run collection across all active configured sources.
+
         Returns a dict mapping source slug to number of newly saved articles.
+        Guarantees isolation: failure in one source never stops other collectors.
         """
         results: Dict[str, int] = {}
 
@@ -35,8 +37,12 @@ class NewsService:
         logger.info("Found %d active sources to collect from.", len(sources))
 
         for source in sources:
-            saved_count = await self.collect_from_source(source, cat_map)
-            results[source.slug] = saved_count
+            try:
+                saved_count = await self.collect_from_source(source, cat_map)
+                results[source.slug] = saved_count
+            except Exception as exc:
+                logger.error("Unhandled error collecting from %s: %s", source.name, exc, exc_info=True)
+                results[source.slug] = 0
 
         return results
 
@@ -47,6 +53,9 @@ class NewsService:
             items: List[CollectedArticle] = await collector.collect()
         except Exception as exc:
             logger.error("Failed to collect from %s: %s", source.name, exc, exc_info=True)
+            async with self.session_factory() as session:
+                repo = Repository(session)
+                await repo.update_source_health(source.id, success=False, error_message=str(exc))
             return 0
 
         saved_count = 0
@@ -56,33 +65,43 @@ class NewsService:
                 categories = await repo.get_categories()
                 cat_map = {c.slug: c.id for c in categories}
 
-            for item in items:
-                canonical_url = normalize_url(item.url)
-                if not canonical_url:
-                    continue
+            try:
+                for item in items:
+                    canonical_url = normalize_url(item.url)
+                    if not canonical_url:
+                        continue
 
-                # Quick check if already in DB
-                if await repo.article_exists(canonical_url):
-                    continue
+                    # Deduplication check
+                    if await repo.article_exists(canonical_url):
+                        continue
 
-                # Classify article text into STEM categories
-                combined_text = f"{item.title} {item.description or ''}"
-                classification_matches = classifier.classify(combined_text, max_categories=2)
+                    # Classify article text into STEM categories
+                    combined_text = f"{item.title} {item.description or ''}"
+                    classification_matches = classifier.classify(combined_text, max_categories=2)
+                    matched_cat_ids = [cat_map[slug] for slug, _ in classification_matches if slug in cat_map]
 
-                matched_cat_ids = [cat_map[slug] for slug, _ in classification_matches if slug in cat_map]
+                    # Save article in batch (commit=False for batch performance)
+                    _, created = await repo.save_article(
+                        title=item.title,
+                        url=canonical_url,
+                        source_id=source.id,
+                        description=item.description,
+                        content=item.content,
+                        published_at=item.published_at,
+                        category_ids=matched_cat_ids,
+                        commit=False,
+                    )
+                    if created:
+                        saved_count += 1
 
-                # Save article
-                _, created = await repo.save_article(
-                    title=item.title,
-                    url=canonical_url,
-                    source_id=source.id,
-                    description=item.description,
-                    content=item.content,
-                    published_at=item.published_at,
-                    category_ids=matched_cat_ids,
-                )
-                if created:
-                    saved_count += 1
+                await session.commit()
+                # Update source health telemetry on success
+                await repo.update_source_health(source.id, success=True)
+            except Exception as exc:
+                await session.rollback()
+                logger.error("Error persisting batch from %s: %s", source.name, exc, exc_info=True)
+                await repo.update_source_health(source.id, success=False, error_message=str(exc))
+                return 0
 
         logger.info("Source %s: saved %d new articles.", source.name, saved_count)
         return saved_count
@@ -93,8 +112,9 @@ class NewsService:
         offset: int = 0,
         category_slug: Optional[str] = None,
         source_slug: Optional[str] = None,
+        source_type: Optional[str] = None,
     ) -> List[Article]:
-        """Fetch latest news articles with optional category or source filters."""
+        """Fetch latest news articles with optional category, source, or type filters."""
         async with self.session_factory() as session:
             repo = Repository(session)
             return await repo.get_recent_articles(
@@ -102,6 +122,7 @@ class NewsService:
                 offset=offset,
                 category_slug=category_slug,
                 source_slug=source_slug,
+                source_type=source_type,
             )
 
     async def search_news(self, query: str, limit: int = 5) -> List[Article]:
@@ -111,7 +132,7 @@ class NewsService:
             return await repo.search_articles(query=query, limit=limit)
 
     async def get_sources_list(self) -> List[Source]:
-        """Fetch all registered sources."""
+        """Fetch all registered sources with health status."""
         async with self.session_factory() as session:
             repo = Repository(session)
             return await repo.get_sources(active_only=False)

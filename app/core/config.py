@@ -39,7 +39,8 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
 
-    # Social APIs (Optional)
+    # Social & Developer APIs (Optional)
+    github_token: Optional[str] = Field(default=None, alias="GITHUB_TOKEN")
     x_api_bearer_token: Optional[str] = Field(default=None, alias="X_API_BEARER_TOKEN")
     linkedin_client_id: Optional[str] = Field(default=None, alias="LINKEDIN_CLIENT_ID")
     linkedin_client_secret: Optional[str] = Field(default=None, alias="LINKEDIN_CLIENT_SECRET")

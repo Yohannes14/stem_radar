@@ -73,15 +73,37 @@ def format_search_results(query: str, articles: list) -> str:
 
 
 def format_sources_list(sources: list) -> str:
-    """Format configured intelligence sources view."""
+    """Format configured intelligence sources view with real-time health telemetry."""
     if not sources:
         return "No sources configured yet."
 
-    lines = ["📡 *Configured Intelligence Sources:*\n"]
+    lines = ["📡 *Configured Intelligence Sources & Telemetry:*\n"]
     for s in sources:
-        status = "🟢 Active" if s.is_active else "🔴 Inactive"
-        lines.append(f"• *{s.name}* (`{s.source_type}`)\n  Status: {status}\n  URL: `{s.url}`\n")
-    lines.append("Use `/collect` to fetch updates immediately.")
+        if not s.is_active:
+            status = "⚪ Inactive"
+        elif s.error_count and s.error_count >= 3:
+            status = f"🔴 Failing ({s.error_count} errors)"
+        elif s.error_count and s.error_count > 0:
+            status = f"🟡 Degraded ({s.error_count} error)"
+        else:
+            status = "🟢 Healthy"
+
+        collected_time = (
+            s.last_collected_at.strftime("%b %d, %H:%M UTC")
+            if s.last_collected_at
+            else "Never"
+        )
+
+        lines.append(
+            f"• *{sanitize_markdown(s.name)}* (`{s.source_type}`)\n"
+            f"  Status: {status} | Last Run: `{collected_time}`"
+        )
+        if s.last_error and s.error_count and s.error_count > 0:
+            safe_err = sanitize_markdown(s.last_error)[:90]
+            lines.append(f"  Alert: _{safe_err}_")
+        lines.append("")
+
+    lines.append("Use `/collect` to trigger immediate intelligence gathering.")
     return "\n".join(lines)
 
 

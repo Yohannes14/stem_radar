@@ -62,6 +62,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         )
 
 
+@authorized_only
 async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle settings inline keyboard interactions."""
     query = update.callback_query

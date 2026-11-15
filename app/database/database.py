@@ -3,7 +3,7 @@
 import logging
 from typing import AsyncGenerator
 
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -48,20 +48,26 @@ INITIAL_SOURCES = [
     (
         "arXiv AI",
         "arxiv-ai",
-        "http://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=15",
+        "https://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=15",
         "arxiv",
     ),
     (
         "arXiv Robotics",
         "arxiv-robotics",
-        "http://export.arxiv.org/api/query?search_query=cat:cs.RO&sortBy=submittedDate&sortOrder=descending&max_results=15",
+        "https://export.arxiv.org/api/query?search_query=cat:cs.RO&sortBy=submittedDate&sortOrder=descending&max_results=15",
         "arxiv",
     ),
     (
         "arXiv Computer Science",
         "arxiv-cs",
-        "http://export.arxiv.org/api/query?search_query=cat:cs.SE&sortBy=submittedDate&sortOrder=descending&max_results=15",
+        "https://export.arxiv.org/api/query?search_query=cat:cs.SE&sortBy=submittedDate&sortOrder=descending&max_results=15",
         "arxiv",
+    ),
+    (
+        "GitHub Trending",
+        "github-trending",
+        "https://api.github.com/search/repositories?q=stars:>1000+topic:artificial-intelligence&sort=stars&order=desc&per_page=15",
+        "github",
     ),
 ]
 
@@ -78,6 +84,15 @@ def get_engine() -> AsyncEngine:
             echo=False,
             future=True,
         )
+
+        # Enforce foreign key constraints in SQLite
+        if "sqlite" in settings.database_url:
+            @event.listens_for(_engine.sync_engine, "connect")
+            def set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.close()
+
     return _engine
 
 
@@ -100,12 +115,35 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 
+def _migrate_sqlite_schema(conn) -> None:
+    """Safely apply non-destructive SQLite column additions for backward compatibility."""
+    try:
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(sources)")
+        existing_cols = {row[1] for row in cursor.fetchall()}
+
+        if existing_cols:
+            if "last_collected_at" not in existing_cols:
+                cursor.execute("ALTER TABLE sources ADD COLUMN last_collected_at TIMESTAMP")
+                logger.info("Migrated schema: added sources.last_collected_at")
+            if "last_error" not in existing_cols:
+                cursor.execute("ALTER TABLE sources ADD COLUMN last_error TEXT")
+                logger.info("Migrated schema: added sources.last_error")
+            if "error_count" not in existing_cols:
+                cursor.execute("ALTER TABLE sources ADD COLUMN error_count INTEGER DEFAULT 0")
+                logger.info("Migrated schema: added sources.error_count")
+        cursor.close()
+    except Exception as exc:
+        logger.warning("Schema migration warning (ignored for non-sqlite or fresh db): %s", exc)
+
+
 async def init_db() -> None:
     """Initialize database tables and seed baseline categories & sources."""
     engine = get_engine()
     logger.info("Initializing database tables...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_migrate_sqlite_schema)
 
     session_factory = get_session_factory()
     async with session_factory() as session:

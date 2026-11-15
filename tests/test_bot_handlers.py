@@ -7,6 +7,13 @@ from telegram import Chat, Message, Update, User
 
 from app.bot.filters.auth import authorized_only
 from app.bot.handlers.base import help_command, start_command
+from app.bot.handlers.news import (
+    callback_router,
+    github_command,
+    news_command,
+    research_command,
+    sources_command,
+)
 from app.config import settings
 
 
@@ -81,3 +88,55 @@ async def test_help_command_renders_catalog(mock_update):
     mock_update.effective_message.reply_text.assert_called_once()
     reply_text = mock_update.effective_message.reply_text.call_args[0][0]
     assert "Command Catalog" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_sources_command_renders_health(mock_update):
+    with patch.object(settings, "allowed_user_ids", [112233]):
+        await sources_command(mock_update, MagicMock())
+
+    mock_update.effective_message.reply_text.assert_called_once()
+    reply_text = mock_update.effective_message.reply_text.call_args[0][0]
+    assert "Configured Intelligence Sources" in reply_text
+    assert "Status:" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_news_command_renders_view(mock_update):
+    with patch.object(settings, "allowed_user_ids", [112233]):
+        await news_command(mock_update, MagicMock())
+
+    mock_update.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_research_command_renders_view(mock_update):
+    with patch.object(settings, "allowed_user_ids", [112233]):
+        await research_command(mock_update, MagicMock())
+
+    mock_update.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_github_command_renders_view(mock_update):
+    with patch.object(settings, "allowed_user_ids", [112233]):
+        await github_command(mock_update, MagicMock())
+
+    mock_update.effective_message.reply_text.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_callback_router_authorization(mock_update):
+    mock_update.callback_query = MagicMock()
+    mock_update.callback_query.data = "cat:ai"
+    mock_update.callback_query.answer = AsyncMock()
+
+    # Unauthorized user
+    with patch.object(settings, "allowed_user_ids", [999999]):
+        await callback_router(mock_update, MagicMock())
+
+    # User message blocked
+    mock_update.effective_message.reply_text.assert_called_once()
+    reply_text = mock_update.effective_message.reply_text.call_args[0][0]
+    assert "Access Restricted" in reply_text
+
