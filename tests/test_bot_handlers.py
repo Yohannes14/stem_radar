@@ -9,7 +9,9 @@ from app.bot.filters.auth import authorized_only
 from app.bot.handlers.base import help_command, start_command
 from app.bot.handlers.news import (
     callback_router,
+    explain_command,
     github_command,
+    impact_command,
     news_command,
     research_command,
     sources_command,
@@ -139,4 +141,41 @@ async def test_callback_router_authorization(mock_update):
     mock_update.effective_message.reply_text.assert_called_once()
     reply_text = mock_update.effective_message.reply_text.call_args[0][0]
     assert "Access Restricted" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_explain_command_usage_prompt(mock_update):
+    context = MagicMock()
+    context.args = []
+    with patch.object(settings, "allowed_user_ids", [112233]):
+        await explain_command(mock_update, context)
+
+    mock_update.effective_message.reply_text.assert_called_once()
+    reply_text = mock_update.effective_message.reply_text.call_args[0][0]
+    assert "Usage:" in reply_text
+    assert "/explain" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_explain_command_with_concept(mock_update):
+    context = MagicMock()
+    context.args = ["beginner", "Direct", "Drive", "Actuators"]
+    mock_update.effective_message.reply_text = AsyncMock()
+
+    with patch.object(settings, "allowed_user_ids", [112233]):
+        await explain_command(mock_update, context)
+
+    assert mock_update.effective_message.reply_text.call_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_impact_command_renders_assessment(mock_update):
+    context = MagicMock()
+    mock_update.effective_message.reply_text = AsyncMock()
+
+    with patch.object(settings, "allowed_user_ids", [112233]):
+        await impact_command(mock_update, context)
+
+    assert mock_update.effective_message.reply_text.call_count >= 1
+
 

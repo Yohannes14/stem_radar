@@ -12,7 +12,9 @@ from app.bot.handlers.news import (
     callback_router,
     collect_command,
     engineering_command,
+    explain_command,
     github_command,
+    impact_command,
     news_command,
     programming_command,
     research_command,
@@ -79,6 +81,8 @@ def create_bot_app() -> Application:
 
     # Intelligence & Content Opportunities
     app.add_handler(CommandHandler("trending", trending_command))
+    app.add_handler(CommandHandler("explain", explain_command))
+    app.add_handler(CommandHandler("impact", impact_command))
     app.add_handler(CommandHandler("ideas", ideas_command))
     app.add_handler(CommandHandler("digest", digest_command))
 

@@ -9,7 +9,18 @@ from telegram.ext import ContextTypes
 
 from app.bot.filters.auth import authorized_only
 from app.bot.keyboards.inline import get_article_keyboard, get_category_keyboard
-from app.bot.ui.formatters import format_article_view, format_search_results, format_sources_list
+from app.bot.ui.formatters import (
+    chunk_message,
+    format_article_view,
+    format_concept_explanation,
+    format_impact_analysis,
+    format_news_summary,
+    format_paper_analysis,
+    format_search_results,
+    format_sources_list,
+    format_stem_content,
+)
+from app.services.ai import ai_service
 from app.services.news_service import NewsService
 
 logger = logging.getLogger(__name__)
@@ -208,6 +219,107 @@ async def saved_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
 
+@authorized_only
+async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Explain any technical concept with multi-tier difficulty modes."""
+    if not context.args:
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "💡 *Usage:* `/explain <concept>` or `/explain <beginner|intermediate|advanced> <concept>`\n\n"
+                "Examples:\n"
+                "• `/explain Quantum Computing`\n"
+                "• `/explain beginner Transformer Architecture`\n"
+                "• `/explain advanced Direct Drive Actuators`",
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        return
+
+    mode = "intermediate"
+    raw_args = list(context.args)
+    if raw_args[0].lower() in ("beginner", "intermediate", "advanced"):
+        mode = raw_args.pop(0).lower()
+
+    concept_name = " ".join(raw_args)
+    status_msg = None
+    if update.effective_message:
+        status_msg = await update.effective_message.reply_text(
+            f"🧠 *Generating {mode}-level technical breakdown for '{concept_name}'...*",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    explanation = await ai_service.explain_concept(concept_name, mode=mode)
+    text = format_concept_explanation(explanation)
+
+    if status_msg:
+        await status_msg.edit_text(text, parse_mode=ParseMode.MARKDOWN)
+    elif update.effective_message:
+        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+
+@authorized_only
+async def impact_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Analyze the strategic and economic impact of latest tech developments."""
+    articles = await news_service.get_recent_news(limit=1)
+    if not articles:
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "No articles found to analyze. Run `/collect` first!", parse_mode=ParseMode.MARKDOWN
+            )
+        return
+
+    target_article = articles[0]
+    status_msg = None
+    if update.effective_message:
+        status_msg = await update.effective_message.reply_text(
+            f"📊 *Analyzing technology impact for:*\n_{target_article.title[:80]}..._",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    impact = await ai_service.analyze_impact(target_article)
+    text = format_impact_analysis(impact)
+
+    if status_msg:
+        await status_msg.edit_text(text, parse_mode=ParseMode.MARKDOWN)
+    elif update.effective_message:
+        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+
+
+@authorized_only
+async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Generate STEM educational content kit (LinkedIn, Carousel, Video, Glossary)."""
+    articles = await news_service.get_recent_news(limit=1)
+    if not articles:
+        if update.effective_message:
+            await update.effective_message.reply_text(
+                "No articles found. Run `/collect` first!", parse_mode=ParseMode.MARKDOWN
+            )
+        return
+
+    target_article = articles[0]
+    status_msg = None
+    if update.effective_message:
+        status_msg = await update.effective_message.reply_text(
+            f"🎨 *Generating STEM content package for:*\n_{target_article.title[:80]}..._",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+    pkg = await ai_service.generate_stem_content(target_article)
+    text = format_stem_content(pkg)
+    chunks = chunk_message(text, max_length=4000)
+
+    if status_msg:
+        await status_msg.edit_text(chunks[0], parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        for extra in chunks[1:]:
+            await update.effective_message.reply_text(
+                extra, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
+            )
+    elif update.effective_message:
+        for chunk in chunks:
+            await update.effective_message.reply_text(
+                chunk, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
+            )
+
+
 # ------------------ Callback Query Handler ------------------
 
 
@@ -251,4 +363,28 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             is_now_saved = await news_service.toggle_save_article(user.id, article_id)
             status_text = "Article added to bookmarks ⭐" if is_now_saved else "Article removed from bookmarks 🗑️"
             await query.answer(status_text)
+        return
+
+    if data.startswith("ai_sum:"):
+        article_id = int(data.split(":", 1)[1])
+        article = await news_service.get_article_by_id(article_id)
+        if article and query.message:
+            is_paper = article.source and article.source.source_type == "arxiv"
+            if is_paper:
+                analysis = await ai_service.analyze_research_paper(article)
+                text = format_paper_analysis(analysis)
+            else:
+                summary = await ai_service.summarize_news(article, mode="intermediate")
+                text = format_news_summary(summary)
+            await query.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+        return
+
+    if data.startswith("ai_cnt:"):
+        article_id = int(data.split(":", 1)[1])
+        article = await news_service.get_article_by_id(article_id)
+        if article and query.message:
+            pkg = await ai_service.generate_stem_content(article)
+            text = format_stem_content(pkg)
+            for chunk in chunk_message(text, max_length=4000):
+                await query.message.reply_text(chunk, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         return

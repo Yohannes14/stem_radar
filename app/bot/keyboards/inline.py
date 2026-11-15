@@ -31,13 +31,19 @@ def get_article_keyboard(
     if offset + 1 < total:
         row2.append(InlineKeyboardButton("Next ➡️", callback_data=f"nav:{cat_tag}:{offset + 1}"))
 
-    # Row 3: Quick Category Picker & Refresh
+    # Row 3: AI Intelligence actions
     row3 = [
+        InlineKeyboardButton("AI Analysis 🧠", callback_data=f"ai_sum:{article_id}"),
+        InlineKeyboardButton("Content Kit 🎨", callback_data=f"ai_cnt:{article_id}"),
+    ]
+
+    # Row 4: Quick Category Picker & Refresh
+    row4 = [
         InlineKeyboardButton("Categories 🗂️", callback_data="show_cats"),
         InlineKeyboardButton("Refresh 🔄", callback_data=f"nav:{cat_tag}:{offset}"),
     ]
 
-    return InlineKeyboardMarkup([row1, row2, row3])
+    return InlineKeyboardMarkup([row1, row2, row3, row4])
 
 
 def get_category_keyboard() -> InlineKeyboardMarkup:

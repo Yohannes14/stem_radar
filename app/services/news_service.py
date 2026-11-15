@@ -125,6 +125,12 @@ class NewsService:
                 source_type=source_type,
             )
 
+    async def get_article_by_id(self, article_id: int) -> Optional[Article]:
+        """Fetch a specific article by its primary key ID."""
+        async with self.session_factory() as session:
+            repo = Repository(session)
+            return await repo.get_article_by_id(article_id)
+
     async def search_news(self, query: str, limit: int = 5) -> List[Article]:
         """Search news articles by keyword."""
         async with self.session_factory() as session:

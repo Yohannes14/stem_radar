@@ -35,9 +35,14 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     environment: str = Field(default="development", alias="ENVIRONMENT")
 
-    # AI (OpenAI API)
+    # AI Engine Settings
+    ai_provider: str = Field(default="openai", alias="AI_PROVIDER")
     openai_api_key: Optional[str] = Field(default=None, alias="OPENAI_API_KEY")
     openai_model: str = Field(default="gpt-4o-mini", alias="OPENAI_MODEL")
+    ai_timeout: float = Field(default=30.0, alias="AI_TIMEOUT")
+    ai_max_retries: int = Field(default=2, alias="AI_MAX_RETRIES")
+    ai_cache_ttl_seconds: int = Field(default=86400, alias="AI_CACHE_TTL_SECONDS")
+    ai_cost_tracking_enabled: bool = Field(default=True, alias="AI_COST_TRACKING_ENABLED")
 
     # Social & Developer APIs (Optional)
     github_token: Optional[str] = Field(default=None, alias="GITHUB_TOKEN")

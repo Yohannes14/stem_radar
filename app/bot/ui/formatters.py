@@ -130,3 +130,109 @@ def chunk_message(text: str, max_length: int = 4000) -> List[str]:
         chunks.append("\n".join(current_chunk))
 
     return chunks
+
+
+# ------------------ AI Intelligence View Formatters ------------------
+
+
+def format_news_summary(summary) -> str:
+    """Format structured NewsSummary into a Telegram card."""
+    facts_str = "\n".join(f"• {sanitize_markdown(f)}" for f in summary.key_facts)
+    apps_str = "\n".join(f"• {sanitize_markdown(a)}" for a in summary.potential_applications)
+
+    difficulty = summary.technical_difficulty.upper()
+    source = sanitize_markdown(summary.original_source)
+    return (
+        f"🧠 *AI Technical Summary*\n\n"
+        f"*{sanitize_markdown(summary.headline)}*\n"
+        f"🏷️ *Depth:* `{difficulty}` | 📰 *Source:* _{source}_\n\n"
+        f"📝 *Executive Summary:*\n{sanitize_markdown(summary.short_summary)}\n\n"
+        f"📌 *Key Facts:*\n{facts_str}\n\n"
+        f"💡 *Why It Matters:*\n{sanitize_markdown(summary.why_it_matters)}\n\n"
+        f"🚀 *Potential Applications:*\n{apps_str}\n\n"
+        f"🔗 [Original Source Document]({summary.source_url})"
+    )
+
+
+def format_paper_analysis(analysis) -> str:
+    """Format scientific ResearchPaperAnalysis into a Telegram card."""
+    findings_str = "\n".join(f"• {sanitize_markdown(f)}" for f in analysis.main_findings)
+    limits_str = "\n".join(f"• {sanitize_markdown(lim)}" for lim in analysis.limitations)
+    apps_str = "\n".join(f"• {sanitize_markdown(a)}" for a in analysis.practical_applications)
+    questions_str = "\n".join(f"• {sanitize_markdown(q)}" for q in analysis.further_research_questions)
+
+    return (
+        f"🔬 *Scientific Research Paper Analysis*\n\n"
+        f"📄 *{sanitize_markdown(analysis.paper_title)}*\n\n"
+        f"❓ *Research Problem:*\n{sanitize_markdown(analysis.research_problem)}\n\n"
+        f"⚙️ *Methodology:*\n{sanitize_markdown(analysis.methodology)}\n\n"
+        f"📊 *Main Findings:*\n{findings_str}\n\n"
+        f"⚠️ *Limitations & Boundary Conditions:*\n{limits_str}\n\n"
+        f"🚀 *Practical Applications:*\n{apps_str}\n\n"
+        f"🔭 *Open Questions:*\n{questions_str}\n\n"
+        f"🔗 [Read Full Paper / arXiv]({analysis.original_paper_url})"
+    )
+
+
+def format_concept_explanation(explanation) -> str:
+    """Format multi-tier ConceptExplanation."""
+    comps_str = ", ".join(sanitize_markdown(c) for c in explanation.key_components)
+    misc_str = "\n".join(f"• {sanitize_markdown(m)}" for m in explanation.common_misconceptions)
+    prereq_str = ", ".join(sanitize_markdown(p) for p in explanation.prerequisites_or_related)
+
+    return (
+        f"💡 *Technical Concept Breakdown*\n\n"
+        f"🔍 *{sanitize_markdown(explanation.concept_name)}* (`{explanation.mode.upper()}` Mode)\n\n"
+        f"📖 *Definition:*\n{sanitize_markdown(explanation.core_definition)}\n\n"
+        f"⚙️ *How It Works:*\n{sanitize_markdown(explanation.how_it_works)}\n\n"
+        f"🧩 *Analogy / Example:*\n{sanitize_markdown(explanation.analogy_or_example)}\n\n"
+        f"🧱 *Key Components:* {comps_str}\n"
+        f"📚 *Prerequisites:* {prereq_str}\n\n"
+        f"⚠️ *Common Misconceptions:*\n{misc_str}"
+    )
+
+
+def format_impact_analysis(impact) -> str:
+    """Format strategic TechnologyImpactAnalysis."""
+    disruption_str = "\n".join(f"• {sanitize_markdown(d)}" for d in impact.industry_disruption)
+    ethics_str = "\n".join(f"• {sanitize_markdown(e)}" for e in impact.societal_and_ethical_implications)
+
+    conf = int(impact.confidence_score * 100)
+    timeline = sanitize_markdown(impact.adoption_timeline)
+    return (
+        f"📊 *Strategic Technology Impact Assessment*\n\n"
+        f"🎯 *{sanitize_markdown(impact.technology_name)}*\n"
+        f"📈 *Confidence Score:* `{conf}%` | ⏳ *Timeline:* `{timeline}`\n\n"
+        f"📝 *Executive Assessment:*\n{sanitize_markdown(impact.executive_summary)}\n\n"
+        f"⚡ *Industry Disruption:*\n{disruption_str}\n\n"
+        f"🔬 *Scientific Significance:*\n{sanitize_markdown(impact.scientific_significance)}\n\n"
+        f"⚖️ *Societal & Ethical Considerations:*\n{ethics_str}"
+    )
+
+
+def format_stem_content(pkg) -> str:
+    """Format multi-channel STEM Content Package."""
+    slides_str = ""
+    for s in pkg.carousel_slides:
+        bullets = "\n".join(f"  - {sanitize_markdown(b)}" for b in s.bullet_points)
+        slides_str += f"*Slide {s.slide_number}: {sanitize_markdown(s.title)}*\n{bullets}\n\n"
+
+    vocab_str = "\n".join(
+        f"• *{sanitize_markdown(v.term)}*: {sanitize_markdown(v.definition)}"
+        for v in pkg.technical_vocabulary
+    )
+
+    return (
+        f"🎨 *STEM Content Creation Package*\n\n"
+        f"🎯 *Target Audience:* _{sanitize_markdown(pkg.target_audience)}_\n"
+        f"📌 *Topic:* *{sanitize_markdown(pkg.headline)}*\n\n"
+        f"📱 *Short Video Script (0:30):*\n"
+        f"• *[0:00-0:03 Hook]:* {sanitize_markdown(pkg.video_script.hook)}\n"
+        f"• *[0:04-0:20 Body]:* {sanitize_markdown(pkg.video_script.body)}\n"
+        f"• *[0:21-0:30 CTA]:* {sanitize_markdown(pkg.video_script.call_to_action)}\n\n"
+        f"🖼️ *5-Slide Carousel Outline:*\n{slides_str}"
+        f"📖 *Key Technical Vocabulary:*\n{vocab_str}\n\n"
+        f"💼 *LinkedIn Post Draft:*\n```\n{pkg.linkedin_post}\n```\n\n"
+        f"_{sanitize_markdown(pkg.source_attribution)}_"
+    )
+
