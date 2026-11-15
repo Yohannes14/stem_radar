@@ -6,14 +6,23 @@ from app.services.ai.cost_tracker import AICostTracker, cost_tracker
 from app.services.ai.interface import BaseAIProvider, TokenUsage
 from app.services.ai.schemas import (
     ArticleIntelligence,
+    ComparisonDimension,
+    ConceptComparison,
     ConceptExplanation,
     ExplanationMode,
+    InteractiveLesson,
+    LearningRoadmap,
     NewsSummary,
+    ProjectRecommendation,
+    QuizPackage,
+    QuizQuestion,
     ResearchPaperAnalysis,
+    RoadmapStage,
     SlideOutline,
     STEMContentPackage,
     TechnologyImpactAnalysis,
     VideoScript,
+    VocabularyGlossary,
     VocabularyTerm,
 )
 from app.services.ai.service import AIService, ai_service
@@ -38,5 +47,14 @@ __all__ = [
     "VideoScript",
     "VocabularyTerm",
     "ArticleIntelligence",
+    "RoadmapStage",
+    "LearningRoadmap",
+    "InteractiveLesson",
+    "QuizQuestion",
+    "QuizPackage",
+    "ComparisonDimension",
+    "ConceptComparison",
+    "ProjectRecommendation",
+    "VocabularyGlossary",
 ]
 

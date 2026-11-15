@@ -69,3 +69,55 @@ def get_category_keyboard() -> InlineKeyboardMarkup:
         ],
     ]
     return InlineKeyboardMarkup(buttons)
+
+
+# ------------------ Phase 4: STEM Education Keyboards ------------------
+
+
+def get_lesson_keyboard(topic: str, level: str) -> InlineKeyboardMarkup:
+    """Action buttons attached to an educational lesson."""
+    next_level = "intermediate" if level == "beginner" else ("advanced" if level == "intermediate" else "beginner")
+    buttons = [
+        [
+            InlineKeyboardButton("📝 Take Topic Quiz", callback_data=f"ed_quiz:{topic}"),
+            InlineKeyboardButton(f"⚙️ Level: {next_level.capitalize()}", callback_data=f"ed_lvl:{topic}:{next_level}"),
+        ],
+        [
+            InlineKeyboardButton("🗺️ Full Roadmap", callback_data=f"ed_map:{topic}"),
+            InlineKeyboardButton("🚀 Project Idea", callback_data=f"ed_prj:{topic}"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_quiz_keyboard(topic: str, q_index: int, total_q: int) -> InlineKeyboardMarkup:
+    """Interactive ABCD multiple choice buttons for quiz question."""
+    buttons = [
+        [
+            InlineKeyboardButton("A", callback_data=f"qz_ans:{topic}:{q_index}:0"),
+            InlineKeyboardButton("B", callback_data=f"qz_ans:{topic}:{q_index}:1"),
+            InlineKeyboardButton("C", callback_data=f"qz_ans:{topic}:{q_index}:2"),
+            InlineKeyboardButton("D", callback_data=f"qz_ans:{topic}:{q_index}:3"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_education_topics_keyboard() -> InlineKeyboardMarkup:
+    """Quick selection of flagship STEM learning domains."""
+    buttons = [
+        [
+            InlineKeyboardButton("🤖 AI & LLMs", callback_data="ed_learn:Artificial Intelligence"),
+            InlineKeyboardButton("🦾 Robotics", callback_data="ed_learn:Robotics"),
+        ],
+        [
+            InlineKeyboardButton("⚛️ Quantum Computing", callback_data="ed_learn:Quantum Computing"),
+            InlineKeyboardButton("🛡️ Cybersecurity", callback_data="ed_learn:Cybersecurity"),
+        ],
+        [
+            InlineKeyboardButton("⚡ Embedded Systems", callback_data="ed_learn:Embedded Systems"),
+            InlineKeyboardButton("💻 Software Systems", callback_data="ed_learn:Software Architecture"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+

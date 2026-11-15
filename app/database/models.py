@@ -149,3 +149,29 @@ class UserPreference(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class UserLearningProgress(Base):
+    """Tracks educational progress, quizzes completed, and scores per user and topic."""
+
+    __tablename__ = "user_learning_progress"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    topic: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    level: Mapped[str] = mapped_column(String(30), default="beginner", nullable=False)
+    lessons_completed: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    quizzes_taken: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    quiz_score_total: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    quiz_score_max: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_studied_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    __table_args__ = (UniqueConstraint("user_id", "topic", name="uq_user_learning_topic"),)
+
+    def __repr__(self) -> str:
+        return f"<UserLearningProgress(user_id={self.user_id}, topic='{self.topic}', level='{self.level}')>"

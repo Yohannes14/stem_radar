@@ -7,6 +7,16 @@ from telegram.request import HTTPXRequest
 
 from app.bot.handlers.base import error_handler, help_command, start_command
 from app.bot.handlers.content import digest_command, ideas_command, trending_command
+from app.bot.handlers.education import (
+    compare_command,
+    education_callback_router,
+    learn_command,
+    progress_command,
+    project_command,
+    quiz_command,
+    roadmap_command,
+    vocabulary_command,
+)
 from app.bot.handlers.news import (
     ai_command,
     callback_router,
@@ -94,8 +104,18 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("saved", saved_command))
     app.add_handler(CommandHandler("settings", settings_command))
 
+    # Phase 4: Interactive STEM Education & Learning Assistant
+    app.add_handler(CommandHandler("learn", learn_command))
+    app.add_handler(CommandHandler("roadmap", roadmap_command))
+    app.add_handler(CommandHandler("quiz", quiz_command))
+    app.add_handler(CommandHandler("compare", compare_command))
+    app.add_handler(CommandHandler("project", project_command))
+    app.add_handler(CommandHandler("vocabulary", vocabulary_command))
+    app.add_handler(CommandHandler("progress", progress_command))
+
     # Interactive inline callbacks
     app.add_handler(CallbackQueryHandler(settings_callback_router, pattern="^(toggle_notif|pref_cat:.*)$"))
+    app.add_handler(CallbackQueryHandler(education_callback_router, pattern="^(qz_|ed_)"))
     app.add_handler(CallbackQueryHandler(callback_router))
 
     # Global error handler

@@ -11,14 +11,23 @@ from app.services.ai.cost_tracker import cost_tracker
 from app.services.ai.interface import BaseAIProvider
 from app.services.ai.schemas import (
     ArticleIntelligence,
+    ComparisonDimension,
+    ConceptComparison,
     ConceptExplanation,
     ExplanationMode,
+    InteractiveLesson,
+    LearningRoadmap,
     NewsSummary,
+    ProjectRecommendation,
+    QuizPackage,
+    QuizQuestion,
     ResearchPaperAnalysis,
+    RoadmapStage,
     SlideOutline,
     STEMContentPackage,
     TechnologyImpactAnalysis,
     VideoScript,
+    VocabularyGlossary,
     VocabularyTerm,
 )
 
@@ -430,6 +439,488 @@ class AIService:
             ],
             source_attribution=f"Originally reported by {source} ({article.url})",
         )
+
+    # ------------------ Phase 4: STEM Education Capabilities ------------------
+
+    async def generate_roadmap(self, topic: str) -> LearningRoadmap:
+        """Generate a progressive 4-stage STEM curriculum roadmap from novice to mastery."""
+        clean_topic = topic.strip()
+        cached = ai_cache.get("roadmap", clean_topic.lower())
+        if cached:
+            return cached
+
+        if self.provider:
+            system_prompt = (
+                "You are a Distinguished Professor of STEM Education and Principal Engineering Architect. "
+                "Design a progressive, rigorous 4-stage learning roadmap taking a student from fundamentals to mastery."
+            )
+            prompt = (
+                f"Topic: {clean_topic}\n\n"
+                "Generate a structured LearningRoadmap JSON with 4 distinct progressive stages, "
+                "prerequisites, milestones, mini-projects, and an estimated duration in weeks."
+            )
+            try:
+                roadmap, _ = await self.provider.generate_structured(prompt, system_prompt, LearningRoadmap)
+                ai_cache.set("roadmap", clean_topic.lower(), roadmap)
+                return roadmap
+            except Exception as exc:
+                logger.warning("Provider call failed for generate_roadmap: %s. Using heuristic fallback.", exc)
+
+        roadmap = self._heuristic_roadmap(clean_topic)
+        ai_cache.set("roadmap", clean_topic.lower(), roadmap)
+        return roadmap
+
+    def _heuristic_roadmap(self, topic: str) -> LearningRoadmap:
+        """Deterministic curriculum roadmap fallback."""
+        stages = [
+            RoadmapStage(
+                stage_number=1,
+                title="Phase 1: Foundations & Core Mathematical Intuition",
+                description=f"Master the foundational mathematics, mental models, and base terminology of {topic}.",
+                key_milestones=[
+                    "Understand core definitions and governing principles",
+                    "Set up the local developer environment and required toolchains",
+                    "Implement a minimal Hello World baseline script",
+                ],
+                recommended_projects=[f"Build a standalone toy simulator or baseline script demonstrating {topic}"],
+            ),
+            RoadmapStage(
+                stage_number=2,
+                title="Phase 2: Core Engineering & Standard Architectures",
+                description=(
+                    f"Learn modern architectural patterns, industry-standard frameworks, and data flows in {topic}."
+                ),
+                key_milestones=[
+                    "Master idiomatic algorithms and standard design patterns",
+                    "Benchmark performance constraints: latency, throughput, memory",
+                    "Integrate automated testing and error-handling pipelines",
+                ],
+                recommended_projects=[f"Develop a complete modular system implementing standard {topic} workflows"],
+            ),
+            RoadmapStage(
+                stage_number=3,
+                title="Phase 3: Advanced Optimization & Production Systems",
+                description=f"Scale {topic} into distributed, high-performance, and resilient production environments.",
+                key_milestones=[
+                    "Profile bottlenecks and apply low-level algorithmic optimizations",
+                    "Deploy hardware acceleration or asynchronous parallel processing",
+                    "Establish monitoring, telemetry, and security hardening",
+                ],
+                recommended_projects=[f"Build an end-to-end production-grade service scaling {topic} workloads"],
+            ),
+            RoadmapStage(
+                stage_number=4,
+                title="Phase 4: Frontier Research & Real-World Domain Mastery",
+                description=f"Contribute to open-source state-of-the-art tools and reproduce recent papers in {topic}.",
+                key_milestones=[
+                    "Read, dissect, and critique recent arXiv research papers",
+                    "Design custom novel extensions to existing state-of-the-art architectures",
+                    "Publish technical documentation or open-source tooling",
+                ],
+                recommended_projects=[f"Reproduce an empirical benchmark from a recent research paper on {topic}"],
+            ),
+        ]
+
+        return LearningRoadmap(
+            topic=topic,
+            overview=(
+                f"A comprehensive 4-stage engineering curriculum structured to guide learners from fundamental "
+                f"principles through production-grade systems and novel research in {topic}."
+            ),
+            prerequisites=["Foundational Mathematics (Linear Algebra & Calculus)", "Data Structures & Python"],
+            stages=stages,
+            estimated_duration_weeks=16,
+        )
+
+    async def generate_lesson(
+        self,
+        topic: str,
+        level: ExplanationMode = "intermediate",
+    ) -> InteractiveLesson:
+        """Generate a comprehensive interactive lesson with objective, core lesson, and practical exercise."""
+        clean_topic = topic.strip()
+        cached = ai_cache.get("lesson", clean_topic.lower(), mode=level)
+        if cached:
+            return cached
+
+        if self.provider:
+            system_prompt = (
+                f"You are a World-Class STEM Professor and Lead Technical Instructor. "
+                f"Create a comprehensive, technically accurate interactive lesson for a {level.upper()} learner. "
+                f"Format the core_lesson in structured Markdown with headings, code or bullet examples."
+            )
+            prompt = (
+                f"Topic: {clean_topic}\n"
+                f"Difficulty Level: {level}\n\n"
+                "Generate InteractiveLesson JSON with objective, core_lesson, key_takeaways, and practical_exercise."
+            )
+            try:
+                lesson, _ = await self.provider.generate_structured(prompt, system_prompt, InteractiveLesson)
+                ai_cache.set("lesson", clean_topic.lower(), lesson, mode=level)
+                return lesson
+            except Exception as exc:
+                logger.warning("Provider call failed for generate_lesson: %s. Using heuristic fallback.", exc)
+
+        lesson = self._heuristic_lesson(clean_topic, level)
+        ai_cache.set("lesson", clean_topic.lower(), lesson, mode=level)
+        return lesson
+
+    def _heuristic_lesson(self, topic: str, level: ExplanationMode) -> InteractiveLesson:
+        """Deterministic lesson generator fallback."""
+        if level == "beginner":
+            core = (
+                f"### 1. What is {topic}?\n"
+                f"{topic} is a transformative discipline in modern technology. Think of it as a set of rules "
+                "and systems designed to automate complex work with precision.\n\n"
+                "### 2. Everyday Analogy\n"
+                "Imagine an automated kitchen where every chef has a single recipe card and specialized tools. "
+                "When an order arrives, each station acts in harmony to produce the final meal.\n\n"
+                "### 3. Key Concepts to Know\n"
+                "• **Input Data**: The raw measurements or text supplied to the system.\n"
+                "• **Processing Engine**: The core algorithm transforming inputs.\n"
+                "• **Output / Prediction**: The validated result returned to the user."
+            )
+            exercise = (
+                f"Write down 3 real-world devices or platforms you use daily that rely on {topic}. "
+                "Identify what the input and output are for each device."
+            )
+        elif level == "advanced":
+            core = (
+                f"### 1. Formal Foundations of {topic}\n"
+                f"{topic} is analyzed through the lens of algorithmic state transitions, formal optimization "
+                "landscapes, and computational complexity constraints.\n\n"
+                "### 2. Architectural Mechanisms\n"
+                "• **Mathematical Modeling**: Formulated as constrained optimization over manifolds.\n"
+                "• **Resource Budgets**: Constrained by cache locality, memory bandwidth, and SIMD/GPU execution.\n"
+                "• **Failure Modes**: Handled via asynchronous consensus, rollback safeguards, and clipping.\n\n"
+                "```python\n"
+                f"# Pseudocode architecture for {topic}\n"
+                "def execute_pipeline(state: State, tensor: Tensor) -> State:\n"
+                "    optimized_weights = solve_convex_dual(tensor.gradient)\n"
+                "    return state.apply_transformation(optimized_weights)\n"
+                "```"
+            )
+            exercise = (
+                f"Implement a profiling benchmark measuring memory allocations and FLOPs for {topic}. "
+                "Identify cache miss ratios and optimize the inner execution loop using vectorization."
+            )
+        else:
+            core = (
+                f"### 1. Overview of {topic}\n"
+                f"{topic} serves as a foundational building block in production engineering systems, "
+                "balancing trade-offs between precision, execution latency, and development velocity.\n\n"
+                "### 2. How the Architecture Functions\n"
+                "1. **Data Ingestion**: Raw inputs are sanitized, normalized, and converted into structured schemas.\n"
+                "2. **Algorithmic Transformation**: The core computational logic executes via validated pipelines.\n"
+                "3. **Feedback & Telemetry**: Monitoring captures latency, accuracy, and error rates in real time.\n\n"
+                "```python\n"
+                f"# Core workflow pattern for {topic}\n"
+                "class PipelineCoordinator:\n"
+                "    def process(self, raw_input: dict) -> dict:\n"
+                "        cleaned = self.sanitize(raw_input)\n"
+                "        return self.engine.execute(cleaned)\n"
+                "```"
+            )
+            exercise = (
+                f"Create a Python script that instantiates a modular class representing {topic}. "
+                "Include unit tests asserting correct edge-case handling for malformed inputs."
+            )
+
+        return InteractiveLesson(
+            topic=topic,
+            level=level,
+            title=f"Mastering {topic}: From Principles to Practice",
+            objective=f"Understand the mechanics, engineering trade-offs, and implementation patterns of {topic}.",
+            core_lesson=core,
+            key_takeaways=[
+                f"{topic} relies on robust data representations and systematic error handling.",
+                "Performance optimizations must always be grounded in empirical profiling rather than guesswork.",
+                "Modular architectures allow isolating components for independent testing and maintenance.",
+            ],
+            practical_exercise=exercise,
+            next_recommended_topic=f"Advanced Optimization & Scaling in {topic}",
+        )
+
+    async def generate_quiz(
+        self,
+        topic: str,
+        difficulty: ExplanationMode = "intermediate",
+    ) -> QuizPackage:
+        """Generate interactive multiple-choice quiz testing technical comprehension."""
+        clean_topic = topic.strip()
+        cached = ai_cache.get("quiz", clean_topic.lower(), mode=difficulty)
+        if cached:
+            return cached
+
+        if self.provider:
+            system_prompt = (
+                f"You are a Rigorous STEM Examiner. Create a 3-question multiple-choice technical quiz "
+                f"on {clean_topic} for a {difficulty.upper()} learner. Each question must have exactly 4 choices, "
+                f"a 0-based correct_option_index, and a detailed pedagogical explanation."
+            )
+            prompt = (
+                f"Topic: {clean_topic}\n"
+                f"Difficulty: {difficulty}\n\n"
+                "Generate QuizPackage JSON with 3 technical questions."
+            )
+            try:
+                quiz, _ = await self.provider.generate_structured(prompt, system_prompt, QuizPackage)
+                ai_cache.set("quiz", clean_topic.lower(), quiz, mode=difficulty)
+                return quiz
+            except Exception as exc:
+                logger.warning("Provider call failed for generate_quiz: %s. Using heuristic fallback.", exc)
+
+        quiz = self._heuristic_quiz(clean_topic, difficulty)
+        ai_cache.set("quiz", clean_topic.lower(), quiz, mode=difficulty)
+        return quiz
+
+    def _heuristic_quiz(self, topic: str, difficulty: ExplanationMode) -> QuizPackage:
+        """Deterministic technical quiz fallback."""
+        questions = [
+            QuizQuestion(
+                question_id=1,
+                question=f"What is the primary engineering objective when designing a system around {topic}?",
+                options=[
+                    "A) Maximizing computational throughput while maintaining bounded latency and correctness",
+                    "B) Eliminating the need for testing and software verification",
+                    "C) Restricting execution exclusively to single-threaded sequential hardware",
+                    "D) Using unvalidated heuristics without formal bounds",
+                ],
+                correct_option_index=0,
+                explanation=(
+                    f"Option A is correct: {topic} systems prioritize balancing throughput, latency, and correctness. "
+                    "Options B, C, and D reflect anti-patterns and misunderstandings of engineering rigor."
+                ),
+            ),
+            QuizQuestion(
+                question_id=2,
+                question=f"When scaling {topic} to high volume, which bottleneck is most critical to profile first?",
+                options=[
+                    "A) Memory bandwidth, cache locality, and I/O serialization bottlenecks",
+                    "B) The color scheme of the developer documentation website",
+                    "C) Converting all synchronous code into busy-wait polling loops",
+                    "D) Disabling garbage collection permanently without heap tracking",
+                ],
+                correct_option_index=0,
+                explanation=(
+                    "Option A is correct: Memory bandwidth and I/O serialization are the primary performance "
+                    "limiting factors when scaling modern technical pipelines."
+                ),
+            ),
+            QuizQuestion(
+                question_id=3,
+                question=f"What is the best practice for ensuring architectural reliability in {topic} deployments?",
+                options=[
+                    "A) Deploying automated telemetry, structured logging, and health probe circuit breakers",
+                    "B) Ignoring transient network timeouts and disabling retry policies",
+                    "C) Storing credentials and secret keys unencrypted in source control",
+                    "D) Bypassing schema validation on external data payloads",
+                ],
+                correct_option_index=0,
+                explanation=(
+                    "Option A is correct: Resilient systems require observable telemetry, health probes, "
+                    "and automated circuit breakers to isolate partial failures gracefully."
+                ),
+            ),
+        ]
+
+        return QuizPackage(
+            topic=topic,
+            difficulty=difficulty,
+            title=f"Technical Comprehension Check: {topic}",
+            questions=questions,
+        )
+
+    async def compare_concepts(self, concept_a: str, concept_b: str) -> ConceptComparison:
+        """Perform a multi-dimensional architectural comparison between two STEM technologies."""
+        key = f"{concept_a.strip().lower()}_vs_{concept_b.strip().lower()}"
+        cached = ai_cache.get("comparison", key)
+        if cached:
+            return cached
+
+        if self.provider:
+            system_prompt = (
+                "You are a Principal Systems Architect. Conduct an objective, multi-dimensional technical comparison "
+                "between two technologies. Evaluate them across concrete dimensions such as latency, complexity, "
+                "scalability, and provide definitive use-case guidelines."
+            )
+            prompt = (
+                f"Compare Concept A: {concept_a}\n"
+                f"Against Concept B: {concept_b}\n\n"
+                "Generate ConceptComparison JSON."
+            )
+            try:
+                comp, _ = await self.provider.generate_structured(prompt, system_prompt, ConceptComparison)
+                ai_cache.set("comparison", key, comp)
+                return comp
+            except Exception as exc:
+                logger.warning("Provider call failed for compare_concepts: %s. Using heuristic fallback.", exc)
+
+        comp = self._heuristic_comparison(concept_a, concept_b)
+        ai_cache.set("comparison", key, comp)
+        return comp
+
+    def _heuristic_comparison(self, concept_a: str, concept_b: str) -> ConceptComparison:
+        """Deterministic concept comparison fallback."""
+        dims = [
+            ComparisonDimension(
+                dimension="Computational Complexity & Overhead",
+                concept_a_value=f"Optimized for deterministic performance with bounded memory overhead in {concept_a}.",
+                concept_b_value=(
+                    f"Higher dynamic flexibility at the expense of runtime overhead in {concept_b}."
+                ),
+            ),
+            ComparisonDimension(
+                dimension="Ease of Implementation & Tooling",
+                concept_a_value="Established toolchain with widespread documentation and mature libraries.",
+                concept_b_value="Modern emergent paradigm requiring specialized tooling or custom configurations.",
+            ),
+            ComparisonDimension(
+                dimension="Scalability & Concurrency",
+                concept_a_value="Scales vertically with high cache efficiency and predictable hardware utilization.",
+                concept_b_value="Scales horizontally across distributed nodes with asynchronous message passing.",
+            ),
+        ]
+
+        return ConceptComparison(
+            concept_a=concept_a,
+            concept_b=concept_b,
+            overview=(
+                f"Both {concept_a} and {concept_b} address overlapping engineering challenges, "
+                "but choose different trade-offs along the spectrum of complexity, performance, and flexibility."
+            ),
+            key_differences=dims,
+            when_to_use_a=[
+                "When deterministic latency and minimal resource consumption are strict requirements.",
+                "In legacy or established codebases where mature ecosystem support is essential.",
+            ],
+            when_to_use_b=[
+                "When dynamic flexibility and distributed scaling outweigh low-level raw performance.",
+                "For greenfield architectures requiring rapid iteration and asynchronous integration.",
+            ],
+            summary_verdict=(
+                f"Choose {concept_a} for mission-critical core efficiency and deterministic bounds; "
+                f"choose {concept_b} when horizontal agility and distributed flexibility are the primary drivers."
+            ),
+        )
+
+    async def recommend_project(
+        self,
+        topic: str,
+        difficulty: ExplanationMode = "intermediate",
+    ) -> ProjectRecommendation:
+        """Generate practical portfolio-worthy engineering project recommendation."""
+        clean_topic = topic.strip()
+        cached = ai_cache.get("project", clean_topic.lower(), mode=difficulty)
+        if cached:
+            return cached
+
+        if self.provider:
+            system_prompt = (
+                f"You are a Staff Software Engineer and Technical Recruiter. "
+                f"Design an impactful portfolio project for a {difficulty.upper()} developer in {clean_topic}. "
+                f"Focus on practical problem solving, realistic architecture, tech stack, and hiring impact."
+            )
+            prompt = (
+                f"Topic: {clean_topic}\n"
+                f"Difficulty: {difficulty}\n\n"
+                "Generate ProjectRecommendation JSON."
+            )
+            try:
+                proj, _ = await self.provider.generate_structured(prompt, system_prompt, ProjectRecommendation)
+                ai_cache.set("project", clean_topic.lower(), proj, mode=difficulty)
+                return proj
+            except Exception as exc:
+                logger.warning("Provider call failed for recommend_project: %s. Using heuristic fallback.", exc)
+
+        proj = self._heuristic_project(clean_topic, difficulty)
+        ai_cache.set("project", clean_topic.lower(), proj, mode=difficulty)
+        return proj
+
+    def _heuristic_project(self, topic: str, difficulty: ExplanationMode) -> ProjectRecommendation:
+        """Deterministic project recommendation fallback."""
+        return ProjectRecommendation(
+            topic=topic,
+            difficulty=difficulty,
+            project_title=f"Autonomous Intelligence & Telemetry Engine for {topic}",
+            problem_statement=(
+                f"Real-world deployments of {topic} frequently suffer from unmonitored failures, "
+                "opaque latency spikes, and lack of reproducible benchmarking data."
+            ),
+            system_architecture=(
+                "A modular pipeline comprising: (1) Data ingest worker, (2) Core processing engine, "
+                "(3) Asynchronous message broker, (4) Time-series telemetry database, and (5) Alert dashboard."
+            ),
+            tech_stack=["Python 3.12+", "AsyncIO", "Pydantic V2", "SQLAlchemy Async", "FastAPI / Docker"],
+            step_by_step_milestones=[
+                "Phase 1: Build the data ingestion client with resilient exponential retry policies",
+                "Phase 2: Implement the core transformation algorithm with unit test coverage >90%",
+                "Phase 3: Connect the database layer with ACID transactions and foreign key validation",
+                "Phase 4: Integrate real-time Prometheus / structured metrics export",
+            ],
+            stretch_goals=[
+                "Add automated load testing with Locust or k6 simulating 10,000 requests/second",
+                "Implement distributed tracing with OpenTelemetry and Jaeger",
+            ],
+            portfolio_impact=(
+                f"Demonstrates to hiring managers that you understand full-lifecycle production systems in {topic}, "
+                "prioritizing resilience, clean architecture, and observable software design."
+            ),
+        )
+
+    async def generate_vocabulary(self, topic: str) -> VocabularyGlossary:
+        """Generate a curated glossary of essential technical terminology for a STEM topic."""
+        clean_topic = topic.strip()
+        cached = ai_cache.get("vocabulary", clean_topic.lower())
+        if cached:
+            return cached
+
+        if self.provider:
+            system_prompt = (
+                "You are a Technical Lexicographer and STEM Educator. "
+                f"Curate 6 essential technical terms defining the discipline of {clean_topic}."
+            )
+            prompt = f"Topic: {clean_topic}\n\nGenerate VocabularyGlossary JSON."
+            try:
+                vocab, _ = await self.provider.generate_structured(prompt, system_prompt, VocabularyGlossary)
+                ai_cache.set("vocabulary", clean_topic.lower(), vocab)
+                return vocab
+            except Exception as exc:
+                logger.warning("Provider call failed for generate_vocabulary: %s. Using heuristic fallback.", exc)
+
+        vocab = self._heuristic_vocabulary(clean_topic)
+        ai_cache.set("vocabulary", clean_topic.lower(), vocab)
+        return vocab
+
+    def _heuristic_vocabulary(self, topic: str) -> VocabularyGlossary:
+        """Deterministic vocabulary glossary fallback."""
+        terms = [
+            VocabularyTerm(
+                term=f"{topic} Architecture",
+                definition=f"Structural organization, boundaries, and interfaces defining a {topic} system.",
+            ),
+            VocabularyTerm(
+                term="Algorithmic Complexity",
+                definition="Theoretical consumption of time and memory resources as input size approaches infinity.",
+            ),
+            VocabularyTerm(
+                term="Throughput",
+                definition="Quantified volume of successful units of work processed over a continuous time interval.",
+            ),
+            VocabularyTerm(
+                term="Latency (p99)",
+                definition="The response time threshold under which 99% of all requests are successfully serviced.",
+            ),
+            VocabularyTerm(
+                term="Fault Tolerance",
+                definition="System capability to sustain uninterrupted operation despite component failures.",
+            ),
+            VocabularyTerm(
+                term="Telemetry",
+                definition="The automated remote recording and transmission of operational performance metrics.",
+            ),
+        ]
+        return VocabularyGlossary(topic=topic, terms=terms)
 
     # ------------------ Backward Compatibility: Composite Intelligence ------------------
 

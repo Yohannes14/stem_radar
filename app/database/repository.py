@@ -15,6 +15,7 @@ from app.database.models import (
     Category,
     SavedArticle,
     Source,
+    UserLearningProgress,
     UserPreference,
 )
 from app.processors.deduplicator import normalize_url
@@ -260,3 +261,62 @@ class Repository:
             await self.session.commit()
             await self.session.refresh(pref)
         return pref
+
+    # ------------------ Learning Progress ------------------
+
+    async def get_or_create_learning_progress(
+        self, user_id: int, topic: str, level: str = "beginner"
+    ) -> UserLearningProgress:
+        """Fetch or initialize learning progress for a user on a given topic."""
+        clean_topic = topic.strip().lower()
+        stmt = select(UserLearningProgress).where(
+            UserLearningProgress.user_id == user_id,
+            UserLearningProgress.topic == clean_topic,
+        )
+        result = await self.session.execute(stmt)
+        progress = result.scalar_one_or_none()
+        if not progress:
+            progress = UserLearningProgress(
+                user_id=user_id,
+                topic=clean_topic,
+                level=level,
+            )
+            self.session.add(progress)
+            await self.session.commit()
+            await self.session.refresh(progress)
+        return progress
+
+    async def record_lesson_completion(
+        self, user_id: int, topic: str, level: str = "beginner"
+    ) -> UserLearningProgress:
+        """Increment completed lesson count and update level for a topic."""
+        progress = await self.get_or_create_learning_progress(user_id, topic, level)
+        progress.lessons_completed += 1
+        progress.level = level
+        progress.last_studied_at = datetime.now(timezone.utc)
+        await self.session.commit()
+        await self.session.refresh(progress)
+        return progress
+
+    async def record_quiz_completion(
+        self, user_id: int, topic: str, score: int, max_score: int
+    ) -> UserLearningProgress:
+        """Record quiz attempt, accumulate scores, and update last studied timestamp."""
+        progress = await self.get_or_create_learning_progress(user_id, topic)
+        progress.quizzes_taken += 1
+        progress.quiz_score_total += score
+        progress.quiz_score_max += max_score
+        progress.last_studied_at = datetime.now(timezone.utc)
+        await self.session.commit()
+        await self.session.refresh(progress)
+        return progress
+
+    async def get_user_learning_history(self, user_id: int) -> List[UserLearningProgress]:
+        """Fetch all learning progress records for a user sorted by most recently studied."""
+        stmt = (
+            select(UserLearningProgress)
+            .where(UserLearningProgress.user_id == user_id)
+            .order_by(desc(UserLearningProgress.last_studied_at))
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())

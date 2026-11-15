@@ -110,3 +110,100 @@ class ArticleIntelligence(BaseModel):
     important_concepts: List[str]
     stem_content_opportunity: str
     source_url: str
+
+
+# ------------------ Phase 4: STEM Education Schemas ------------------
+
+
+class RoadmapStage(BaseModel):
+    """Specific learning phase within a structured educational roadmap."""
+
+    stage_number: int = Field(ge=1, le=10)
+    title: str = Field(description="Stage headline (e.g. Stage 1: Mathematical Foundations).")
+    description: str = Field(description="Core concepts and competencies to acquire in this phase.")
+    key_milestones: List[str] = Field(description="Actionable milestones to master.")
+    recommended_projects: List[str] = Field(description="Hands-on mini-projects validating the stage.")
+
+
+class LearningRoadmap(BaseModel):
+    """End-to-end curriculum roadmap guiding learners from novice to mastery in any STEM domain."""
+
+    topic: str = Field(description="Target STEM topic or engineering field.")
+    overview: str = Field(description="Strategic executive summary of what this roadmap covers.")
+    prerequisites: List[str] = Field(description="Foundational math or engineering prerequisites.")
+    stages: List[RoadmapStage] = Field(description="Ordered progressive stages from beginner to mastery.")
+    estimated_duration_weeks: int = Field(ge=1, description="Realistic timeline in weeks.")
+
+
+class InteractiveLesson(BaseModel):
+    """Deep-dive interactive technical lesson adapted to student difficulty level."""
+
+    topic: str = Field(description="Subject matter.")
+    level: ExplanationMode = Field(description="Instructional level: beginner, intermediate, or advanced.")
+    title: str = Field(description="Engaging technical lesson title.")
+    objective: str = Field(description="Clear learning outcome expected after completing the lesson.")
+    core_lesson: str = Field(description="Thorough, technically accurate explanation with code or formulas.")
+    key_takeaways: List[str] = Field(description="Bullet-pointed foundational takeaways.")
+    practical_exercise: str = Field(description="Hands-on coding or architectural design exercise.")
+    next_recommended_topic: str = Field(description="Logical sequential topic to explore next.")
+
+
+class QuizQuestion(BaseModel):
+    """Multiple choice technical quiz question."""
+
+    question_id: int = Field(ge=1)
+    question: str = Field(description="The technical question testing conceptual or practical understanding.")
+    options: List[str] = Field(description="Exactly 4 distinct answers.")
+    correct_option_index: int = Field(ge=0, le=3, description="0-based index of correct option in options list.")
+    explanation: str = Field(description="Pedagogical explanation of why the correct answer is right and others wrong.")
+
+
+class QuizPackage(BaseModel):
+    """Interactive quiz bundle testing comprehension for a STEM topic."""
+
+    topic: str = Field(description="Topic assessed.")
+    difficulty: ExplanationMode = Field(description="Difficulty level of questions.")
+    title: str = Field(description="Quiz title.")
+    questions: List[QuizQuestion] = Field(description="Set of multiple-choice questions.")
+
+
+class ComparisonDimension(BaseModel):
+    """Specific metric or attribute comparing two technologies."""
+
+    dimension: str = Field(description="Attribute compared (e.g. Latency, Memory Footprint, Throughput).")
+    concept_a_value: str = Field(description="Performance or behavior of concept A.")
+    concept_b_value: str = Field(description="Performance or behavior of concept B.")
+
+
+class ConceptComparison(BaseModel):
+    """Rigorous architectural comparison between two technologies, frameworks, or concepts."""
+
+    concept_a: str
+    concept_b: str
+    overview: str = Field(description="High-level overview of the problem space and why they are compared.")
+    key_differences: List[ComparisonDimension] = Field(description="Attribute-by-attribute comparison table.")
+    when_to_use_a: List[str] = Field(description="Engineering scenarios where concept A is optimal.")
+    when_to_use_b: List[str] = Field(description="Engineering scenarios where concept B is optimal.")
+    summary_verdict: str = Field(description="Pragmatic engineering trade-off verdict.")
+
+
+class ProjectRecommendation(BaseModel):
+    """Practical hands-on engineering project recommendation building portfolio strength."""
+
+    topic: str
+    difficulty: ExplanationMode
+    project_title: str = Field(description="Concrete real-world project title.")
+    problem_statement: str = Field(description="The realistic problem the project solves.")
+    system_architecture: str = Field(description="Component diagram and data flow description.")
+    tech_stack: List[str] = Field(description="Recommended libraries, languages, and frameworks.")
+    step_by_step_milestones: List[str] = Field(description="Phased implementation steps.")
+    stretch_goals: List[str] = Field(description="Advanced extensions for top-tier portfolios.")
+    portfolio_impact: str = Field(description="What this demonstrates to engineering hiring managers.")
+
+
+class VocabularyGlossary(BaseModel):
+    """Curated technical glossary covering a STEM topic."""
+
+    topic: str
+    terms: List[VocabularyTerm] = Field(description="Glossary terms paired with precise definitions.")
+

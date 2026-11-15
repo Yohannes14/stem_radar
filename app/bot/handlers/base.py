@@ -65,9 +65,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• `/search <keyword>` — Search collected articles\n"
         "• `/saved` — View bookmarked articles\n"
         "• `/settings` — Notification preferences\n\n"
-        "*AI Features (Phases 4-6):*\n"
-        "• `/digest` — Daily intelligence summary\n"
-        "• `/ideas` — Transform news into STEM content opportunities"
+        "*STEM Learning Academy (Phase 4):*\n"
+        "• `/learn <topic>` — Interactive multi-tier STEM lesson\n"
+        "• `/roadmap <topic>` — 4-phase structured curriculum\n"
+        "• `/quiz <topic>` — Interactive comprehension test\n"
+        "• `/compare <A> vs <B>` — Architectural concept comparison\n"
+        "• `/project <topic>` — Practical engineering portfolio project\n"
+        "• `/vocabulary <topic>` — Technical terminology glossary\n"
+        "• `/progress` — Track lessons completed and quiz mastery\n\n"
+        "*AI Features:*\n"
+        "• `/explain <concept>` — Multi-tier concept breakdown\n"
+        "• `/impact` — Strategic technology assessment\n"
+        "• `/ideas` — Transform news into STEM content opportunities\n"
+        "• `/digest` — Daily intelligence summary"
     )
 
     if update.effective_message:

@@ -236,3 +236,150 @@ def format_stem_content(pkg) -> str:
         f"_{sanitize_markdown(pkg.source_attribution)}_"
     )
 
+
+# ------------------ Phase 4: STEM Education Formatters ------------------
+
+
+def format_learning_roadmap(roadmap) -> str:
+    """Format structured progressive STEM Learning Roadmap."""
+    prereqs = ", ".join(sanitize_markdown(p) for p in roadmap.prerequisites)
+    stages_str = ""
+    for s in roadmap.stages:
+        milestones = "\n".join(f"    • {sanitize_markdown(m)}" for m in s.key_milestones)
+        projects = ", ".join(sanitize_markdown(p) for p in s.recommended_projects)
+        stages_str += (
+            f"📍 *{sanitize_markdown(s.title)}*\n"
+            f"  _{sanitize_markdown(s.description)}_\n"
+            f"  *Key Milestones:*\n{milestones}\n"
+            f"  *Mini-Project:* `{projects}`\n\n"
+        )
+
+    return (
+        f"🗺️ *STEM Learning Roadmap: {sanitize_markdown(roadmap.topic)}*\n"
+        f"⏱️ *Timeline:* ~{roadmap.estimated_duration_weeks} Weeks | 📚 *Prerequisites:* {prereqs}\n\n"
+        f"📋 *Overview:*\n{sanitize_markdown(roadmap.overview)}\n\n"
+        f"{stages_str}"
+        f"Ready to begin? Run `/learn {roadmap.topic}` to start Lesson 1!"
+    )
+
+
+def format_interactive_lesson(lesson) -> str:
+    """Format an interactive technical lesson."""
+    takeaways = "\n".join(f"• {sanitize_markdown(t)}" for t in lesson.key_takeaways)
+    return (
+        f"🎓 *STEM Academy: {sanitize_markdown(lesson.title)}*\n"
+        f"🏷️ *Level:* `{lesson.level.upper()}` | 📌 *Topic:* *{sanitize_markdown(lesson.topic)}*\n\n"
+        f"🎯 *Objective:*\n_{sanitize_markdown(lesson.objective)}_\n\n"
+        f"{lesson.core_lesson}\n\n"
+        f"📌 *Key Takeaways:*\n{takeaways}\n\n"
+        f"🛠️ *Practical Exercise:*\n{sanitize_markdown(lesson.practical_exercise)}\n\n"
+        f"➡️ *Up Next:* `{sanitize_markdown(lesson.next_recommended_topic)}`"
+    )
+
+
+def format_quiz_question(quiz, question_index: int = 0) -> str:
+    """Format a multiple choice quiz question card."""
+    total = len(quiz.questions)
+    safe_idx = max(0, min(question_index, total - 1))
+    q = quiz.questions[safe_idx]
+
+    options_text = "\n".join(f"{sanitize_markdown(opt)}" for opt in q.options)
+
+    return (
+        f"📝 *Interactive STEM Quiz: {sanitize_markdown(quiz.topic)}*\n"
+        f"🏷️ *Difficulty:* `{quiz.difficulty.upper()}` | ❓ *Question {safe_idx + 1} of {total}*\n\n"
+        f"*{sanitize_markdown(q.question)}*\n\n"
+        f"{options_text}\n\n"
+        "Tap your answer below to check correctness & explanations:"
+    )
+
+
+def format_concept_comparison(comp) -> str:
+    """Format side-by-side engineering concept comparison."""
+    matrix_lines = []
+    for d in comp.key_differences:
+        matrix_lines.append(
+            f"• *{sanitize_markdown(d.dimension)}:*\n"
+            f"  - *{sanitize_markdown(comp.concept_a)}:* {sanitize_markdown(d.concept_a_value)}\n"
+            f"  - *{sanitize_markdown(comp.concept_b)}:* {sanitize_markdown(d.concept_b_value)}"
+        )
+    matrix_str = "\n\n".join(matrix_lines)
+
+    when_a = "\n".join(f"• {sanitize_markdown(a)}" for a in comp.when_to_use_a)
+    when_b = "\n".join(f"• {sanitize_markdown(b)}" for b in comp.when_to_use_b)
+
+    return (
+        f"⚖️ *Technical Comparison: {sanitize_markdown(comp.concept_a)} vs {sanitize_markdown(comp.concept_b)}*\n\n"
+        f"📋 *Overview:*\n{sanitize_markdown(comp.overview)}\n\n"
+        f"📊 *Architectural Trade-Off Matrix:*\n{matrix_str}\n\n"
+        f"🟢 *When to Choose {sanitize_markdown(comp.concept_a)}:*\n{when_a}\n\n"
+        f"🔵 *When to Choose {sanitize_markdown(comp.concept_b)}:*\n{when_b}\n\n"
+        f"🏆 *Engineering Verdict:*\n{sanitize_markdown(comp.summary_verdict)}"
+    )
+
+
+def format_project_recommendation(proj) -> str:
+    """Format portfolio project recommendation."""
+    stack_str = ", ".join(f"`{sanitize_markdown(t)}`" for t in proj.tech_stack)
+    milestones = "\n".join(f"• {sanitize_markdown(m)}" for m in proj.step_by_step_milestones)
+    stretch = "\n".join(f"• {sanitize_markdown(s)}" for s in proj.stretch_goals)
+
+    return (
+        f"🚀 *Portfolio Project: {sanitize_markdown(proj.project_title)}*\n"
+        f"🏷️ *Level:* `{proj.difficulty.upper()}` | 📌 *Domain:* *{sanitize_markdown(proj.topic)}*\n\n"
+        f"🎯 *Problem Statement:*\n{sanitize_markdown(proj.problem_statement)}\n\n"
+        f"🏗️ *System Architecture:*\n{sanitize_markdown(proj.system_architecture)}\n\n"
+        f"🧰 *Recommended Tech Stack:*\n{stack_str}\n\n"
+        f"📋 *Step-by-Step Implementation Milestones:*\n{milestones}\n\n"
+        f"⭐ *Stretch Goals for Excellence:*\n{stretch}\n\n"
+        f"💼 *Hiring Portfolio Impact:*\n_{sanitize_markdown(proj.portfolio_impact)}_"
+    )
+
+
+def format_vocabulary_glossary(glossary) -> str:
+    """Format technical vocabulary glossary."""
+    terms_str = "\n\n".join(
+        f"📖 *{sanitize_markdown(t.term)}*\n_{sanitize_markdown(t.definition)}_"
+        for t in glossary.terms
+    )
+    return (
+        f"📚 *Technical Vocabulary Glossary: {sanitize_markdown(glossary.topic)}*\n\n"
+        f"{terms_str}\n\n"
+        "Master these terms to understand technical papers and system designs!"
+    )
+
+
+def format_learning_progress(progress_list: list) -> str:
+    """Format user learning progress overview."""
+    if not progress_list:
+        return (
+            "📊 *Your STEM Learning Progress*\n\n"
+            "You haven't completed any lessons or quizzes yet!\n\n"
+            "Get started with:\n"
+            "• `/roadmap AI` — View full curriculum\n"
+            "• `/learn AI` — Start your first lesson\n"
+            "• `/quiz AI` — Test your knowledge"
+        )
+
+    lines = ["📊 *Your STEM Learning Progress & Mastery:*\n"]
+    for p in progress_list:
+        accuracy = (
+            f"{int((p.quiz_score_total / p.quiz_score_max) * 100)}%"
+            if p.quiz_score_max > 0
+            else "N/A"
+        )
+        studied_str = (
+            p.last_studied_at.strftime("%b %d, %Y")
+            if p.last_studied_at
+            else "Recent"
+        )
+        lines.append(
+            f"• *{p.topic.upper()}* (`{p.level.upper()}`)\n"
+            f"  Lessons Completed: `{p.lessons_completed}` | Quizzes: `{p.quizzes_taken}` (Accuracy: `{accuracy}`)\n"
+            f"  Last Studied: `{studied_str}`\n"
+        )
+
+    lines.append("Keep learning with `/learn` or test your skills with `/quiz`!")
+    return "\n".join(lines)
+
+
