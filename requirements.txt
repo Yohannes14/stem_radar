@@ -1,0 +1,25 @@
+# Core Bot & Backend
+python-telegram-bot>=21.0,<23.0
+pydantic>=2.7.0,<3.0
+pydantic-settings>=2.2.0
+httpx[socks]>=0.27.0
+python-dotenv>=1.0.0
+
+# Information Collection
+feedparser>=6.0.10
+
+# Database
+SQLAlchemy[asyncio]>=2.0.25
+greenlet>=3.0.0
+aiosqlite>=0.20.0
+
+# Scheduling & Automation (Phase 6 ready)
+APScheduler>=3.10.4
+
+# AI Integration (Phase 4 ready)
+openai>=1.40.0
+
+# Development & Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+ruff>=0.4.0
