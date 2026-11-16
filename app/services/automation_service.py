@@ -67,16 +67,24 @@ class AutomationService:
         self.ranker = ranker or ArticleRanker()
 
     async def get_trending_developments(
-        self, limit: int = 10, session: Optional[AsyncSession] = None
+        self,
+        limit: int = 10,
+        user_id: Optional[int] = None,
+        session: Optional[AsyncSession] = None,
     ) -> List[Tuple[Article, float]]:
-        """Rank recent articles by composite technological impact score."""
+        """Rank recent articles by composite technological impact score, optionally boosted by user interests."""
+        user_interests = None
         if session:
             repo = Repository(session)
+            if user_id:
+                user_interests = await repo.get_user_preferred_categories(user_id)
             articles = await repo.get_recent_articles(limit=limit * 3)
         else:
             session_factory = get_session_factory()
             async with session_factory() as s:
                 repo = Repository(s)
+                if user_id:
+                    user_interests = await repo.get_user_preferred_categories(user_id)
                 articles = await repo.get_recent_articles(limit=limit * 3)
 
         scored: List[Tuple[Article, float]] = []
@@ -87,6 +95,7 @@ class AutomationService:
                 description=art.description,
                 published_at=art.published_at or art.collected_at,
                 categories=categories,
+                user_interests=user_interests,
             )
             scored.append((art, score))
 
@@ -107,29 +116,42 @@ class AutomationService:
             repo = Repository(session)
             pref = await repo.get_or_create_preference(user_id)
 
-            cat_filter = pref.preferred_categories.strip() if pref.preferred_categories else None
-            if cat_filter in ("", "all"):
-                cat_filter = None
+            user_interests = [
+                s.strip() for s in (pref.preferred_categories or "").split(",") if s.strip() and s.strip() != "all"
+            ]
 
-            articles = await repo.get_recent_articles(limit=15, category_slug=cat_filter)
+            articles = await repo.get_recent_articles(
+                limit=25,
+                category_slugs=user_interests if user_interests else None,
+            )
 
-            # Score and rank to select the top breakthroughs
+            # If user has specific categories but fewer articles returned, supplement with general articles
+            if len(articles) < limit and user_interests:
+                more_articles = await repo.get_recent_articles(limit=15)
+                existing_ids = {a.id for a in articles}
+                articles.extend([a for a in more_articles if a.id not in existing_ids])
+
+            # Score and rank to select the top breakthroughs with user interest match boost
             scored = []
             for a in articles:
+                categories = [(c.slug, 1.0) for c in a.categories] if a.categories else None
                 score = self.ranker.calculate_score(
                     title=a.title,
                     description=a.description,
                     published_at=a.published_at or a.collected_at,
+                    categories=categories,
+                    user_interests=user_interests,
                 )
                 scored.append((a, score))
 
             scored.sort(key=lambda x: x[1], reverse=True)
             top_articles = [item[0] for item in scored[:limit]]
 
+            cat_filter_display = ", ".join([f"#{s}" for s in user_interests]) if user_interests else ""
             text = format_daily_briefing(
                 top_articles,
                 user_name=user_name,
-                category_filter=cat_filter or "",
+                category_filter=cat_filter_display,
             )
             return text, top_articles
         finally:

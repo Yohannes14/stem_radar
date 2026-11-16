@@ -8,6 +8,7 @@ from telegram.ext import ContextTypes
 
 from app.bot.filters.auth import authorized_only
 from app.bot.keyboards.inline import get_settings_panel_keyboard
+from app.bot.ui.menu import get_interests_keyboard, safe_edit_or_reply
 from app.database.database import get_session_factory
 from app.database.repository import Repository
 
@@ -25,6 +26,32 @@ def get_settings_keyboard(
         high_impact_enabled=high_impact_enabled,
         weekly_reports_enabled=weekly_reports_enabled,
     )
+
+
+@authorized_only
+async def interests_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Display interactive multi-category domain subscriptions panel."""
+    user = update.effective_user
+    if not user:
+        return
+
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        repo = Repository(session)
+        active_slugs = await repo.get_user_preferred_categories(user.id)
+
+    active_display = ", ".join([f"#{s}" for s in active_slugs]) if active_slugs else "All STEM Domains"
+    text = (
+        "🏷️ *My STEM Domain Subscriptions*\n\n"
+        "Select the disciplines you want prioritized in your daily briefings, digests, and intelligence feeds.\n\n"
+        f"Active Subscriptions: *{active_display}*\n\n"
+        "Tap below to toggle active subscriptions on or off:"
+    )
+
+    markup = get_interests_keyboard(active_slugs=active_slugs)
+
+    if update.effective_message:
+        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=markup)
 
 
 @authorized_only
@@ -141,9 +168,47 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
         cat = data.split(":", 1)[1]
         async with session_factory() as session:
             repo = Repository(session)
-            pref = await repo.get_or_create_preference(user.id)
-            pref.preferred_categories = cat
-            await session.commit()
+            active_slugs, is_added = await repo.toggle_user_interest_category(user.id, cat)
 
-        await query.answer(f"Subscribed domain set to: {cat}")
+        if cat == "all":
+            status_text = "Reset subscriptions to All STEM Domains 🌐"
+        elif is_added:
+            status_text = f"Subscribed to #{cat} ✅"
+        else:
+            status_text = f"Unsubscribed from #{cat} ❌"
+
+        await query.answer(status_text)
+
+        # Check if the message is the settings panel or the dedicated interests keyboard
+        is_settings_panel = False
+        if query.message and query.message.reply_markup:
+            for row in query.message.reply_markup.inline_keyboard:
+                for btn in row:
+                    if btn.callback_data == "toggle_notif":
+                        is_settings_panel = True
+                        break
+
+        if is_settings_panel:
+            async with session_factory() as session:
+                repo = Repository(session)
+                pref = await repo.get_or_create_preference(user.id)
+                notif_state = pref.notifications_enabled
+                impact_state = pref.high_impact_alerts_enabled
+                weekly_state = pref.weekly_report_enabled
+
+            if query.message:
+                await query.message.edit_reply_markup(
+                    reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
+                )
+        else:
+            active_display = ", ".join([f"#{s}" for s in active_slugs]) if active_slugs else "All STEM Domains"
+            text = (
+                "🏷️ *My STEM Domain Subscriptions*\n\n"
+                "Select the disciplines you want prioritized in your daily briefings, "
+                "digests, and intelligence feeds.\n\n"
+                f"Active Subscriptions: *{active_display}*\n\n"
+                "Tap below to toggle active subscriptions on or off:"
+            )
+            markup = get_interests_keyboard(active_slugs=active_slugs)
+            await safe_edit_or_reply(update, text, reply_markup=markup)
         return

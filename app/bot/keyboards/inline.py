@@ -1,6 +1,7 @@
 """Inline keyboards for interactive Telegram navigation."""
 
 from typing import List, Optional
+from urllib.parse import quote
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
@@ -12,38 +13,93 @@ def get_article_keyboard(
     total: int,
     category_slug: Optional[str] = None,
     is_saved: bool = False,
+    title: str = "",
 ) -> InlineKeyboardMarkup:
-    """Generate keyboard for an article with action buttons and pagination."""
+    """Generate redesigned keyboard for an article with 5 action buttons and pagination.
+
+    Actions:
+    1. Read Original (external URL)
+    2. Explain with AI (interactive breakdown callback)
+    3. Save / Bookmark (toggle callback)
+    4. Share (native Telegram share sheet)
+    5. Related Articles (category/topic discovery callback)
+    """
     cat_tag = category_slug or "all"
     bookmark_label = "Saved ✅" if is_saved else "Bookmark ⭐"
+    share_text = f"STEM Breakthrough: {title}" if title else "STEM Intelligence Article"
+    share_url = f"https://t.me/share/url?url={quote(url)}&text={quote(share_text)}"
 
-    # Row 1: External Link & Bookmark Toggle
+    # Row 1: Read Original & AI Explainer
     row1 = [
         InlineKeyboardButton("Read Original 🔗", url=url),
+        InlineKeyboardButton("Explain with AI 🧠", callback_data=f"ai_exp:{article_id}"),
+    ]
+
+    # Row 2: Bookmark, Share, Related
+    row2 = [
         InlineKeyboardButton(bookmark_label, callback_data=f"save:{article_id}"),
+        InlineKeyboardButton("Share 📤", url=share_url),
+        InlineKeyboardButton("Related 🔍", callback_data=f"rel:{article_id}"),
     ]
 
-    # Row 2: Navigation controls
-    row2: List[InlineKeyboardButton] = []
+    # Row 3: Pagination controls
+    row3: List[InlineKeyboardButton] = []
     if offset > 0:
-        row2.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"nav:{cat_tag}:{offset - 1}"))
-    row2.append(InlineKeyboardButton(f"{offset + 1}/{total}", callback_data="noop"))
+        row3.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"nav:{cat_tag}:{offset - 1}"))
+    row3.append(InlineKeyboardButton(f"{offset + 1}/{total}", callback_data="noop"))
     if offset + 1 < total:
-        row2.append(InlineKeyboardButton("Next ➡️", callback_data=f"nav:{cat_tag}:{offset + 1}"))
+        row3.append(InlineKeyboardButton("Next ➡️", callback_data=f"nav:{cat_tag}:{offset + 1}"))
 
-    # Row 3: AI Intelligence actions
-    row3 = [
-        InlineKeyboardButton("AI Analysis 🧠", callback_data=f"ai_sum:{article_id}"),
-        InlineKeyboardButton("Content Kit 🎨", callback_data=f"ai_cnt:{article_id}"),
-    ]
-
-    # Row 4: Quick Category Picker & Refresh
+    # Row 4: Navigation controls
     row4 = [
-        InlineKeyboardButton("Categories 🗂️", callback_data="show_cats"),
-        InlineKeyboardButton("Refresh 🔄", callback_data=f"nav:{cat_tag}:{offset}"),
+        InlineKeyboardButton("🗂️ Categories", callback_data="show_cats"),
+        InlineKeyboardButton("🔄 Refresh", callback_data=f"nav:{cat_tag}:{offset}"),
+        InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
     ]
 
     return InlineKeyboardMarkup([row1, row2, row3, row4])
+
+
+def get_explanation_keyboard(article_id: int, current_mode: str = "intermediate") -> InlineKeyboardMarkup:
+    """Difficulty mode selector attached to AI concept explanation."""
+    b_mark = "• " if current_mode == "beginner" else ""
+    i_mark = "• " if current_mode == "intermediate" else ""
+    a_mark = "• " if current_mode == "advanced" else ""
+
+    buttons = [
+        [
+            InlineKeyboardButton(f"{b_mark}🐣 Beginner", callback_data=f"exp_mode:{article_id}:beginner"),
+            InlineKeyboardButton(f"{i_mark}🧑‍💻 Intermediate", callback_data=f"exp_mode:{article_id}:intermediate"),
+            InlineKeyboardButton(f"{a_mark}🔬 Advanced", callback_data=f"exp_mode:{article_id}:advanced"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ Back to Article", callback_data=f"back_art:{article_id}"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_search_pagination_keyboard(query: str, page: int, total_pages: int) -> InlineKeyboardMarkup:
+    """Pagination keyboard for search results."""
+    rows: List[List[InlineKeyboardButton]] = []
+    pag_row: List[InlineKeyboardButton] = []
+
+    clean_query = query.strip()[:30]
+    if page > 0:
+        pag_row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"s_nav:{clean_query}:{page - 1}"))
+    pag_row.append(InlineKeyboardButton(f"{page + 1}/{total_pages}", callback_data="noop"))
+    if page + 1 < total_pages:
+        pag_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"s_nav:{clean_query}:{page + 1}"))
+
+    rows.append(pag_row)
+    rows.append(
+        [
+            InlineKeyboardButton("🔍 New Search", callback_data="menu:search"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ]
+    )
+    return InlineKeyboardMarkup(rows)
 
 
 def get_category_keyboard() -> InlineKeyboardMarkup:
@@ -66,6 +122,7 @@ def get_category_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("🌐 All Latest News", callback_data="cat:all"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
@@ -149,6 +206,9 @@ def get_settings_panel_keyboard(
             InlineKeyboardButton("⚛️ Physics", callback_data="pref_cat:physics"),
             InlineKeyboardButton("🌐 All STEM", callback_data="pref_cat:all"),
         ],
+        [
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ],
     ]
     return InlineKeyboardMarkup(buttons)
 
@@ -169,6 +229,7 @@ def get_watchlist_keyboard(keywords: list) -> InlineKeyboardMarkup:
 
     if keywords:
         buttons.append([InlineKeyboardButton("🗑️ Clear All Watchlist", callback_data="wl_clear")])
+    buttons.append([InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home")])
 
     return InlineKeyboardMarkup(buttons)
 
@@ -182,6 +243,7 @@ def get_briefing_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("⚙️ Notification Settings", callback_data="open_settings"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)

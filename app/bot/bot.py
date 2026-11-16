@@ -12,7 +12,12 @@ from app.bot.handlers.automation import (
     trends_command,
     watchlist_command,
 )
-from app.bot.handlers.base import error_handler, help_command, start_command
+from app.bot.handlers.base import (
+    error_handler,
+    help_command,
+    main_menu_callback_router,
+    start_command,
+)
 from app.bot.handlers.content import digest_command, ideas_command, trending_command
 from app.bot.handlers.education import (
     compare_command,
@@ -41,7 +46,11 @@ from app.bot.handlers.news import (
     search_command,
     sources_command,
 )
-from app.bot.handlers.settings import settings_callback_router, settings_command
+from app.bot.handlers.settings import (
+    interests_command,
+    settings_callback_router,
+    settings_command,
+)
 from app.config import settings
 from app.scheduler.jobs import scheduler
 
@@ -110,6 +119,7 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("search", search_command))
     app.add_handler(CommandHandler("saved", saved_command))
     app.add_handler(CommandHandler("settings", settings_command))
+    app.add_handler(CommandHandler("interests", interests_command))
 
     # Phase 4: Interactive STEM Education & Learning Assistant
     app.add_handler(CommandHandler("learn", learn_command))
@@ -127,6 +137,12 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("stats", stats_command))
 
     # Interactive inline callbacks
+    app.add_handler(
+        CallbackQueryHandler(
+            main_menu_callback_router,
+            pattern="^(menu:.*|nav:home|search_kw:.*)$",
+        )
+    )
     app.add_handler(
         CallbackQueryHandler(
             settings_callback_router,

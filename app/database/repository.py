@@ -161,6 +161,7 @@ class Repository:
         limit: int = 10,
         offset: int = 0,
         category_slug: Optional[str] = None,
+        category_slugs: Optional[List[str]] = None,
         source_slug: Optional[str] = None,
         source_type: Optional[str] = None,
         query: Optional[str] = None,
@@ -168,8 +169,15 @@ class Repository:
         """Fetch recent articles sorted by published_at or collected_at with optional filtering."""
         stmt = select(Article).options(selectinload(Article.source), selectinload(Article.categories))
 
-        if category_slug:
-            stmt = stmt.join(Article.categories).where(Category.slug == category_slug)
+        # Support single category, comma-delimited string, or list of category slugs
+        slugs_to_filter = []
+        if category_slugs:
+            slugs_to_filter.extend([s.strip() for s in category_slugs if s.strip()])
+        elif category_slug and category_slug != "all":
+            slugs_to_filter.extend([s.strip() for s in category_slug.split(",") if s.strip()])
+
+        if slugs_to_filter:
+            stmt = stmt.join(Article.categories).where(Category.slug.in_(slugs_to_filter))
 
         if source_slug or source_type:
             stmt = stmt.join(Article.source)
@@ -202,6 +210,7 @@ class Repository:
     async def count_articles(
         self,
         category_slug: Optional[str] = None,
+        category_slugs: Optional[List[str]] = None,
         source_slug: Optional[str] = None,
         source_type: Optional[str] = None,
         query: Optional[str] = None,
@@ -209,8 +218,14 @@ class Repository:
         """Count total articles matching optional category, source, or search criteria."""
         stmt = select(func.count(Article.id.distinct()))
 
-        if category_slug:
-            stmt = stmt.join(Article.categories).where(Category.slug == category_slug)
+        slugs_to_filter = []
+        if category_slugs:
+            slugs_to_filter.extend([s.strip() for s in category_slugs if s.strip()])
+        elif category_slug and category_slug != "all":
+            slugs_to_filter.extend([s.strip() for s in category_slug.split(",") if s.strip()])
+
+        if slugs_to_filter:
+            stmt = stmt.join(Article.categories).where(Category.slug.in_(slugs_to_filter))
 
         if source_slug or source_type:
             stmt = stmt.join(Article.source)
@@ -303,6 +318,42 @@ class Repository:
             await self.session.commit()
             await self.session.refresh(pref)
         return pref
+
+    async def toggle_user_interest_category(self, user_id: int, category_slug: str) -> Tuple[List[str], bool]:
+        """Toggle an interest category on or off for a user.
+
+        Supports multi-category subscriptions.
+        Returns: (active_slugs: List[str], is_added: bool)
+        """
+        pref = await self.get_or_create_preference(user_id)
+        current_slugs = [s.strip() for s in (pref.preferred_categories or "").split(",") if s.strip()]
+
+        clean_slug = category_slug.strip().lower()
+
+        if clean_slug == "all":
+            pref.preferred_categories = ""
+            pref.updated_at = datetime.now(timezone.utc)
+            await self.session.commit()
+            return [], False
+
+        if clean_slug in current_slugs:
+            current_slugs.remove(clean_slug)
+            is_added = False
+        else:
+            current_slugs.append(clean_slug)
+            is_added = True
+
+        pref.preferred_categories = ",".join(current_slugs)
+        pref.updated_at = datetime.now(timezone.utc)
+        await self.session.commit()
+        return current_slugs, is_added
+
+    async def get_user_preferred_categories(self, user_id: int) -> List[str]:
+        """Get list of active preferred category slugs for a user."""
+        pref = await self.get_or_create_preference(user_id)
+        if not pref.preferred_categories:
+            return []
+        return [s.strip() for s in pref.preferred_categories.split(",") if s.strip()]
 
     # ------------------ Learning Progress ------------------
 

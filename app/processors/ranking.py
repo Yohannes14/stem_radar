@@ -36,8 +36,9 @@ class ArticleRanker:
         description: str | None = None,
         published_at: datetime | None = None,
         categories: List[Tuple[str, float]] | None = None,
+        user_interests: List[str] | None = None,
     ) -> float:
-        """Calculate composite intelligence score (0.0 to 100.0)."""
+        """Calculate composite intelligence score (0.0 to 100.0) with optional personalization boost."""
         score = 50.0  # Base baseline score
 
         # 1. Recency Factor (Max +25 points)
@@ -76,6 +77,13 @@ class ArticleRanker:
         # 4. Content Completeness (Max +5 points)
         if description and len(description.strip()) > 150:
             score += 5.0
+
+        # 5. Personalization Interest Match Boost (Max +15 points)
+        if user_interests and categories:
+            interest_set = {i.strip().lower() for i in user_interests if i.strip()}
+            cat_slugs = {c[0].strip().lower() for c in categories}
+            if interest_set.intersection(cat_slugs):
+                score += 15.0
 
         return round(max(0.0, min(100.0, score)), 2)
 

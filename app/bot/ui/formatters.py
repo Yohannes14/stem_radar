@@ -38,8 +38,17 @@ def sanitize_markdown(text: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+def estimate_reading_time(text: str) -> str:
+    """Calculate reliable reading time estimate based on standard reading speed (~200 wpm)."""
+    if not text:
+        return "~1 min read"
+    words = len(text.split())
+    mins = max(1, round(words / 180))
+    return f"~{mins} min read"
+
+
 def format_article_view(article, index: int = 0, total: int = 1) -> str:
-    """Format an article into a clean mobile-friendly Telegram card."""
+    """Format an article into a rich, structured, mobile-friendly Telegram card."""
     source_name = sanitize_markdown(article.source.name if article.source else "Unknown")
     cat_names = [c.name for c in article.categories] if article.categories else ["Technology"]
     cat_display = ", ".join(cat_names[:2])
@@ -50,14 +59,108 @@ def format_article_view(article, index: int = 0, total: int = 1) -> str:
     pub_date = article.published_at or article.collected_at
     date_str = pub_date.strftime("%b %d, %Y") if pub_date else "Recent"
 
+    full_text_for_timer = f"{article.title} {article.description or ''} {article.content or ''}"
+    read_time = estimate_reading_time(full_text_for_timer)
+
     safe_title = sanitize_markdown(article.title)
 
     raw_desc = article.description or "No preview available."
     safe_desc = sanitize_markdown(raw_desc)
-    if len(safe_desc) > 380:
-        safe_desc = safe_desc[:377].rsplit(" ", 1)[0] + "..."
+    if len(safe_desc) > 300:
+        safe_desc = safe_desc[:297].rsplit(" ", 1)[0] + "..."
 
-    return f"{emoji} *{cat_display}* | _{source_name}_\n📅 {date_str}\n\n*{safe_title}*\n\n{safe_desc}\n"
+    summary_text = sanitize_markdown(article.ai_summary.strip()) if article.ai_summary else safe_desc
+
+    # Extract or synthesize "Why It Matters"
+    why_it_matters = None
+    if article.ai_analysis:
+        clean_analysis = sanitize_markdown(article.ai_analysis)
+        if len(clean_analysis) > 25:
+            why_it_matters = clean_analysis
+    elif article.description and len(article.description.split(".")) > 2:
+        sentences = [s.strip() for s in article.description.split(".") if len(s.strip()) > 20]
+        if len(sentences) >= 2:
+            why_it_matters = sanitize_markdown(sentences[-1]) + "."
+
+    if not why_it_matters:
+        impact_defaults = {
+            "ai": "Accelerates cognitive inference efficiency and machine reasoning capabilities.",
+            "robotics": "Expands operational autonomy, actuator precision, and embodied control.",
+            "computer-science": "Optimizes algorithmic complexity, concurrency guarantees, and system throughput.",
+            "software-engineering": "Improves architectural resilience, maintainability, and deployment velocity.",
+            "cybersecurity": "Mitigates critical threat surfaces, cryptographic weaknesses, and attack vectors.",
+            "physics": "Delivers empirical verification for theoretical models and physical matter.",
+            "biotechnology": "Enables synthetic biomolecular engineering and clinical translational pipelines.",
+            "space-technology": "Advances orbital logistics, propulsion metrics, and aerospace exploration.",
+            "renewable-energy": "Improves power conversion efficiency, grid storage, and clean energy economics.",
+            "electronics": "Enhances semiconductor density, signal integrity, and energy efficiency.",
+        }
+        why_it_matters = impact_defaults.get(
+            primary_slug, "Represents key technological progress with direct industry and research implications."
+        )
+
+    # Generate relevant hashtags
+    tags = ["#" + re.sub(r"[^a-zA-Z0-9]", "", c.name) for c in (article.categories or [])]
+    if not tags:
+        tags = ["#STEM", "#Technology"]
+    tags_str = " ".join(tags[:3])
+
+    card_lines = [
+        f"{emoji} *{cat_display}* | _{source_name}_",
+        f"📅 {date_str} • ⏱️ {read_time}\n",
+        f"*{safe_title}*\n",
+        f"📝 *Summary:*\n{summary_text}\n",
+        f"💡 *Why It Matters:*\n{why_it_matters}\n",
+        f"🏷️ `{tags_str}`\n",
+        f"🔗 [Read full article on {source_name}]({article.url})",
+    ]
+    return "\n".join(card_lines)
+
+
+def format_related_articles(parent_article, related: list) -> str:
+    """Format related research papers and technology articles."""
+    parent_title = sanitize_markdown(parent_article.title[:80])
+    lines = [f"🔍 *Articles & Papers Related to:*\n_{parent_title}...\n"]
+
+    if not related:
+        lines.append("No related articles found in this category yet.\nRun `/collect` to index new sources.")
+    else:
+        for i, a in enumerate(related, 1):
+            title = sanitize_markdown(a.title)
+            source = sanitize_markdown(a.source.name if a.source else "Tech")
+            read_time = estimate_reading_time(f"{a.title} {a.description or ''}")
+            lines.append(f"{i}. [{title}]({a.url})\n   _{source}_ • ⏱️ {read_time}\n")
+
+    return "\n".join(lines)
+
+
+def format_search_results_page(
+    query: str,
+    articles: list,
+    page: int = 0,
+    total_pages: int = 1,
+    total_count: int = 0,
+) -> str:
+    """Format paginated article search results."""
+    clean_query = sanitize_markdown(query)
+    if not articles:
+        return f'🔍 No articles found matching *"{clean_query}"*\n\nTry `/collect` to pull new articles.'
+
+    lines = [
+        f'🔍 *Search Results for "{clean_query}"*',
+        f"📄 Page `{page + 1}` of `{total_pages}` • `{total_count}` total matches\n",
+    ]
+    start_index = page * 5 + 1
+    for i, a in enumerate(articles, start_index):
+        clean_title = sanitize_markdown(a.title)
+        source = sanitize_markdown(a.source.name if a.source else "Tech")
+        read_time = estimate_reading_time(f"{a.title} {a.description or ''}")
+        snippet = sanitize_markdown(a.description or "")[:120]
+        if snippet:
+            snippet = f"\n   _{snippet}..._"
+        lines.append(f"{i}. [{clean_title}]({a.url})\n   Source: _{source}_ • ⏱️ {read_time}{snippet}\n")
+
+    return "\n".join(lines)
 
 
 def format_search_results(query: str, articles: list) -> str:

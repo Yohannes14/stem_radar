@@ -1,4 +1,4 @@
-"""Base bot commands: /start, /help, and error handlers."""
+"""Base bot commands: /start, /help, error handlers, and the unified 12-section Main Menu router."""
 
 import logging
 
@@ -7,45 +7,69 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from app.bot.filters.auth import authorized_only
-from app.bot.keyboards.inline import get_category_keyboard
+from app.bot.handlers.news import send_article_view
+from app.bot.handlers.settings import settings_command
+from app.bot.keyboards.navigation import get_back_home_keyboard
+from app.bot.ui.formatters import (
+    format_impact_analysis,
+    format_news_summary,
+    format_project_recommendation,
+    format_search_results,
+    format_stem_content,
+    format_trending_feed,
+)
+from app.bot.ui.menu import (
+    format_ai_hub_intro,
+    format_learn_hub_intro,
+    format_main_menu,
+    format_search_intro,
+    get_ai_hub_keyboard,
+    get_interests_keyboard,
+    get_learn_hub_keyboard,
+    get_main_menu_keyboard,
+    get_search_shortcuts_keyboard,
+    is_duplicate_callback,
+    safe_edit_or_reply,
+)
+from app.database.database import get_session_factory
+from app.database.repository import Repository
+from app.services.ai import ai_service
+from app.services.automation_service import automation_service
+from app.services.news_service import NewsService
 
 logger = logging.getLogger(__name__)
+news_service = NewsService()
 
 
 @authorized_only
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send welcome message and system introduction."""
+    """Send welcome message and render the flagship 12-section interactive dashboard."""
     user = update.effective_user
     name = user.first_name if user else "Researcher"
 
-    welcome_text = (
-        f"📡 *Welcome to STEM RADAR, {name}!* 🚀\n\n"
-        "Your AI-powered intelligence platform collecting, analyzing, and organizing "
-        "the latest developments in Science, Technology, Engineering, and Mathematics.\n\n"
-        "⚡ *Quick Navigation:*\n"
-        "• `/news` — Latest technology intelligence\n"
-        "• `/ai` — Artificial Intelligence & Machine Learning\n"
-        "• `/robotics` — Robotics, Humanoids & Drones\n"
-        "• `/research` — Latest arXiv Research Papers\n"
-        "• `/github` — Trending Repositories & Open Source\n"
-        "• `/sources` — View active intelligence feeds\n"
-        "• `/collect` — Trigger instant intelligence collection\n"
-        "• `/saved` — View your bookmarked articles\n"
-        "• `/help` — Full list of commands\n\n"
-        "Select a domain below to start exploring:"
-    )
+    stats = None
+    try:
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            repo = Repository(session)
+            stats = await repo.get_platform_stats(user_id=user.id if user else None)
+    except Exception as exc:
+        logger.debug("Telemetry stats unavailable on /start: %s", exc)
+
+    welcome_text = format_main_menu(user_name=name, stats=stats)
 
     if update.effective_message:
         await update.effective_message.reply_text(
             welcome_text,
             parse_mode=ParseMode.MARKDOWN,
-            reply_markup=get_category_keyboard(),
+            reply_markup=get_main_menu_keyboard(),
+            disable_web_page_preview=True,
         )
 
 
 @authorized_only
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Display comprehensive command catalog."""
+    """Display comprehensive command catalog with persistent main menu navigation."""
     help_text = (
         "📚 *STEM RADAR Command Catalog*\n\n"
         "*Core Intelligence:*\n"
@@ -61,7 +85,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• `/programming` — Software Engineering & CS\n"
         "• `/research` — Latest arXiv research papers\n"
         "• `/github` — Trending GitHub repositories\n\n"
-        "*Search & Personalization (Phase 5):*\n"
+        "*Search & Personalization:*\n"
         "• `/briefing` — Executive daily STEM intelligence briefing\n"
         "• `/watchlist` — Keyword & technology real-time alerts\n"
         "• `/trends` — SOTA breakthrough scoring & impact ranking\n"
@@ -69,7 +93,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• `/search <keyword>` — Search collected articles\n"
         "• `/saved` — View bookmarked articles\n"
         "• `/settings` — Notification preferences & quiet hours\n\n"
-        "*STEM Learning Academy (Phase 4):*\n"
+        "*STEM Learning Academy:*\n"
         "• `/learn <topic>` — Interactive multi-tier STEM lesson\n"
         "• `/roadmap <topic>` — 4-phase structured curriculum\n"
         "• `/quiz <topic>` — Interactive comprehension test\n"
@@ -84,11 +108,341 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• `/digest` — Daily intelligence summary"
     )
 
-    if update.effective_message:
+    markup = get_back_home_keyboard(back_target="menu:home", home_target="menu:home")
+
+    query = update.callback_query
+    if query and query.message:
+        await safe_edit_or_reply(update, help_text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
+    elif update.effective_message:
         await update.effective_message.reply_text(
             help_text,
             parse_mode=ParseMode.MARKDOWN,
+            reply_markup=markup,
+            disable_web_page_preview=True,
         )
+
+
+@authorized_only
+async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Central router handling 12-section main menu clicks, navigation, and sub-views."""
+    query = update.callback_query
+    if not query or not query.data:
+        return
+
+    user = update.effective_user
+    user_id = user.id if user else 0
+    data = query.data
+
+    # Debounce rapid clicks
+    if is_duplicate_callback(user_id, data):
+        await query.answer("⏳ Processing, please wait...", show_alert=False)
+        return
+
+    await query.answer()
+
+    # 1. Home / Main Menu Dashboard
+    if data in ("menu:home", "nav:home"):
+        stats = None
+        try:
+            session_factory = get_session_factory()
+            async with session_factory() as session:
+                repo = Repository(session)
+                stats = await repo.get_platform_stats(user_id=user_id)
+        except Exception:
+            pass
+        welcome_text = format_main_menu(user_name=user.first_name if user else "Researcher", stats=stats)
+        await safe_edit_or_reply(
+            update, welcome_text, reply_markup=get_main_menu_keyboard(), parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
+    # 2. Latest News
+    if data == "menu:news":
+        await send_article_view(update, category_slug="all", offset=0, is_edit=True)
+        return
+
+    # 3. Trending Technology
+    if data == "menu:trending":
+        scored = await automation_service.get_trending_developments(limit=5)
+        if not scored:
+            text = (
+                "📈 *High-Impact Trending STEM Breakthroughs*\n\n"
+                "No ranked articles available yet. Run `/collect` to fetch and analyze fresh developments!"
+            )
+        else:
+            text = format_trending_feed(scored)
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:home", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # 4. AI Intelligence Hub
+    if data == "menu:ai":
+        await safe_edit_or_reply(
+            update,
+            format_ai_hub_intro(),
+            reply_markup=get_ai_hub_keyboard(),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # 5. Research Papers (arXiv)
+    if data == "menu:research":
+        await send_article_view(update, source_type="arxiv", offset=0, is_edit=True)
+        return
+
+    # 6. Learn STEM Hub
+    if data == "menu:learn":
+        await safe_edit_or_reply(
+            update,
+            format_learn_hub_intro(),
+            reply_markup=get_learn_hub_keyboard(),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # 7. Project Ideas
+    if data == "menu:projects":
+        proj = await ai_service.recommend_project("robotics")
+        text = format_project_recommendation(proj)
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:home", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # 8. Technology Radar
+    if data == "menu:radar":
+        scored = await automation_service.get_trending_developments(limit=4)
+        radar_lines = [
+            "🎯 *STEM Technology Radar*\n",
+            "Autonomous radar classifying technologies into adoption horizons:\n",
+            "• *Adopt:* Large Language Models, PyTorch 2.x, Transformer Kernels",
+            "• *Trial:* Humanoid Robotics, Neuromorphic Chips, Vision-Language-Action (VLA)",
+            "• *Assess:* Quantum Error Mitigation, Room-Temp Superconductors, Fusion Energy",
+            "• *Hold:* Proprietary Monoliths, Unquantized Edge Models\n",
+            "📊 *Current Breakthrough Momentum:*",
+        ]
+        if scored:
+            for idx, (art, score) in enumerate(scored, 1):
+                clean_title = art.title[:75]
+                radar_lines.append(f"{idx}. *{clean_title}* — Score: `{score:.1f}`")
+        else:
+            radar_lines.append("Run `/collect` to calculate real-time radar velocity.")
+
+        await safe_edit_or_reply(
+            update,
+            "\n".join(radar_lines),
+            reply_markup=get_back_home_keyboard(back_target="menu:home", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # 9. Search Articles Hub
+    if data == "menu:search":
+        await safe_edit_or_reply(
+            update,
+            format_search_intro(),
+            reply_markup=get_search_shortcuts_keyboard(),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # 10. Saved Items / Bookmarks
+    if data == "menu:saved":
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            repo = Repository(session)
+            saved = await repo.get_saved_articles(user_id=user_id, limit=10)
+
+        if not saved:
+            text = (
+                "⭐ *Your Saved Articles & Research*\n\n"
+                "You haven't bookmarked any articles yet.\n\n"
+                "Tap the *⭐ Bookmark* button on any article card to save it here for later!"
+            )
+        else:
+            lines = ["⭐ *Your Saved Articles & Research Papers:*\n"]
+            for idx, art in enumerate(saved, 1):
+                source_name = art.source.name if art.source else "Tech"
+                lines.append(f"{idx}. [{art.title}]({art.url})\n   Source: _{source_name}_\n")
+            text = "\n".join(lines)
+
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:home", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # 11. My Interests / Subscribed Domains
+    if data == "menu:interests":
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            repo = Repository(session)
+            pref = await repo.get_or_create_preference(user_id)
+            active_slugs = [s.strip() for s in (pref.preferred_categories or "").split(",") if s.strip()]
+
+        text = (
+            "🏷️ *My STEM Domain Subscriptions*\n\n"
+            "Select the disciplines you want prioritized in your briefings, digests, and recommendations.\n\n"
+            f"Active Subscriptions: *{pref.preferred_categories or 'All STEM Domains'}*\n\n"
+            "Tap below to toggle active subscriptions:"
+        )
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_interests_keyboard(active_slugs),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # 12. Settings
+    if data == "menu:settings":
+        await settings_command(update, context)
+        return
+
+    # 13. Help & Guide
+    if data == "menu:help":
+        await help_command(update, context)
+        return
+
+    # --- Sub-views for AI Hub ---
+    if data == "menu:ai_summarize":
+        articles = await news_service.get_recent_news(limit=1)
+        if not articles:
+            text = "No articles found to summarize. Run `/collect` first!"
+        else:
+            summary = await ai_service.summarize_news(articles[0], mode="intermediate")
+            text = format_news_summary(summary)
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:ai", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    if data == "menu:ai_explain":
+        text = (
+            "💡 *STEM AI Concept Explainer*\n\n"
+            "To break down any scientific, engineering, or mathematical concept:\n\n"
+            "Type: `/explain <concept>`\n\n"
+            "*Examples:*\n"
+            "• `/explain Transformer Architecture`\n"
+            "• `/explain Quantum Entanglement`\n"
+            "• `/explain Zero Knowledge Proofs`\n"
+            "• `/explain Kalman Filters`"
+        )
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:ai", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    if data == "menu:ai_impact":
+        articles = await news_service.get_recent_news(limit=1)
+        if not articles:
+            text = "No articles found to analyze impact. Run `/collect` first!"
+        else:
+            impact = await ai_service.analyze_impact(articles[0])
+            text = format_impact_analysis(impact)
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:ai", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    if data == "menu:ai_content":
+        articles = await news_service.get_recent_news(limit=1)
+        if not articles:
+            text = "No articles found. Run `/collect` first!"
+        else:
+            pkg = await ai_service.generate_stem_content(articles[0])
+            text = format_stem_content(pkg)[:4000]
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:ai", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # --- Sub-views for Learn Hub ---
+    if data == "menu:roadmaps":
+        text = (
+            "🗺️ *STEM Engineering Roadmaps*\n\n"
+            "Structured curricula taking you from fundamental theory to production implementations.\n\n"
+            "Type `/roadmap <topic>` to generate a 4-phase curriculum:\n\n"
+            "• `/roadmap Robotics`\n"
+            "• `/roadmap Artificial Intelligence`\n"
+            "• `/roadmap Quantum Computing`\n"
+            "• `/roadmap Cybersecurity`"
+        )
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:learn", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    if data == "menu:progress":
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            repo = Repository(session)
+            history = await repo.get_user_learning_history(user_id=user_id)
+
+        if not history:
+            text = (
+                "🏆 *Your Learning Progress*\n\n"
+                "You haven't completed any lessons or quizzes yet.\n\n"
+                "Explore the Academy via `/learn` or `/quiz` to begin tracking your mastery!"
+            )
+        else:
+            lines = ["🏆 *Your STEM Mastery Track:*\n"]
+            for item in history:
+                pct = int((item.quiz_score_total / item.quiz_score_max * 100)) if item.quiz_score_max > 0 else 0
+                lines.append(
+                    f"• *{item.topic.title()}* (`{item.level.capitalize()}`)\n"
+                    f"  Lessons: `{item.lessons_completed}` | Quizzes: `{item.quizzes_taken}` (Score: `{pct}%`)\n"
+                )
+            text = "\n".join(lines)
+
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:learn", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # --- Search Shortcut Callbacks (search_kw:<keyword>) ---
+    if data.startswith("search_kw:"):
+        keyword = data.split(":", 1)[1]
+        session_factory = get_session_factory()
+        async with session_factory() as session:
+            repo = Repository(session)
+            found = await repo.search_articles(query=keyword, limit=5)
+
+        text = format_search_results(query=keyword, articles=found)
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:search", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:

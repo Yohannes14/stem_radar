@@ -8,7 +8,13 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from app.bot.filters.auth import authorized_only
-from app.bot.keyboards.inline import get_article_keyboard, get_category_keyboard
+from app.bot.keyboards.inline import (
+    get_article_keyboard,
+    get_category_keyboard,
+    get_explanation_keyboard,
+    get_search_pagination_keyboard,
+)
+from app.bot.keyboards.navigation import get_back_home_keyboard
 from app.bot.ui.formatters import (
     chunk_message,
     format_article_view,
@@ -16,10 +22,12 @@ from app.bot.ui.formatters import (
     format_impact_analysis,
     format_news_summary,
     format_paper_analysis,
-    format_search_results,
+    format_related_articles,
+    format_search_results_page,
     format_sources_list,
     format_stem_content,
 )
+from app.bot.ui.menu import safe_edit_or_reply
 from app.services.ai import ai_service
 from app.services.news_service import NewsService
 
@@ -40,7 +48,7 @@ async def send_article_view(
     user_id = user.id if user else 0
 
     articles = await news_service.get_recent_news(
-        limit=10,
+        limit=15,
         offset=0,
         category_slug=category_slug if category_slug != "all" else None,
         source_slug=source_slug,
@@ -78,17 +86,66 @@ async def send_article_view(
         total=len(articles),
         category_slug=category_slug,
         is_saved=is_saved,
+        title=current_article.title,
     )
 
     if is_edit and update.callback_query and update.callback_query.message:
         try:
             await update.callback_query.message.edit_text(
-                text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup
+                text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup, disable_web_page_preview=True
             )
         except Exception:
             pass
     elif update.effective_message:
-        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
+        await update.effective_message.reply_text(
+            text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup, disable_web_page_preview=True
+        )
+
+
+SEARCH_PAGE_SIZE = 5
+
+
+async def send_search_view(
+    update: Update,
+    query: str,
+    page: int = 0,
+    is_edit: bool = False,
+) -> None:
+    """Display paginated search results for a keyword query."""
+    clean_query = query.strip()
+    if not clean_query:
+        return
+
+    total_count = await news_service.count_news(query=clean_query)
+    total_pages = max(1, (total_count + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE)
+    safe_page = max(0, min(page, total_pages - 1))
+
+    articles = await news_service.get_recent_news(
+        limit=SEARCH_PAGE_SIZE,
+        offset=safe_page * SEARCH_PAGE_SIZE,
+        query=clean_query,
+    )
+
+    text = format_search_results_page(
+        query=clean_query,
+        articles=articles,
+        page=safe_page,
+        total_pages=total_pages,
+        total_count=total_count,
+    )
+    reply_markup = get_search_pagination_keyboard(
+        query=clean_query,
+        page=safe_page,
+        total_pages=total_pages,
+    )
+
+    await safe_edit_or_reply(
+        update,
+        text,
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.MARKDOWN,
+        disable_web_page_preview=True,
+    )
 
 
 # ------------------ Command Handlers ------------------
@@ -179,7 +236,7 @@ async def collect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 @authorized_only
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Search articles by keyword."""
+    """Search articles by keyword with interactive pagination."""
     if not context.args:
         if update.effective_message:
             await update.effective_message.reply_text(
@@ -189,11 +246,7 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     query = " ".join(context.args)
-    results = await news_service.search_news(query=query, limit=5)
-    msg = format_search_results(query, results)
-
-    if update.effective_message:
-        await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
+    await send_search_view(update, query=query, page=0, is_edit=False)
 
 
 @authorized_only
@@ -363,6 +416,113 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             is_now_saved = await news_service.toggle_save_article(user.id, article_id)
             status_text = "Article added to bookmarks ⭐" if is_now_saved else "Article removed from bookmarks 🗑️"
             await query.answer(status_text)
+            article = await news_service.get_article_by_id(article_id)
+            if article and query.message and query.message.reply_markup:
+                # Re-render keyboard with toggled saved status
+                new_markup = get_article_keyboard(
+                    article_id=article.id,
+                    url=article.url,
+                    offset=0,
+                    total=1,
+                    category_slug=article.categories[0].slug if article.categories else None,
+                    is_saved=is_now_saved,
+                    title=article.title,
+                )
+                try:
+                    await query.message.edit_reply_markup(reply_markup=new_markup)
+                except Exception:
+                    pass
+        return
+
+    if data.startswith("ai_exp:"):
+        article_id = int(data.split(":", 1)[1])
+        article = await news_service.get_article_by_id(article_id)
+        if article:
+            concept_name = article.categories[0].name if article.categories else article.title[:45]
+            explanation = await ai_service.explain_concept(concept_name, mode="intermediate")
+            exp_text = f"🧠 *AI Concept Breakdown for:*\n_{article.title[:75]}..._\n\n" + format_concept_explanation(
+                explanation
+            )
+            markup = get_explanation_keyboard(article.id, current_mode="intermediate")
+            await safe_edit_or_reply(
+                update,
+                exp_text,
+                reply_markup=markup,
+                parse_mode=ParseMode.MARKDOWN,
+                disable_web_page_preview=True,
+            )
+        return
+
+    if data.startswith("exp_mode:"):
+        parts = data.split(":")
+        article_id = int(parts[1])
+        mode = parts[2]
+        article = await news_service.get_article_by_id(article_id)
+        if article:
+            concept_name = article.categories[0].name if article.categories else article.title[:45]
+            explanation = await ai_service.explain_concept(concept_name, mode=mode)
+            exp_text = (
+                f"🧠 *AI Concept Breakdown ({mode.capitalize()}):*\n_{article.title[:75]}..._\n\n"
+                + format_concept_explanation(explanation)
+            )
+            markup = get_explanation_keyboard(article.id, current_mode=mode)
+            await safe_edit_or_reply(
+                update,
+                exp_text,
+                reply_markup=markup,
+                parse_mode=ParseMode.MARKDOWN,
+                disable_web_page_preview=True,
+            )
+        return
+
+    if data.startswith("rel:"):
+        article_id = int(data.split(":", 1)[1])
+        article = await news_service.get_article_by_id(article_id)
+        if article:
+            related = await news_service.get_related_articles(article_id, limit=4)
+            text = format_related_articles(article, related)
+            markup = get_back_home_keyboard(back_target=f"back_art:{article_id}", home_target="menu:home")
+            await safe_edit_or_reply(
+                update,
+                text,
+                reply_markup=markup,
+                parse_mode=ParseMode.MARKDOWN,
+                disable_web_page_preview=True,
+            )
+        return
+
+    if data.startswith("back_art:"):
+        article_id = int(data.split(":", 1)[1])
+        article = await news_service.get_article_by_id(article_id)
+        if article:
+            user = update.effective_user
+            user_id = user.id if user else 0
+            saved = await news_service.get_saved_articles(user_id=user_id, limit=50)
+            is_saved = article.id in {a.id for a in saved}
+            text = format_article_view(article, index=0, total=1)
+            markup = get_article_keyboard(
+                article_id=article.id,
+                url=article.url,
+                offset=0,
+                total=1,
+                category_slug=article.categories[0].slug if article.categories else None,
+                is_saved=is_saved,
+                title=article.title,
+            )
+            await safe_edit_or_reply(
+                update,
+                text,
+                reply_markup=markup,
+                parse_mode=ParseMode.MARKDOWN,
+                disable_web_page_preview=True,
+            )
+        return
+
+    if data.startswith("s_nav:"):
+        parts = data.split(":")
+        query_kw = parts[1]
+        page = int(parts[2]) if len(parts) > 2 else 0
+        await send_search_view(update, query=query_kw, page=page, is_edit=True)
         return
 
     if data.startswith("ai_sum:"):

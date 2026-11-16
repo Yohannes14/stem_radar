@@ -154,3 +154,31 @@ class NewsService:
         async with self.session_factory() as session:
             repo = Repository(session)
             return await repo.get_saved_articles(user_id=user_id, limit=limit)
+
+    async def count_news(
+        self,
+        category_slug: Optional[str] = None,
+        source_slug: Optional[str] = None,
+        source_type: Optional[str] = None,
+        query: Optional[str] = None,
+    ) -> int:
+        """Count articles matching filters."""
+        async with self.session_factory() as session:
+            repo = Repository(session)
+            return await repo.count_articles(
+                category_slug=category_slug,
+                source_slug=source_slug,
+                source_type=source_type,
+                query=query,
+            )
+
+    async def get_related_articles(self, article_id: int, limit: int = 4) -> List[Article]:
+        """Fetch related articles based on category and domain overlap."""
+        async with self.session_factory() as session:
+            repo = Repository(session)
+            art = await repo.get_article_by_id(article_id)
+            if not art:
+                return []
+            primary_slug = art.categories[0].slug if art.categories else None
+            recent = await repo.get_recent_articles(limit=limit + 1, category_slug=primary_slug)
+            return [a for a in recent if a.id != article_id][:limit]
