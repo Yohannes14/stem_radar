@@ -338,9 +338,7 @@ async def education_callback_router(update: Update, context: ContextTypes.DEFAUL
         # Next question button if available
         buttons = []
         if q_idx + 1 < total_q:
-            buttons.append(
-                [InlineKeyboardButton("➡️ Next Question", callback_data=f"qz_next:{topic}:{q_idx + 1}")]
-            )
+            buttons.append([InlineKeyboardButton("➡️ Next Question", callback_data=f"qz_next:{topic}:{q_idx + 1}")])
         else:
             buttons.append([InlineKeyboardButton("📊 View Learning Progress", callback_data="ed_prog")])
 
@@ -432,4 +430,3 @@ async def education_callback_router(update: Update, context: ContextTypes.DEFAUL
         if query.message:
             await query.message.reply_text(formatted, parse_mode=ParseMode.MARKDOWN)
         return
-

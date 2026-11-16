@@ -35,10 +35,12 @@ class ArxivCollector(BaseCollector):
             )
 
         super().__init__(source_name=source_name, source_slug=source_slug, url=url)
-        self.headers.update({
-            "User-Agent": "StemRadar/1.0 (+https://github.com/stem-radar; academic & research intelligence)",
-            "Accept": "application/atom+xml, application/xml, text/xml",
-        })
+        self.headers.update(
+            {
+                "User-Agent": "StemRadar/1.0 (+https://github.com/stem-radar; academic & research intelligence)",
+                "Accept": "application/atom+xml, application/xml, text/xml",
+            }
+        )
 
     async def collect(self) -> List[CollectedArticle]:
         """Fetch and parse research papers from the official arXiv query API."""
@@ -106,9 +108,7 @@ class ArxivCollector(BaseCollector):
 
                 # Format author list
                 authors = [
-                    a.get("name").strip()
-                    for a in entry.get("authors", [])
-                    if isinstance(a, dict) and a.get("name")
+                    a.get("name").strip() for a in entry.get("authors", []) if isinstance(a, dict) and a.get("name")
                 ]
                 if authors:
                     if len(authors) > 3:
@@ -135,9 +135,7 @@ class ArxivCollector(BaseCollector):
                 # Find PDF download link if present
                 pdf_link = None
                 for lk in entry.get("links", []):
-                    if isinstance(lk, dict) and (
-                        lk.get("title") == "pdf" or lk.get("type") == "application/pdf"
-                    ):
+                    if isinstance(lk, dict) and (lk.get("title") == "pdf" or lk.get("type") == "application/pdf"):
                         pdf_link = lk.get("href")
                         break
 

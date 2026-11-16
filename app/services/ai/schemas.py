@@ -206,4 +206,3 @@ class VocabularyGlossary(BaseModel):
 
     topic: str
     terms: List[VocabularyTerm] = Field(description="Glossary terms paired with precise definitions.")
-

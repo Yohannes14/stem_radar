@@ -84,4 +84,3 @@ class AICostTracker:
 
 
 cost_tracker = AICostTracker()
-

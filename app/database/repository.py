@@ -62,9 +62,7 @@ class Repository:
         await self.session.refresh(source)
         return source
 
-    async def update_source_health(
-        self, source_id: int, success: bool, error_message: Optional[str] = None
-    ) -> None:
+    async def update_source_health(self, source_id: int, success: bool, error_message: Optional[str] = None) -> None:
         """Update last collection time and error telemetry for a source."""
         stmt = select(Source).where(Source.id == source_id)
         result = await self.session.execute(stmt)
@@ -165,8 +163,9 @@ class Repository:
         category_slug: Optional[str] = None,
         source_slug: Optional[str] = None,
         source_type: Optional[str] = None,
+        query: Optional[str] = None,
     ) -> List[Article]:
-        """Fetch recent articles sorted by published_at or collected_at."""
+        """Fetch recent articles sorted by published_at or collected_at with optional filtering."""
         stmt = select(Article).options(selectinload(Article.source), selectinload(Article.categories))
 
         if category_slug:
@@ -179,6 +178,15 @@ class Repository:
             if source_type:
                 stmt = stmt.where(Source.source_type == source_type)
 
+        if query and query.strip():
+            search_pattern = f"%{query.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    Article.title.ilike(search_pattern),
+                    Article.description.ilike(search_pattern),
+                )
+            )
+
         stmt = (
             stmt.order_by(
                 Article.published_at.desc().nulls_last(),
@@ -190,6 +198,38 @@ class Repository:
 
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_articles(
+        self,
+        category_slug: Optional[str] = None,
+        source_slug: Optional[str] = None,
+        source_type: Optional[str] = None,
+        query: Optional[str] = None,
+    ) -> int:
+        """Count total articles matching optional category, source, or search criteria."""
+        stmt = select(func.count(Article.id.distinct()))
+
+        if category_slug:
+            stmt = stmt.join(Article.categories).where(Category.slug == category_slug)
+
+        if source_slug or source_type:
+            stmt = stmt.join(Article.source)
+            if source_slug:
+                stmt = stmt.where(Source.slug == source_slug)
+            if source_type:
+                stmt = stmt.where(Source.source_type == source_type)
+
+        if query and query.strip():
+            search_pattern = f"%{query.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    Article.title.ilike(search_pattern),
+                    Article.description.ilike(search_pattern),
+                )
+            )
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one() or 0
 
     async def get_article_by_id(self, article_id: int) -> Optional[Article]:
         """Fetch a single article by ID."""
@@ -288,9 +328,7 @@ class Repository:
             await self.session.refresh(progress)
         return progress
 
-    async def record_lesson_completion(
-        self, user_id: int, topic: str, level: str = "beginner"
-    ) -> UserLearningProgress:
+    async def record_lesson_completion(self, user_id: int, topic: str, level: str = "beginner") -> UserLearningProgress:
         """Increment completed lesson count and update level for a topic."""
         progress = await self.get_or_create_learning_progress(user_id, topic, level)
         progress.lessons_completed += 1
@@ -365,11 +403,7 @@ class Repository:
 
     async def get_user_watchlist(self, user_id: int) -> List[UserWatchlist]:
         """Fetch all watchlist items for a user ordered by keyword."""
-        stmt = (
-            select(UserWatchlist)
-            .where(UserWatchlist.user_id == user_id)
-            .order_by(UserWatchlist.keyword.asc())
-        )
+        stmt = select(UserWatchlist).where(UserWatchlist.user_id == user_id).order_by(UserWatchlist.keyword.asc())
         res = await self.session.execute(stmt)
         return list(res.scalars().all())
 
@@ -402,9 +436,7 @@ class Repository:
 
     # ------------------ Notification Logs & Duplicate Prevention ------------------
 
-    async def has_notification_been_sent(
-        self, user_id: int, article_id: Optional[int], notification_type: str
-    ) -> bool:
+    async def has_notification_been_sent(self, user_id: int, article_id: Optional[int], notification_type: str) -> bool:
         """Check if a specific notification was already dispatched to a user to prevent duplicates."""
         stmt = select(NotificationLog.id).where(
             NotificationLog.user_id == user_id,
@@ -486,9 +518,9 @@ class Repository:
     async def get_platform_stats(self, user_id: Optional[int] = None) -> dict:
         """Compute system telemetry and optionally user-specific intelligence statistics."""
         articles_count = (await self.session.execute(select(func.count(Article.id)))).scalar_one() or 0
-        sources_count = (await self.session.execute(
-            select(func.count(Source.id)).where(Source.is_active.is_(True))
-        )).scalar_one() or 0
+        sources_count = (
+            await self.session.execute(select(func.count(Source.id)).where(Source.is_active.is_(True)))
+        ).scalar_one() or 0
         categories_count = (await self.session.execute(select(func.count(Category.id)))).scalar_one() or 0
         total_delivered = (await self.session.execute(select(func.count(NotificationLog.id)))).scalar_one() or 0
 
@@ -500,18 +532,22 @@ class Repository:
         }
 
         if user_id is not None:
-            user_saved = (await self.session.execute(
-                select(func.count(SavedArticle.id)).where(SavedArticle.user_id == user_id)
-            )).scalar_one() or 0
-            user_watchlist_count = (await self.session.execute(
-                select(func.count(UserWatchlist.id)).where(UserWatchlist.user_id == user_id)
-            )).scalar_one() or 0
-            user_notifications = (await self.session.execute(
-                select(func.count(NotificationLog.id)).where(NotificationLog.user_id == user_id)
-            )).scalar_one() or 0
-            user_quizzes = (await self.session.execute(
-                select(func.sum(UserLearningProgress.quizzes_taken)).where(UserLearningProgress.user_id == user_id)
-            )).scalar_one() or 0
+            user_saved = (
+                await self.session.execute(select(func.count(SavedArticle.id)).where(SavedArticle.user_id == user_id))
+            ).scalar_one() or 0
+            user_watchlist_count = (
+                await self.session.execute(select(func.count(UserWatchlist.id)).where(UserWatchlist.user_id == user_id))
+            ).scalar_one() or 0
+            user_notifications = (
+                await self.session.execute(
+                    select(func.count(NotificationLog.id)).where(NotificationLog.user_id == user_id)
+                )
+            ).scalar_one() or 0
+            user_quizzes = (
+                await self.session.execute(
+                    select(func.sum(UserLearningProgress.quizzes_taken)).where(UserLearningProgress.user_id == user_id)
+                )
+            ).scalar_one() or 0
 
             stats["user_saved_articles"] = user_saved
             stats["user_watchlist_keywords"] = user_watchlist_count

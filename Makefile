@@ -1,4 +1,4 @@
-.PHONY: help install run collect init-db test lint format clean
+.PHONY: help install run run-api collect init-db test lint format clean
 
 VENV = .venv
 PYTHON = $(VENV)/bin/python
@@ -10,6 +10,7 @@ help:
 	@echo "STEM RADAR - Developer Commands"
 	@echo "  make install   Install dependencies into virtual environment"
 	@echo "  make run       Start the Telegram Bot"
+	@echo "  make run-api   Start the FastAPI REST server"
 	@echo "  make collect   Run a one-shot multi-source intelligence collection"
 	@echo "  make init-db   Initialize database schema and seed STEM categories"
 	@echo "  make test      Execute pytest automated test suite"
@@ -22,6 +23,9 @@ install:
 
 run:
 	$(PYTHON) bot.py
+
+run-api:
+	$(PYTHON) api.py
 
 collect:
 	$(PYTHON) bot.py --collect

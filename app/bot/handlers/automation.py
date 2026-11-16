@@ -140,9 +140,7 @@ async def trends_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     text = format_trending_feed(scored)
 
     if update.effective_message:
-        await update.effective_message.reply_text(
-            text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
-        )
+        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
 
 @authorized_only
@@ -218,13 +216,10 @@ async def automation_callback_router(update: Update, context: ContextTypes.DEFAU
         scored = await automation_service.get_trending_developments(limit=7)
         text = format_trending_feed(scored)
         if query.message:
-            await query.message.reply_text(
-                text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
-            )
+            await query.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
         return
 
     if data == "open_settings":
         await query.answer()
         await settings_command(update, context)
         return
-

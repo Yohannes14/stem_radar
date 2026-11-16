@@ -89,15 +89,10 @@ def format_sources_list(sources: list) -> str:
         else:
             status = "🟢 Healthy"
 
-        collected_time = (
-            s.last_collected_at.strftime("%b %d, %H:%M UTC")
-            if s.last_collected_at
-            else "Never"
-        )
+        collected_time = s.last_collected_at.strftime("%b %d, %H:%M UTC") if s.last_collected_at else "Never"
 
         lines.append(
-            f"• *{sanitize_markdown(s.name)}* (`{s.source_type}`)\n"
-            f"  Status: {status} | Last Run: `{collected_time}`"
+            f"• *{sanitize_markdown(s.name)}* (`{s.source_type}`)\n  Status: {status} | Last Run: `{collected_time}`"
         )
         if s.last_error and s.error_count and s.error_count > 0:
             safe_err = sanitize_markdown(s.last_error)[:90]
@@ -219,8 +214,7 @@ def format_stem_content(pkg) -> str:
         slides_str += f"*Slide {s.slide_number}: {sanitize_markdown(s.title)}*\n{bullets}\n\n"
 
     vocab_str = "\n".join(
-        f"• *{sanitize_markdown(v.term)}*: {sanitize_markdown(v.definition)}"
-        for v in pkg.technical_vocabulary
+        f"• *{sanitize_markdown(v.term)}*: {sanitize_markdown(v.definition)}" for v in pkg.technical_vocabulary
     )
 
     return (
@@ -340,8 +334,7 @@ def format_project_recommendation(proj) -> str:
 def format_vocabulary_glossary(glossary) -> str:
     """Format technical vocabulary glossary."""
     terms_str = "\n\n".join(
-        f"📖 *{sanitize_markdown(t.term)}*\n_{sanitize_markdown(t.definition)}_"
-        for t in glossary.terms
+        f"📖 *{sanitize_markdown(t.term)}*\n_{sanitize_markdown(t.definition)}_" for t in glossary.terms
     )
     return (
         f"📚 *Technical Vocabulary Glossary: {sanitize_markdown(glossary.topic)}*\n\n"
@@ -364,16 +357,8 @@ def format_learning_progress(progress_list: list) -> str:
 
     lines = ["📊 *Your STEM Learning Progress & Mastery:*\n"]
     for p in progress_list:
-        accuracy = (
-            f"{int((p.quiz_score_total / p.quiz_score_max) * 100)}%"
-            if p.quiz_score_max > 0
-            else "N/A"
-        )
-        studied_str = (
-            p.last_studied_at.strftime("%b %d, %Y")
-            if p.last_studied_at
-            else "Recent"
-        )
+        accuracy = f"{int((p.quiz_score_total / p.quiz_score_max) * 100)}%" if p.quiz_score_max > 0 else "N/A"
+        studied_str = p.last_studied_at.strftime("%b %d, %Y") if p.last_studied_at else "Recent"
         lines.append(
             f"• *{p.topic.upper()}* (`{p.level.upper()}`)\n"
             f"  Lessons Completed: `{p.lessons_completed}` | Quizzes: `{p.quizzes_taken}` (Accuracy: `{accuracy}`)\n"
@@ -543,15 +528,15 @@ def format_platform_stats(stats: dict) -> str:
     ]
 
     if "user_saved_articles" in stats:
-        lines.extend([
-            "👤 *Your Personal Intelligence Activity:*",
-            f"• Bookmarked Articles: `{stats.get('user_saved_articles', 0)}` (view with `/saved`)",
-            f"• Watchlist Keywords: `{stats.get('user_watchlist_keywords', 0)}` (manage with `/watchlist`)",
-            f"• Automated Alerts Received: `{stats.get('user_notifications_received', 0)}`",
-            f"• Interactive Quizzes Completed: `{stats.get('user_quizzes_taken', 0)}` (track with `/progress`)",
-        ])
+        lines.extend(
+            [
+                "👤 *Your Personal Intelligence Activity:*",
+                f"• Bookmarked Articles: `{stats.get('user_saved_articles', 0)}` (view with `/saved`)",
+                f"• Watchlist Keywords: `{stats.get('user_watchlist_keywords', 0)}` (manage with `/watchlist`)",
+                f"• Automated Alerts Received: `{stats.get('user_notifications_received', 0)}`",
+                f"• Interactive Quizzes Completed: `{stats.get('user_quizzes_taken', 0)}` (track with `/progress`)",
+            ]
+        )
 
     lines.append("\n_All pipelines active and healthy._")
     return "\n".join(lines)
-
-

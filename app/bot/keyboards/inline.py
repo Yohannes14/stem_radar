@@ -185,5 +185,3 @@ def get_briefing_keyboard() -> InlineKeyboardMarkup:
         ],
     ]
     return InlineKeyboardMarkup(buttons)
-
-
