@@ -91,4 +91,3 @@ async def test_list_research_papers(api_client: AsyncClient, test_session_factor
     assert res_filtered.status_code == 200
     filtered_data = res_filtered.json()
     assert filtered_data["pagination"]["total_items"] >= 1
-

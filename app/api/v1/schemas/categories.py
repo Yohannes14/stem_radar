@@ -21,4 +21,3 @@ class CategoryListResponse(BaseModel):
 
     items: List[CategoryDetailResponse] = Field(..., description="Array of STEM domains")
     total: int = Field(..., description="Total count of categories")
-

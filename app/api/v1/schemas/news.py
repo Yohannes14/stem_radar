@@ -52,4 +52,3 @@ class PaginatedNewsResponse(BaseModel):
 
     items: List[ArticleResponse] = Field(..., description="List of articles for the requested page")
     pagination: PaginationMeta = Field(..., description="Pagination metadata")
-

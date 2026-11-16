@@ -35,4 +35,3 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             duration_ms = (time.perf_counter() - start_time) * 1000.0
             logger.error("%s %s -> FAILED (%0.2f ms): %s", method, path, duration_ms, exc)
             raise
-

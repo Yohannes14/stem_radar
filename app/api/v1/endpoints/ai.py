@@ -2,8 +2,9 @@
 
 from fastapi import APIRouter, Depends, status
 
-from app.api.dependencies import get_ai_service, get_repository
+from app.api.dependencies import get_ai_service, get_repository, require_api_key
 from app.api.exceptions import EntityNotFoundException
+from app.api.middleware.rate_limit import ai_rate_limiter
 from app.api.v1.schemas.ai import (
     AIExplainRequest,
     AIExplainResponse,
@@ -14,7 +15,11 @@ from app.database.models import Article
 from app.database.repository import Repository
 from app.services.ai.service import AIService
 
-router = APIRouter(prefix="/ai", tags=["AI Intelligence"])
+router = APIRouter(
+    prefix="/ai",
+    tags=["AI Intelligence"],
+    dependencies=[Depends(require_api_key), Depends(ai_rate_limiter)],
+)
 
 
 @router.post(
@@ -66,4 +71,3 @@ async def explain_concept(
         context=payload.context,
     )
     return AIExplainResponse.model_validate(explanation)
-

@@ -57,4 +57,3 @@ async def test_application_lifespan_lifecycle():
                 mock_init.assert_awaited_once()
 
             mock_engine.dispose.assert_awaited_once()
-

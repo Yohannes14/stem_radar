@@ -30,4 +30,3 @@ class PaginatedResearchResponse(BaseModel):
 
     items: List[ResearchPaperResponse] = Field(..., description="List of research papers")
     pagination: PaginationMeta = Field(..., description="Pagination metadata")
-

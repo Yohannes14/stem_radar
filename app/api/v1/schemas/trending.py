@@ -21,4 +21,3 @@ class TrendingListResponse(BaseModel):
 
     items: List[TrendingItemResponse] = Field(..., description="Ranked list of developments")
     total: int = Field(..., description="Total items returned")
-

@@ -12,4 +12,3 @@ if __name__ == "__main__":
         reload=not settings.is_production,
         log_level=settings.log_level.lower(),
     )
-

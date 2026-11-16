@@ -45,4 +45,3 @@ async def get_trending(
         )
 
     return TrendingListResponse(items=items, total=len(items))
-

@@ -23,4 +23,3 @@ async def list_categories(
     categories = await repo.get_categories()
     items = [CategoryDetailResponse.model_validate(c) for c in categories]
     return CategoryListResponse(items=items, total=len(items))
-

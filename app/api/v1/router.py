@@ -13,7 +13,3 @@ v1_router.include_router(trending.router)
 v1_router.include_router(research.router)
 v1_router.include_router(categories.router)
 v1_router.include_router(ai.router)
-
-
-
-

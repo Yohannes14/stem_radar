@@ -79,4 +79,3 @@ async def get_article(
         raise EntityNotFoundException(message=f"Article with ID {article_id} not found.")
 
     return ArticleResponse.model_validate(article)
-

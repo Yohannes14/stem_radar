@@ -45,4 +45,3 @@ class PaginationMeta(BaseModel):
     total_pages: int = Field(..., ge=0, description="Total pages available")
     has_next: bool = Field(..., description="Whether a next page exists")
     has_prev: bool = Field(..., description="Whether a previous page exists")
-
