@@ -12,7 +12,18 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.config import settings
-from app.database.models import Base, Category, Source
+from app.database.models import (  # noqa: F401
+    Article,
+    ArticleCategory,
+    Base,
+    Category,
+    NotificationLog,
+    SavedArticle,
+    Source,
+    UserLearningProgress,
+    UserPreference,
+    UserWatchlist,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -118,21 +129,44 @@ async def get_session() -> AsyncGenerator[AsyncSession, None]:
 def _migrate_sqlite_schema(conn) -> None:
     """Safely apply non-destructive SQLite column additions for backward compatibility."""
     try:
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(sources)")
-        existing_cols = {row[1] for row in cursor.fetchall()}
-
-        if existing_cols:
-            if "last_collected_at" not in existing_cols:
-                cursor.execute("ALTER TABLE sources ADD COLUMN last_collected_at TIMESTAMP")
+        # 1. Sources migration
+        res = conn.exec_driver_sql("PRAGMA table_info(sources)")
+        sources_cols = {row[1] for row in res.fetchall()}
+        if sources_cols:
+            if "last_collected_at" not in sources_cols:
+                conn.exec_driver_sql("ALTER TABLE sources ADD COLUMN last_collected_at TIMESTAMP")
                 logger.info("Migrated schema: added sources.last_collected_at")
-            if "last_error" not in existing_cols:
-                cursor.execute("ALTER TABLE sources ADD COLUMN last_error TEXT")
+            if "last_error" not in sources_cols:
+                conn.exec_driver_sql("ALTER TABLE sources ADD COLUMN last_error TEXT")
                 logger.info("Migrated schema: added sources.last_error")
-            if "error_count" not in existing_cols:
-                cursor.execute("ALTER TABLE sources ADD COLUMN error_count INTEGER DEFAULT 0")
+            if "error_count" not in sources_cols:
+                conn.exec_driver_sql("ALTER TABLE sources ADD COLUMN error_count INTEGER DEFAULT 0")
                 logger.info("Migrated schema: added sources.error_count")
-        cursor.close()
+
+        # 2. User preferences migration
+        res = conn.exec_driver_sql("PRAGMA table_info(user_preferences)")
+        pref_cols = {row[1] for row in res.fetchall()}
+        if pref_cols:
+            if "quiet_hours_start" not in pref_cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE user_preferences ADD COLUMN quiet_hours_start VARCHAR(10) DEFAULT '22:00'"
+                )
+                logger.info("Migrated schema: added user_preferences.quiet_hours_start")
+            if "quiet_hours_end" not in pref_cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE user_preferences ADD COLUMN quiet_hours_end VARCHAR(10) DEFAULT '07:00'"
+                )
+                logger.info("Migrated schema: added user_preferences.quiet_hours_end")
+            if "high_impact_alerts_enabled" not in pref_cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE user_preferences ADD COLUMN high_impact_alerts_enabled BOOLEAN DEFAULT 1"
+                )
+                logger.info("Migrated schema: added user_preferences.high_impact_alerts_enabled")
+            if "weekly_report_enabled" not in pref_cols:
+                conn.exec_driver_sql(
+                    "ALTER TABLE user_preferences ADD COLUMN weekly_report_enabled BOOLEAN DEFAULT 1"
+                )
+                logger.info("Migrated schema: added user_preferences.weekly_report_enabled")
     except Exception as exc:
         logger.warning("Schema migration warning (ignored for non-sqlite or fresh db): %s", exc)
 

@@ -5,7 +5,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import desc, or_, select
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -13,10 +13,12 @@ from app.database.models import (
     Article,
     ArticleCategory,
     Category,
+    NotificationLog,
     SavedArticle,
     Source,
     UserLearningProgress,
     UserPreference,
+    UserWatchlist,
 )
 from app.processors.deduplicator import normalize_url
 
@@ -320,3 +322,200 @@ class Repository:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    # ------------------ Watchlists ------------------
+
+    async def add_watchlist_keyword(self, user_id: int, keyword: str) -> Tuple[UserWatchlist, bool]:
+        """Add a keyword/technology to the user's watchlist.
+        Returns (UserWatchlist, created: bool).
+        """
+        clean_kw = keyword.strip().lower()
+        if not clean_kw:
+            raise ValueError("Watchlist keyword cannot be empty")
+
+        stmt = select(UserWatchlist).where(
+            UserWatchlist.user_id == user_id,
+            UserWatchlist.keyword == clean_kw,
+        )
+        res = await self.session.execute(stmt)
+        existing = res.scalar_one_or_none()
+        if existing:
+            return existing, False
+
+        item = UserWatchlist(user_id=user_id, keyword=clean_kw)
+        self.session.add(item)
+        await self.session.commit()
+        await self.session.refresh(item)
+        return item, True
+
+    async def remove_watchlist_keyword(self, user_id: int, keyword: str) -> bool:
+        """Remove a keyword from user's watchlist. Returns True if deleted, False if not found."""
+        clean_kw = keyword.strip().lower()
+        stmt = select(UserWatchlist).where(
+            UserWatchlist.user_id == user_id,
+            UserWatchlist.keyword == clean_kw,
+        )
+        res = await self.session.execute(stmt)
+        item = res.scalar_one_or_none()
+        if item:
+            await self.session.delete(item)
+            await self.session.commit()
+            return True
+        return False
+
+    async def get_user_watchlist(self, user_id: int) -> List[UserWatchlist]:
+        """Fetch all watchlist items for a user ordered by keyword."""
+        stmt = (
+            select(UserWatchlist)
+            .where(UserWatchlist.user_id == user_id)
+            .order_by(UserWatchlist.keyword.asc())
+        )
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def clear_user_watchlist(self, user_id: int) -> int:
+        """Clear all watchlist keywords for a user. Returns count of deleted items."""
+        stmt = select(UserWatchlist).where(UserWatchlist.user_id == user_id)
+        res = await self.session.execute(stmt)
+        items = list(res.scalars().all())
+        count = len(items)
+        for item in items:
+            await self.session.delete(item)
+        if count > 0:
+            await self.session.commit()
+        return count
+
+    async def get_all_watchlists(self) -> List[UserWatchlist]:
+        """Fetch all user watchlist items across the system."""
+        stmt = select(UserWatchlist)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def increment_watchlist_matches(self, watchlist_id: int) -> None:
+        """Increment match count for a watchlist item."""
+        stmt = select(UserWatchlist).where(UserWatchlist.id == watchlist_id)
+        res = await self.session.execute(stmt)
+        item = res.scalar_one_or_none()
+        if item:
+            item.match_count += 1
+            await self.session.commit()
+
+    # ------------------ Notification Logs & Duplicate Prevention ------------------
+
+    async def has_notification_been_sent(
+        self, user_id: int, article_id: Optional[int], notification_type: str
+    ) -> bool:
+        """Check if a specific notification was already dispatched to a user to prevent duplicates."""
+        stmt = select(NotificationLog.id).where(
+            NotificationLog.user_id == user_id,
+            NotificationLog.notification_type == notification_type,
+        )
+        if article_id is not None:
+            stmt = stmt.where(NotificationLog.article_id == article_id)
+        else:
+            stmt = stmt.where(NotificationLog.article_id.is_(None))
+
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none() is not None
+
+    async def log_notification(
+        self,
+        user_id: int,
+        article_id: Optional[int],
+        notification_type: str,
+        status: str = "delivered",
+    ) -> NotificationLog:
+        """Record notification delivery status."""
+        log_entry = NotificationLog(
+            user_id=user_id,
+            article_id=article_id,
+            notification_type=notification_type,
+            status=status,
+            delivered_at=datetime.now(timezone.utc),
+        )
+        self.session.add(log_entry)
+        try:
+            await self.session.commit()
+            await self.session.refresh(log_entry)
+        except Exception:
+            await self.session.rollback()
+            stmt = select(NotificationLog).where(
+                NotificationLog.user_id == user_id,
+                NotificationLog.article_id == article_id,
+                NotificationLog.notification_type == notification_type,
+            )
+            res = await self.session.execute(stmt)
+            existing = res.scalar_one_or_none()
+            if existing:
+                return existing
+            raise
+        return log_entry
+
+    async def get_user_notification_logs(self, user_id: int, limit: int = 20) -> List[NotificationLog]:
+        """Fetch delivery logs for a user."""
+        stmt = (
+            select(NotificationLog)
+            .where(NotificationLog.user_id == user_id)
+            .order_by(desc(NotificationLog.delivered_at))
+            .limit(limit)
+        )
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    # ------------------ Preferences Update & Bulk Query ------------------
+
+    async def update_user_preference(self, user_id: int, **kwargs) -> UserPreference:
+        """Update user preferences."""
+        pref = await self.get_or_create_preference(user_id)
+        for key, val in kwargs.items():
+            if hasattr(pref, key):
+                setattr(pref, key, val)
+        pref.updated_at = datetime.now(timezone.utc)
+        await self.session.commit()
+        await self.session.refresh(pref)
+        return pref
+
+    async def get_all_active_preferences(self) -> List[UserPreference]:
+        """Fetch all user preferences with notifications enabled."""
+        stmt = select(UserPreference).where(UserPreference.notifications_enabled.is_(True))
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    # ------------------ Platform & Telemetry Statistics ------------------
+
+    async def get_platform_stats(self, user_id: Optional[int] = None) -> dict:
+        """Compute system telemetry and optionally user-specific intelligence statistics."""
+        articles_count = (await self.session.execute(select(func.count(Article.id)))).scalar_one() or 0
+        sources_count = (await self.session.execute(
+            select(func.count(Source.id)).where(Source.is_active.is_(True))
+        )).scalar_one() or 0
+        categories_count = (await self.session.execute(select(func.count(Category.id)))).scalar_one() or 0
+        total_delivered = (await self.session.execute(select(func.count(NotificationLog.id)))).scalar_one() or 0
+
+        stats = {
+            "total_articles": articles_count,
+            "active_sources": sources_count,
+            "stem_categories": categories_count,
+            "total_notifications_sent": total_delivered,
+        }
+
+        if user_id is not None:
+            user_saved = (await self.session.execute(
+                select(func.count(SavedArticle.id)).where(SavedArticle.user_id == user_id)
+            )).scalar_one() or 0
+            user_watchlist_count = (await self.session.execute(
+                select(func.count(UserWatchlist.id)).where(UserWatchlist.user_id == user_id)
+            )).scalar_one() or 0
+            user_notifications = (await self.session.execute(
+                select(func.count(NotificationLog.id)).where(NotificationLog.user_id == user_id)
+            )).scalar_one() or 0
+            user_quizzes = (await self.session.execute(
+                select(func.sum(UserLearningProgress.quizzes_taken)).where(UserLearningProgress.user_id == user_id)
+            )).scalar_one() or 0
+
+            stats["user_saved_articles"] = user_saved
+            stats["user_watchlist_keywords"] = user_watchlist_count
+            stats["user_notifications_received"] = user_notifications
+            stats["user_quizzes_taken"] = user_quizzes
+
+        return stats

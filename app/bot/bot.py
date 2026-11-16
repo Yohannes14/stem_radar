@@ -5,6 +5,13 @@ import logging
 from telegram.ext import Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler
 from telegram.request import HTTPXRequest
 
+from app.bot.handlers.automation import (
+    automation_callback_router,
+    briefing_command,
+    stats_command,
+    trends_command,
+    watchlist_command,
+)
 from app.bot.handlers.base import error_handler, help_command, start_command
 from app.bot.handlers.content import digest_command, ideas_command, trending_command
 from app.bot.handlers.education import (
@@ -44,7 +51,7 @@ logger = logging.getLogger(__name__)
 async def on_startup(application: Application) -> None:
     """Lifecycle hook executed after bot initialization."""
     logger.info("Starting background intelligence scheduler alongside bot...")
-    scheduler.start()
+    scheduler.start(bot=application.bot)
 
 
 async def on_shutdown(application: Application) -> None:
@@ -113,8 +120,25 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("vocabulary", vocabulary_command))
     app.add_handler(CommandHandler("progress", progress_command))
 
+    # Phase 5: Personalization & Automation Commands
+    app.add_handler(CommandHandler("briefing", briefing_command))
+    app.add_handler(CommandHandler("watchlist", watchlist_command))
+    app.add_handler(CommandHandler("trends", trends_command))
+    app.add_handler(CommandHandler("stats", stats_command))
+
     # Interactive inline callbacks
-    app.add_handler(CallbackQueryHandler(settings_callback_router, pattern="^(toggle_notif|pref_cat:.*)$"))
+    app.add_handler(
+        CallbackQueryHandler(
+            settings_callback_router,
+            pattern="^(toggle_notif|toggle_impact|toggle_weekly|pref_cat:.*)$",
+        )
+    )
+    app.add_handler(
+        CallbackQueryHandler(
+            automation_callback_router,
+            pattern="^(wl_rm:.*|wl_clear|refresh_briefing|nav_trends|open_settings)$",
+        )
+    )
     app.add_handler(CallbackQueryHandler(education_callback_router, pattern="^(qz_|ed_)"))
     app.add_handler(CallbackQueryHandler(callback_router))
 

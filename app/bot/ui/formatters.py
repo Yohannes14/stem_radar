@@ -2,6 +2,7 @@
 
 import html
 import re
+from datetime import datetime, timezone
 from typing import List
 
 CATEGORY_EMOJIS = {
@@ -380,6 +381,177 @@ def format_learning_progress(progress_list: list) -> str:
         )
 
     lines.append("Keep learning with `/learn` or test your skills with `/quiz`!")
+    return "\n".join(lines)
+
+
+def format_daily_briefing(articles: list, user_name: str = "", category_filter: str = "") -> str:
+    """Format an executive daily STEM intelligence briefing."""
+    today_str = datetime.now(timezone.utc).strftime("%A, %B %d, %Y")
+    filter_label = f" ({sanitize_markdown(category_filter)})" if category_filter else ""
+    user_greet = f" for *{sanitize_markdown(user_name)}*" if user_name else ""
+
+    lines = [
+        f"☀️ *STEM RADAR Daily Executive Briefing*{user_greet}",
+        f"📅 _{today_str}_{filter_label}\n",
+    ]
+
+    if not articles:
+        lines.append("No new high-priority developments recorded today. Run `/collect` to fetch updates.")
+        return "\n".join(lines)
+
+    lines.append("Here are today's top curated technological breakthroughs:\n")
+    for i, a in enumerate(articles[:5], 1):
+        source = sanitize_markdown(a.source.name if a.source else "STEM")
+        cat = a.categories[0].name if a.categories else "Technology"
+        emoji = CATEGORY_EMOJIS.get(a.categories[0].slug if a.categories else "", "⚡")
+        safe_title = sanitize_markdown(a.title)
+        raw_desc = a.description or ""
+        safe_desc = sanitize_markdown(raw_desc)
+        short_desc = safe_desc[:140].rsplit(" ", 1)[0] + "..." if len(safe_desc) > 140 else safe_desc
+
+        lines.append(f"*{i}. {emoji} [{safe_title}]({a.url})*")
+        lines.append(f"   _{cat}_ | Source: _{source}_")
+        if short_desc:
+            lines.append(f"   {short_desc}")
+        lines.append("")
+
+    lines.append("💡 _Run `/trends` for live scoring or `/digest` for deep AI synthesis._")
+    return "\n".join(lines)
+
+
+def format_weekly_report(articles: list, total_collected: int = 0, domain_breakdown: dict = None) -> str:
+    """Format weekly intelligence report summarizing key breakthroughs across STEM domains."""
+    today_str = datetime.now(timezone.utc).strftime("%b %d, %Y")
+
+    lines = [
+        "🌐 *STEM RADAR Weekly Intelligence Report*",
+        f"📅 _Week Ending: {today_str}_\n",
+        f"📊 *Weekly Activity:* `{total_collected}` items monitored across STEM domains.\n",
+    ]
+
+    if domain_breakdown:
+        lines.append("📈 *Top Active Domains:*")
+        for dom, count in list(domain_breakdown.items())[:5]:
+            lines.append(f"• *{sanitize_markdown(dom)}:* `{count}` developments")
+        lines.append("")
+
+    if articles:
+        lines.append("🏆 *High-Impact Breakthroughs of the Week:*\n")
+        for i, a in enumerate(articles[:5], 1):
+            source = sanitize_markdown(a.source.name if a.source else "Tech")
+            cat = a.categories[0].name if a.categories else "STEM"
+            safe_title = sanitize_markdown(a.title)
+            lines.append(f"{i}. *{cat}:* [{safe_title}]({a.url}) (_{source}_)")
+        lines.append("")
+
+    lines.append("Use `/briefing` for daily briefings or `/settings` to personalize subscriptions.")
+    return "\n".join(lines)
+
+
+def format_watchlist(watchlist: list) -> str:
+    """Format user keyword and technology watchlist."""
+    if not watchlist:
+        return (
+            "🔭 *Your STEM Watchlist is Empty*\n\n"
+            "Track technologies, models, and breakthroughs in real-time.\n\n"
+            "• `/watchlist add <keyword>` — Add technology to watch\n"
+            "  _Example:_ `/watchlist add humanoid`\n"
+            "  _Example:_ `/watchlist add quantum`\n"
+            "• `/watchlist remove <keyword>` — Stop tracking a keyword\n"
+            "• `/watchlist clear` — Clear all watched keywords"
+        )
+
+    lines = [
+        "🔭 *Your Active STEM Watchlist*\n",
+        "We notify you immediately when an article or paper matches these keywords:\n",
+    ]
+    for w in watchlist:
+        lines.append(f"• `#{w.keyword}` — `{w.match_count}` matches found")
+
+    lines.append("\nCommands:")
+    lines.append("• `/watchlist add <keyword>` to track more")
+    lines.append("• `/watchlist remove <keyword>` to remove")
+    lines.append("• `/watchlist clear` to reset")
+    return "\n".join(lines)
+
+
+def format_watchlist_alert(article, matched_keyword: str) -> str:
+    """Format real-time watchlist match alert."""
+    source = sanitize_markdown(article.source.name if article.source else "STEM")
+    safe_title = sanitize_markdown(article.title)
+    raw_desc = article.description or ""
+    safe_desc = sanitize_markdown(raw_desc)
+    if len(safe_desc) > 250:
+        safe_desc = safe_desc[:247].rsplit(" ", 1)[0] + "..."
+
+    return (
+        f"🚨 *WATCHLIST ALERT: #{sanitize_markdown(matched_keyword.upper())}*\n\n"
+        f"*{safe_title}*\n"
+        f"Source: _{source}_\n\n"
+        f"{safe_desc}\n\n"
+        f"🔗 [Read Full Article]({article.url})\n"
+        "Manage your keywords anytime with `/watchlist`."
+    )
+
+
+def format_high_impact_alert(article, score: float) -> str:
+    """Format real-time high-impact development alert."""
+    source = sanitize_markdown(article.source.name if article.source else "STEM")
+    safe_title = sanitize_markdown(article.title)
+    cat = article.categories[0].name if article.categories else "STEM"
+    raw_desc = article.description or ""
+    safe_desc = sanitize_markdown(raw_desc)
+    if len(safe_desc) > 250:
+        safe_desc = safe_desc[:247].rsplit(" ", 1)[0] + "..."
+
+    return (
+        f"⚡ *HIGH-IMPACT STEM BREAKTHROUGH* (Score: `{score}/100`)\n\n"
+        f"🏷️ *Domain:* *{cat}* | Source: _{source}_\n\n"
+        f"*{safe_title}*\n\n"
+        f"{safe_desc}\n\n"
+        f"🔗 [Read Full Source]({article.url})\n"
+        "Configure alerts and quiet hours with `/settings`."
+    )
+
+
+def format_trending_feed(scored_articles: list) -> str:
+    """Format trending STEM developments feed ranked by impact score."""
+    if not scored_articles:
+        return "📈 No trending articles scored yet. Run `/collect` to ingest new intelligence."
+
+    lines = ["📈 *Trending STEM Breakthroughs & SOTA Developments:*\n"]
+    for i, (art, score) in enumerate(scored_articles[:7], 1):
+        cat = art.categories[0].name if art.categories else "Technology"
+        emoji = CATEGORY_EMOJIS.get(art.categories[0].slug if art.categories else "", "🚀")
+        source = sanitize_markdown(art.source.name if art.source else "News")
+        safe_title = sanitize_markdown(art.title)
+        lines.append(f"{i}. {emoji} *{cat}* — `{score}/100`\n   [{safe_title}]({art.url})\n   Source: _{source}_\n")
+
+    lines.append("Ranked by recency, breakthrough milestone keywords, and research depth.")
+    return "\n".join(lines)
+
+
+def format_platform_stats(stats: dict) -> str:
+    """Format system telemetry and user intelligence statistics."""
+    lines = [
+        "📊 *STEM RADAR Intelligence Telemetry & Platform Stats*\n",
+        "🌐 *Global Platform Scope:*",
+        f"• Tracked Articles & Papers: `{stats.get('total_articles', 0):,}`",
+        f"• Active Ingestion Sources: `{stats.get('active_sources', 0)}`",
+        f"• STEM Categories Monitored: `{stats.get('stem_categories', 0)}`",
+        f"• Total Notifications Dispatched: `{stats.get('total_notifications_sent', 0):,}`\n",
+    ]
+
+    if "user_saved_articles" in stats:
+        lines.extend([
+            "👤 *Your Personal Intelligence Activity:*",
+            f"• Bookmarked Articles: `{stats.get('user_saved_articles', 0)}` (view with `/saved`)",
+            f"• Watchlist Keywords: `{stats.get('user_watchlist_keywords', 0)}` (manage with `/watchlist`)",
+            f"• Automated Alerts Received: `{stats.get('user_notifications_received', 0)}`",
+            f"• Interactive Quizzes Completed: `{stats.get('user_quizzes_taken', 0)}` (track with `/progress`)",
+        ])
+
+    lines.append("\n_All pipelines active and healthy._")
     return "\n".join(lines)
 
 

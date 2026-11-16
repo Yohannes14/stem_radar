@@ -134,7 +134,7 @@ class SavedArticle(Base):
 
 
 class UserPreference(Base):
-    """User preferences for digest, notifications, and preferred categories."""
+    """User preferences for digest, notifications, quiet hours, and domain subscriptions."""
 
     __tablename__ = "user_preferences"
 
@@ -143,12 +143,59 @@ class UserPreference(Base):
     preferred_categories: Mapped[str] = mapped_column(String(500), default="", nullable=False)
     digest_time: Mapped[str] = mapped_column(String(10), default="08:00", nullable=False)
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    quiet_hours_start: Mapped[str] = mapped_column(String(10), default="22:00", nullable=False)
+    quiet_hours_end: Mapped[str] = mapped_column(String(10), default="07:00", nullable=False)
+    high_impact_alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    weekly_report_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+
+class UserWatchlist(Base):
+    """Keywords and emerging technology watchlists tracked by users."""
+
+    __tablename__ = "user_watchlists"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    keyword: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    match_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "keyword", name="uq_user_watchlist_keyword"),)
+
+    def __repr__(self) -> str:
+        return f"<UserWatchlist(user_id={self.user_id}, keyword='{self.keyword}', matches={self.match_count})>"
+
+
+class NotificationLog(Base):
+    """Delivery log tracking automated notifications to prevent duplicates and monitor telemetry."""
+
+    __tablename__ = "notification_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    article_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("articles.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    notification_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(30), default="delivered", nullable=False)
+    delivered_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False, index=True
+    )
+
+    article: Mapped[Optional["Article"]] = relationship("Article")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "article_id", "notification_type", name="uq_user_article_notification"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<NotificationLog(user_id={self.user_id}, type='{self.notification_type}', status='{self.status}')>"
 
 
 class UserLearningProgress(Base):

@@ -2,32 +2,29 @@
 
 import logging
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from app.bot.filters.auth import authorized_only
+from app.bot.keyboards.inline import get_settings_panel_keyboard
 from app.database.database import get_session_factory
 from app.database.repository import Repository
 
 logger = logging.getLogger(__name__)
 
 
-def get_settings_keyboard(notifications_enabled: bool) -> InlineKeyboardMarkup:
+def get_settings_keyboard(
+    notifications_enabled: bool,
+    high_impact_enabled: bool = True,
+    weekly_reports_enabled: bool = True,
+) -> InlineKeyboardMarkup:
     """Build inline keyboard for managing user preferences."""
-    notif_btn = "🔔 Notifications: ON" if notifications_enabled else "🔕 Notifications: OFF"
-    buttons = [
-        [InlineKeyboardButton(notif_btn, callback_data="toggle_notif")],
-        [
-            InlineKeyboardButton("🌐 Preferred: All STEM", callback_data="pref_cat:all"),
-            InlineKeyboardButton("🤖 AI Only", callback_data="pref_cat:ai"),
-        ],
-        [
-            InlineKeyboardButton("🦾 Robotics Only", callback_data="pref_cat:robotics"),
-            InlineKeyboardButton("💻 Software Only", callback_data="pref_cat:cs"),
-        ],
-    ]
-    return InlineKeyboardMarkup(buttons)
+    return get_settings_panel_keyboard(
+        notifications_enabled=notifications_enabled,
+        high_impact_enabled=high_impact_enabled,
+        weekly_reports_enabled=weekly_reports_enabled,
+    )
 
 
 @authorized_only
@@ -43,22 +40,32 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         pref = await repo.get_or_create_preference(user.id)
 
     status_str = "Enabled 🟢" if pref.notifications_enabled else "Disabled 🔴"
+    impact_str = "Enabled 🟢" if pref.high_impact_alerts_enabled else "Disabled 🔴"
+    weekly_str = "Enabled 🟢" if pref.weekly_report_enabled else "Disabled 🔴"
     cats_str = pref.preferred_categories or "All Categories"
+    quiet_str = f"`{pref.quiet_hours_start}` to `{pref.quiet_hours_end}` UTC"
 
     text = (
         f"⚙️ *STEM RADAR User Settings*\n\n"
         f"👤 *User ID:* `{user.id}`\n"
         f"🔔 *Daily Digest & Alerts:* {status_str}\n"
-        f"⏰ *Digest Time:* `{pref.digest_time}` UTC\n"
-        f"🗂️ *Active Filter:* `{cats_str}`\n\n"
-        "Tap the buttons below to toggle your preferences:"
+        f"⚡ *High-Impact Alerts:* {impact_str}\n"
+        f"🌐 *Weekly Intelligence Report:* {weekly_str}\n"
+        f"⏰ *Scheduled Digest Time:* `{pref.digest_time}` UTC\n"
+        f"🌙 *Quiet Hours:* {quiet_str}\n"
+        f"🗂️ *Active Subscribed Domain:* `{cats_str}`\n\n"
+        "Tap the buttons below to toggle your notification & domain subscriptions:"
     )
 
     if update.effective_message:
         await update.effective_message.reply_text(
             text,
             parse_mode=ParseMode.MARKDOWN,
-            reply_markup=get_settings_keyboard(pref.notifications_enabled),
+            reply_markup=get_settings_keyboard(
+                pref.notifications_enabled,
+                pref.high_impact_alerts_enabled,
+                pref.weekly_report_enabled,
+            ),
         )
 
 
@@ -82,13 +89,52 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             pref = await repo.get_or_create_preference(user.id)
             pref.notifications_enabled = not pref.notifications_enabled
             await session.commit()
-            new_state = pref.notifications_enabled
+            notif_state = pref.notifications_enabled
+            impact_state = pref.high_impact_alerts_enabled
+            weekly_state = pref.weekly_report_enabled
 
-        status_text = "Notifications turned ON 🔔" if new_state else "Notifications turned OFF 🔕"
+        status_text = "Notifications turned ON 🔔" if notif_state else "Notifications turned OFF 🔕"
         await query.answer(status_text)
-
         if query.message:
-            await query.message.edit_reply_markup(reply_markup=get_settings_keyboard(new_state))
+            await query.message.edit_reply_markup(
+                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
+            )
+        return
+
+    if data == "toggle_impact":
+        async with session_factory() as session:
+            repo = Repository(session)
+            pref = await repo.get_or_create_preference(user.id)
+            pref.high_impact_alerts_enabled = not pref.high_impact_alerts_enabled
+            await session.commit()
+            notif_state = pref.notifications_enabled
+            impact_state = pref.high_impact_alerts_enabled
+            weekly_state = pref.weekly_report_enabled
+
+        status_text = "High-impact alerts ON ⚡" if impact_state else "High-impact alerts OFF"
+        await query.answer(status_text)
+        if query.message:
+            await query.message.edit_reply_markup(
+                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
+            )
+        return
+
+    if data == "toggle_weekly":
+        async with session_factory() as session:
+            repo = Repository(session)
+            pref = await repo.get_or_create_preference(user.id)
+            pref.weekly_report_enabled = not pref.weekly_report_enabled
+            await session.commit()
+            notif_state = pref.notifications_enabled
+            impact_state = pref.high_impact_alerts_enabled
+            weekly_state = pref.weekly_report_enabled
+
+        status_text = "Weekly report ON 🌐" if weekly_state else "Weekly report OFF"
+        await query.answer(status_text)
+        if query.message:
+            await query.message.edit_reply_markup(
+                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
+            )
         return
 
     if data.startswith("pref_cat:"):
@@ -99,5 +145,5 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             pref.preferred_categories = cat
             await session.commit()
 
-        await query.answer(f"Preferred category set to: {cat}")
+        await query.answer(f"Subscribed domain set to: {cat}")
         return

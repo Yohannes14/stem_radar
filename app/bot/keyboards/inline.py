@@ -121,3 +121,69 @@ def get_education_topics_keyboard() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(buttons)
 
+
+# ------------------ Phase 5: Personalization & Automation Keyboards ------------------
+
+
+def get_settings_panel_keyboard(
+    notifications_enabled: bool,
+    high_impact_enabled: bool = True,
+    weekly_reports_enabled: bool = True,
+) -> InlineKeyboardMarkup:
+    """Build interactive preference management panel with toggle controls."""
+    notif_btn = "🔔 Notifications: ON" if notifications_enabled else "🔕 Notifications: OFF"
+    impact_btn = "⚡ High-Impact Alerts: ON" if high_impact_enabled else "⚡ High-Impact Alerts: OFF"
+    weekly_btn = "🌐 Weekly Report: ON" if weekly_reports_enabled else "🌐 Weekly Report: OFF"
+
+    buttons = [
+        [InlineKeyboardButton(notif_btn, callback_data="toggle_notif")],
+        [InlineKeyboardButton(impact_btn, callback_data="toggle_impact")],
+        [InlineKeyboardButton(weekly_btn, callback_data="toggle_weekly")],
+        [
+            InlineKeyboardButton("🤖 AI", callback_data="pref_cat:ai"),
+            InlineKeyboardButton("🦾 Robotics", callback_data="pref_cat:robotics"),
+            InlineKeyboardButton("💻 CS / Dev", callback_data="pref_cat:computer-science"),
+        ],
+        [
+            InlineKeyboardButton("🛡️ CyberSec", callback_data="pref_cat:cybersecurity"),
+            InlineKeyboardButton("⚛️ Physics", callback_data="pref_cat:physics"),
+            InlineKeyboardButton("🌐 All STEM", callback_data="pref_cat:all"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_watchlist_keyboard(keywords: list) -> InlineKeyboardMarkup:
+    """Interactive removal controls for active watchlist keywords."""
+    buttons: List[List[InlineKeyboardButton]] = []
+    # Up to 4 individual remove buttons
+    row: List[InlineKeyboardButton] = []
+    for item in keywords[:4]:
+        kw = item.keyword if hasattr(item, "keyword") else str(item)
+        row.append(InlineKeyboardButton(f"❌ #{kw}", callback_data=f"wl_rm:{kw}"))
+        if len(row) == 2:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+
+    if keywords:
+        buttons.append([InlineKeyboardButton("🗑️ Clear All Watchlist", callback_data="wl_clear")])
+
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_briefing_keyboard() -> InlineKeyboardMarkup:
+    """Interactive controls attached to the daily executive briefing."""
+    buttons = [
+        [
+            InlineKeyboardButton("📈 View Trending SOTA", callback_data="nav_trends"),
+            InlineKeyboardButton("🔄 Refresh Briefing", callback_data="refresh_briefing"),
+        ],
+        [
+            InlineKeyboardButton("⚙️ Notification Settings", callback_data="open_settings"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
