@@ -111,18 +111,22 @@ class NewsService:
         limit: int = 5,
         offset: int = 0,
         category_slug: Optional[str] = None,
+        category_slugs: Optional[List[str]] = None,
         source_slug: Optional[str] = None,
         source_type: Optional[str] = None,
+        query: Optional[str] = None,
     ) -> List[Article]:
-        """Fetch latest news articles with optional category, source, or type filters."""
+        """Fetch latest news articles with optional category, source, type, or query filters."""
         async with self.session_factory() as session:
             repo = Repository(session)
             return await repo.get_recent_articles(
                 limit=limit,
                 offset=offset,
                 category_slug=category_slug,
+                category_slugs=category_slugs,
                 source_slug=source_slug,
                 source_type=source_type,
+                query=query,
             )
 
     async def get_article_by_id(self, article_id: int) -> Optional[Article]:
@@ -158,6 +162,7 @@ class NewsService:
     async def count_news(
         self,
         category_slug: Optional[str] = None,
+        category_slugs: Optional[List[str]] = None,
         source_slug: Optional[str] = None,
         source_type: Optional[str] = None,
         query: Optional[str] = None,
@@ -167,6 +172,7 @@ class NewsService:
             repo = Repository(session)
             return await repo.count_articles(
                 category_slug=category_slug,
+                category_slugs=category_slugs,
                 source_slug=source_slug,
                 source_type=source_type,
                 query=query,

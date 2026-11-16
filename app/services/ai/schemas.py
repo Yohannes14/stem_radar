@@ -196,6 +196,14 @@ class ProjectRecommendation(BaseModel):
     problem_statement: str = Field(description="The realistic problem the project solves.")
     system_architecture: str = Field(description="Component diagram and data flow description.")
     tech_stack: List[str] = Field(description="Recommended libraries, languages, and frameworks.")
+    required_skills: List[str] = Field(default_factory=list, description="Required skills and prerequisites.")
+    components_and_materials: List[str] = Field(
+        default_factory=list, description="Hardware/software components, APIs, and materials."
+    )
+    estimated_cost: str = Field(
+        default="Free / Open-Source (assumes workstation and public APIs)",
+        description="Estimated cost with explicit assumptions.",
+    )
     step_by_step_milestones: List[str] = Field(description="Phased implementation steps.")
     stretch_goals: List[str] = Field(description="Advanced extensions for top-tier portfolios.")
     portfolio_impact: str = Field(description="What this demonstrates to engineering hiring managers.")

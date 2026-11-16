@@ -7,11 +7,13 @@ from telegram import Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
-from app.bot.filters.auth import authorized_only
+from app.bot.filters.auth import admin_only, authorized_only
 from app.bot.keyboards.inline import (
     get_article_keyboard,
     get_category_keyboard,
+    get_concept_mode_keyboard,
     get_explanation_keyboard,
+    get_paper_analysis_keyboard,
     get_search_pagination_keyboard,
 )
 from app.bot.keyboards.navigation import get_back_home_keyboard
@@ -77,6 +79,10 @@ async def send_article_view(
     saved_articles = await news_service.get_saved_articles(user_id=user_id, limit=50)
     saved_ids = {a.id for a in saved_articles}
     is_saved = current_article.id in saved_ids
+    is_paper = bool(
+        current_article.source
+        and (current_article.source.source_type == "arxiv" or "arxiv" in current_article.source.slug.lower())
+    )
 
     text = format_article_view(current_article, index=safe_offset, total=len(articles))
     reply_markup = get_article_keyboard(
@@ -87,6 +93,7 @@ async def send_article_view(
         category_slug=category_slug,
         is_saved=is_saved,
         title=current_article.title,
+        is_paper=is_paper,
     )
 
     if is_edit and update.callback_query and update.callback_query.message:
@@ -208,7 +215,7 @@ async def sources_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
 
-@authorized_only
+@admin_only
 async def collect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Trigger manual collection from all active sources."""
     status_msg = None
@@ -302,11 +309,12 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     explanation = await ai_service.explain_concept(concept_name, mode=mode)
     text = format_concept_explanation(explanation)
+    markup = get_concept_mode_keyboard(concept_name, current_mode=mode)
 
     if status_msg:
-        await status_msg.edit_text(text, parse_mode=ParseMode.MARKDOWN)
+        await status_msg.edit_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=markup)
     elif update.effective_message:
-        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
+        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=markup)
 
 
 @authorized_only
@@ -491,6 +499,38 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             )
         return
 
+    if data.startswith("ai_paper:"):
+        article_id = int(data.split(":", 1)[1])
+        article = await news_service.get_article_by_id(article_id)
+        if article:
+            analysis = await ai_service.analyze_research_paper(article)
+            text = format_paper_analysis(analysis)
+            markup = get_paper_analysis_keyboard(article.id)
+            await safe_edit_or_reply(
+                update,
+                text,
+                reply_markup=markup,
+                parse_mode=ParseMode.MARKDOWN,
+                disable_web_page_preview=True,
+            )
+        return
+
+    if data.startswith("c_mode:"):
+        parts = data.split(":")
+        concept_name = parts[1]
+        mode = parts[2]
+        explanation = await ai_service.explain_concept(concept_name, mode=mode)
+        text = format_concept_explanation(explanation)
+        markup = get_concept_mode_keyboard(concept_name, current_mode=mode)
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=markup,
+            parse_mode=ParseMode.MARKDOWN,
+            disable_web_page_preview=True,
+        )
+        return
+
     if data.startswith("back_art:"):
         article_id = int(data.split(":", 1)[1])
         article = await news_service.get_article_by_id(article_id)
@@ -499,6 +539,9 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             user_id = user.id if user else 0
             saved = await news_service.get_saved_articles(user_id=user_id, limit=50)
             is_saved = article.id in {a.id for a in saved}
+            is_paper = bool(
+                article.source and (article.source.source_type == "arxiv" or "arxiv" in article.source.slug.lower())
+            )
             text = format_article_view(article, index=0, total=1)
             markup = get_article_keyboard(
                 article_id=article.id,
@@ -508,6 +551,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 category_slug=article.categories[0].slug if article.categories else None,
                 is_saved=is_saved,
                 title=article.title,
+                is_paper=is_paper,
             )
             await safe_edit_or_reply(
                 update,

@@ -8,8 +8,10 @@ from telegram.request import HTTPXRequest
 from app.bot.handlers.automation import (
     automation_callback_router,
     briefing_command,
+    radar_command,
     stats_command,
     trends_command,
+    velocity_command,
     watchlist_command,
 )
 from app.bot.handlers.base import (
@@ -50,6 +52,14 @@ from app.bot.handlers.settings import (
     interests_command,
     settings_callback_router,
     settings_command,
+)
+from app.bot.handlers.user_management import (
+    ban_command,
+    delete_account_command,
+    export_command,
+    feedback_command,
+    privacy_command,
+    unban_command,
 )
 from app.config import settings
 from app.scheduler.jobs import scheduler
@@ -135,12 +145,22 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("watchlist", watchlist_command))
     app.add_handler(CommandHandler("trends", trends_command))
     app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler("radar", radar_command))
+    app.add_handler(CommandHandler("velocity", velocity_command))
+
+    # Phase 7: Public User Management, Privacy & Admin Moderation
+    app.add_handler(CommandHandler("feedback", feedback_command))
+    app.add_handler(CommandHandler("privacy", privacy_command))
+    app.add_handler(CommandHandler("export", export_command))
+    app.add_handler(CommandHandler("delete_account", delete_account_command))
+    app.add_handler(CommandHandler("ban", ban_command))
+    app.add_handler(CommandHandler("unban", unban_command))
 
     # Interactive inline callbacks
     app.add_handler(
         CallbackQueryHandler(
             main_menu_callback_router,
-            pattern="^(menu:.*|nav:home|search_kw:.*)$",
+            pattern="^(menu:.*|nav:home|search_kw:.*|radar_h:.*|prj_topic:.*)$",
         )
     )
     app.add_handler(
@@ -152,7 +172,7 @@ def create_bot_app() -> Application:
     app.add_handler(
         CallbackQueryHandler(
             automation_callback_router,
-            pattern="^(wl_rm:.*|wl_clear|refresh_briefing|nav_trends|open_settings)$",
+            pattern="^(wl_rm:.*|wl_clear|refresh_briefing|nav_trends|open_settings|radar_h:.*)$",
         )
     )
     app.add_handler(CallbackQueryHandler(education_callback_router, pattern="^(qz_|ed_)"))

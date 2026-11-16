@@ -8,7 +8,11 @@ from fastapi import APIRouter, Depends, Query, status
 from app.api.dependencies import get_repository
 from app.api.exceptions import EntityNotFoundException
 from app.api.v1.schemas.common import PaginationMeta
-from app.api.v1.schemas.news import ArticleResponse, PaginatedNewsResponse
+from app.api.v1.schemas.news import (
+    ArticleResponse,
+    PaginatedNewsResponse,
+    build_article_response,
+)
 from app.database.repository import Repository
 
 router = APIRouter(prefix="/news", tags=["News"])
@@ -58,7 +62,7 @@ async def list_news(
         has_prev=page > 1,
     )
 
-    items = [ArticleResponse.model_validate(a) for a in articles]
+    items = [build_article_response(a) for a in articles]
     return PaginatedNewsResponse(items=items, pagination=pagination)
 
 
@@ -78,4 +82,4 @@ async def get_article(
     if not article:
         raise EntityNotFoundException(message=f"Article with ID {article_id} not found.")
 
-    return ArticleResponse.model_validate(article)
+    return build_article_response(article)

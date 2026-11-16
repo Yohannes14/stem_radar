@@ -14,12 +14,13 @@ def get_article_keyboard(
     category_slug: Optional[str] = None,
     is_saved: bool = False,
     title: str = "",
+    is_paper: bool = False,
 ) -> InlineKeyboardMarkup:
     """Generate redesigned keyboard for an article with 5 action buttons and pagination.
 
     Actions:
     1. Read Original (external URL)
-    2. Explain with AI (interactive breakdown callback)
+    2. Explain with AI / Analyze Paper (interactive breakdown callback)
     3. Save / Bookmark (toggle callback)
     4. Share (native Telegram share sheet)
     5. Related Articles (category/topic discovery callback)
@@ -29,10 +30,13 @@ def get_article_keyboard(
     share_text = f"STEM Breakthrough: {title}" if title else "STEM Intelligence Article"
     share_url = f"https://t.me/share/url?url={quote(url)}&text={quote(share_text)}"
 
-    # Row 1: Read Original & AI Explainer
+    ai_action_text = "Analyze Paper 🔬" if is_paper else "Explain with AI 🧠"
+    ai_action_data = f"ai_paper:{article_id}" if is_paper else f"ai_exp:{article_id}"
+
+    # Row 1: Read Original & AI Explainer / Paper Analysis
     row1 = [
         InlineKeyboardButton("Read Original 🔗", url=url),
-        InlineKeyboardButton("Explain with AI 🧠", callback_data=f"ai_exp:{article_id}"),
+        InlineKeyboardButton(ai_action_text, callback_data=ai_action_data),
     ]
 
     # Row 2: Bookmark, Share, Related
@@ -58,6 +62,42 @@ def get_article_keyboard(
     ]
 
     return InlineKeyboardMarkup([row1, row2, row3, row4])
+
+
+def get_paper_analysis_keyboard(article_id: int) -> InlineKeyboardMarkup:
+    """Action keyboard attached to scientific research paper analysis."""
+    buttons = [
+        [
+            InlineKeyboardButton("💡 Concept Breakdown", callback_data=f"ai_exp:{article_id}"),
+            InlineKeyboardButton("🔍 Related Papers", callback_data=f"rel:{article_id}"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ Back to Paper", callback_data=f"back_art:{article_id}"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_concept_mode_keyboard(concept_name: str, current_mode: str = "intermediate") -> InlineKeyboardMarkup:
+    """Difficulty mode selector attached to standalone /explain command responses."""
+    b_mark = "• " if current_mode == "beginner" else ""
+    i_mark = "• " if current_mode == "intermediate" else ""
+    a_mark = "• " if current_mode == "advanced" else ""
+
+    short_concept = concept_name[:30].strip()
+
+    buttons = [
+        [
+            InlineKeyboardButton(f"{b_mark}🐣 Beginner", callback_data=f"c_mode:{short_concept}:beginner"),
+            InlineKeyboardButton(f"{i_mark}🧑‍💻 Intermediate", callback_data=f"c_mode:{short_concept}:intermediate"),
+            InlineKeyboardButton(f"{a_mark}🔬 Advanced", callback_data=f"c_mode:{short_concept}:advanced"),
+        ],
+        [
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
 
 
 def get_explanation_keyboard(article_id: int, current_mode: str = "intermediate") -> InlineKeyboardMarkup:
@@ -243,6 +283,57 @@ def get_briefing_keyboard() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("⚙️ Notification Settings", callback_data="open_settings"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_tech_radar_keyboard(current_horizon: str = "all") -> InlineKeyboardMarkup:
+    """Action keyboard for navigating Technology Radar adoption horizons."""
+    h = current_horizon.lower().strip()
+    adopt_mark = "• " if h == "adopt" else ""
+    trial_mark = "• " if h == "trial" else ""
+    assess_mark = "• " if h == "assess" else ""
+    hold_mark = "• " if h == "hold" else ""
+    all_mark = "• " if h in ("all", "") else ""
+
+    buttons = [
+        [
+            InlineKeyboardButton(f"{adopt_mark}🟢 Adopt", callback_data="radar_h:adopt"),
+            InlineKeyboardButton(f"{trial_mark}🟡 Trial", callback_data="radar_h:trial"),
+        ],
+        [
+            InlineKeyboardButton(f"{assess_mark}🔵 Assess", callback_data="radar_h:assess"),
+            InlineKeyboardButton(f"{hold_mark}🔴 Hold", callback_data="radar_h:hold"),
+        ],
+        [
+            InlineKeyboardButton(f"{all_mark}🌐 Full Radar", callback_data="radar_h:all"),
+            InlineKeyboardButton("🔄 Refresh Signals", callback_data="radar_h:refresh"),
+        ],
+        [
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_projects_hub_keyboard() -> InlineKeyboardMarkup:
+    """Action keyboard for generating practical engineering portfolio projects by domain."""
+    buttons = [
+        [
+            InlineKeyboardButton("🤖 AI & ML", callback_data="prj_topic:Artificial Intelligence"),
+            InlineKeyboardButton("🦾 Robotics", callback_data="prj_topic:Robotics"),
+        ],
+        [
+            InlineKeyboardButton("🛡️ CyberSec", callback_data="prj_topic:Cybersecurity"),
+            InlineKeyboardButton("⚡ Embedded", callback_data="prj_topic:Embedded Systems"),
+        ],
+        [
+            InlineKeyboardButton("💻 Software Systems", callback_data="prj_topic:Software Architecture"),
+            InlineKeyboardButton("⚛️ Quantum Computing", callback_data="prj_topic:Quantum Computing"),
+        ],
+        [
             InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
         ],
     ]

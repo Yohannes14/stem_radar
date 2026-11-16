@@ -34,10 +34,11 @@ env/
 
 # SQLite Database & Data
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
-data/*.db
-data/*.sqlite
+data/
 
 # Testing & Quality
 .pytest_cache/

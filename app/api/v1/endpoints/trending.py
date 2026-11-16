@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_automation_service, get_db_session
-from app.api.v1.schemas.news import ArticleResponse
+from app.api.v1.schemas.news import build_article_response
 from app.api.v1.schemas.trending import TrendingItemResponse, TrendingListResponse
 from app.services.automation_service import AutomationService
 
@@ -40,7 +40,7 @@ async def get_trending(
                 rank=rank,
                 score=score,
                 impact_level=impact,
-                article=ArticleResponse.model_validate(article),
+                article=build_article_response(article),
             )
         )
 

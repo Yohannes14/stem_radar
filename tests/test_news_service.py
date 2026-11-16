@@ -178,3 +178,43 @@ async def test_news_service_source_type_filtering(test_session_factory):
     github_articles = await service.get_recent_news(source_type="github")
     assert len(github_articles) == 1
     assert "autonomous-systems/core" in github_articles[0].title
+
+
+@pytest.mark.asyncio
+async def test_news_service_query_and_category_slugs_filtering(test_session_factory):
+    """Verify get_recent_news and count_news support keyword query and multi-category slug filters."""
+    service = NewsService(session_factory=test_session_factory)
+
+    async with test_session_factory() as session:
+        repo = Repository(session)
+        sources = await repo.get_sources()
+        cat_ai = await repo.get_category_by_slug("ai")
+        cat_rob = await repo.get_category_by_slug("robotics")
+
+        await repo.save_article(
+            title="Sparse Attention Kernel in Deep Learning",
+            url="https://example.com/sparse-kernel-test",
+            source_id=sources[0].id,
+            description="Transformer matrix multiplication optimization.",
+            category_ids=[cat_ai.id],
+        )
+        await repo.save_article(
+            title="Quadruped Robot Locomotion",
+            url="https://example.com/quadruped-test",
+            source_id=sources[0].id,
+            description="Bipedal balance kinematics.",
+            category_ids=[cat_rob.id],
+        )
+
+    # 1. Search with query="kernel"
+    kernel_articles = await service.get_recent_news(query="kernel")
+    assert len(kernel_articles) == 1
+    assert "Sparse Attention Kernel" in kernel_articles[0].title
+
+    kernel_count = await service.count_news(query="kernel")
+    assert kernel_count == 1
+
+    # 2. Filter with category_slugs=["robotics"]
+    rob_articles = await service.get_recent_news(category_slugs=["robotics"])
+    assert len(rob_articles) == 1
+    assert "Quadruped Robot" in rob_articles[0].title

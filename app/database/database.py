@@ -20,6 +20,8 @@ from app.database.models import (  # noqa: F401
     NotificationLog,
     SavedArticle,
     Source,
+    User,
+    UserFeedback,
     UserLearningProgress,
     UserPreference,
     UserWatchlist,
@@ -103,6 +105,9 @@ def get_engine() -> AsyncEngine:
             def set_sqlite_pragma(dbapi_connection, connection_record):
                 cursor = dbapi_connection.cursor()
                 cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA busy_timeout=5000")
+                cursor.execute("PRAGMA synchronous=NORMAL")
                 cursor.close()
 
     return _engine

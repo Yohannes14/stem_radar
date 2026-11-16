@@ -5,10 +5,11 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
-from sqlalchemy import desc, func, or_, select
+from sqlalchemy import delete, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import settings
 from app.database.models import (
     Article,
     ArticleCategory,
@@ -16,6 +17,8 @@ from app.database.models import (
     NotificationLog,
     SavedArticle,
     Source,
+    User,
+    UserFeedback,
     UserLearningProgress,
     UserPreference,
     UserWatchlist,
@@ -292,6 +295,29 @@ class Repository:
         await self.session.commit()
         return True
 
+    async def save_article_bookmark(self, user_id: int, article_id: int) -> bool:
+        """Explicitly add a bookmark for a user. Returns True if newly saved, False if already exists."""
+        stmt = select(SavedArticle).where(SavedArticle.user_id == user_id, SavedArticle.article_id == article_id)
+        result = await self.session.execute(stmt)
+        existing = result.scalar_one_or_none()
+        if existing:
+            return False
+        saved = SavedArticle(user_id=user_id, article_id=article_id)
+        self.session.add(saved)
+        await self.session.commit()
+        return True
+
+    async def remove_saved_article(self, user_id: int, article_id: int) -> bool:
+        """Remove a bookmark for a user. Returns True if removed, False if not found."""
+        stmt = select(SavedArticle).where(SavedArticle.user_id == user_id, SavedArticle.article_id == article_id)
+        result = await self.session.execute(stmt)
+        existing = result.scalar_one_or_none()
+        if existing:
+            await self.session.delete(existing)
+            await self.session.commit()
+            return True
+        return False
+
     async def get_saved_articles(self, user_id: int, limit: int = 10) -> List[Article]:
         """Fetch articles bookmarked by user."""
         stmt = (
@@ -347,6 +373,15 @@ class Repository:
         pref.updated_at = datetime.now(timezone.utc)
         await self.session.commit()
         return current_slugs, is_added
+
+    async def update_user_preferred_categories(self, user_id: int, category_slugs: List[str]) -> List[str]:
+        """Overwrite user subscribed category slugs with a validated list."""
+        pref = await self.get_or_create_preference(user_id)
+        cleaned_slugs = [s.strip().lower() for s in category_slugs if s.strip()]
+        pref.preferred_categories = ",".join(cleaned_slugs)
+        pref.updated_at = datetime.now(timezone.utc)
+        await self.session.commit()
+        return cleaned_slugs
 
     async def get_user_preferred_categories(self, user_id: int) -> List[str]:
         """Get list of active preferred category slugs for a user."""
@@ -574,12 +609,14 @@ class Repository:
         ).scalar_one() or 0
         categories_count = (await self.session.execute(select(func.count(Category.id)))).scalar_one() or 0
         total_delivered = (await self.session.execute(select(func.count(NotificationLog.id)))).scalar_one() or 0
+        users_count = (await self.session.execute(select(func.count(User.id)))).scalar_one() or 0
 
         stats = {
             "total_articles": articles_count,
             "active_sources": sources_count,
             "stem_categories": categories_count,
             "total_notifications_sent": total_delivered,
+            "total_users": users_count,
         }
 
         if user_id is not None:
@@ -606,3 +643,115 @@ class Repository:
             stats["user_quizzes_taken"] = user_quizzes
 
         return stats
+
+    # ------------------ Public User Management & Access Control ------------------
+
+    async def get_or_create_user(
+        self,
+        telegram_id: int,
+        username: Optional[str] = None,
+        first_name: Optional[str] = None,
+        last_name: Optional[str] = None,
+    ) -> Tuple[User, bool]:
+        """Fetch existing user or auto-register public user on first interaction."""
+        stmt = select(User).where(User.telegram_id == telegram_id)
+        result = await self.session.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        if user:
+            # Update last activity and profile if changed
+            user.last_active_at = datetime.now(timezone.utc)
+            if username and user.username != username:
+                user.username = username
+            if first_name and user.first_name != first_name:
+                user.first_name = first_name
+            if last_name and user.last_name != last_name:
+                user.last_name = last_name
+            await self.session.commit()
+            return user, False
+
+        # Pre-assign admin role if telegram_id is configured in settings
+        is_admin = bool(settings.allowed_user_ids and telegram_id in settings.allowed_user_ids)
+
+        new_user = User(
+            telegram_id=telegram_id,
+            username=username,
+            first_name=first_name,
+            last_name=last_name,
+            is_admin=is_admin,
+            is_active=True,
+            is_banned=False,
+        )
+        self.session.add(new_user)
+        await self.session.commit()
+        return new_user, True
+
+    async def get_user_by_telegram_id(self, telegram_id: int) -> Optional[User]:
+        """Fetch user by Telegram ID."""
+        stmt = select(User).where(User.telegram_id == telegram_id)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def is_user_admin(self, telegram_id: int) -> bool:
+        """Check if a user has administrative privileges."""
+        if settings.allowed_user_ids and telegram_id in settings.allowed_user_ids:
+            return True
+        user = await self.get_user_by_telegram_id(telegram_id)
+        return bool(user and user.is_admin)
+
+    async def set_user_ban_status(self, telegram_id: int, is_banned: bool) -> bool:
+        """Update user banned/blocked status."""
+        user = await self.get_user_by_telegram_id(telegram_id)
+        if not user:
+            return False
+        user.is_banned = is_banned
+        user.is_active = not is_banned
+        await self.session.commit()
+        return True
+
+    async def save_user_feedback(self, telegram_id: int, message: str, category: str = "general") -> UserFeedback:
+        """Store user feedback or issue report."""
+        fb = UserFeedback(user_id=telegram_id, category=category, message=message.strip())
+        self.session.add(fb)
+        await self.session.commit()
+        return fb
+
+    async def export_user_data(self, telegram_id: int) -> dict:
+        """Export all user-associated data for GDPR compliance / transparency."""
+        user = await self.get_user_by_telegram_id(telegram_id)
+        pref = await self.get_or_create_preference(telegram_id)
+        saved = await self.get_saved_articles(telegram_id, limit=100)
+        watchlist = await self.get_user_watchlist(telegram_id)
+        learning = await self.get_user_learning_history(telegram_id)
+
+        return {
+            "telegram_id": telegram_id,
+            "profile": {
+                "username": user.username if user else None,
+                "first_name": user.first_name if user else None,
+                "is_admin": user.is_admin if user else False,
+                "created_at": user.created_at.isoformat() if user else None,
+            },
+            "preferences": {
+                "preferred_categories": pref.preferred_categories,
+                "digest_time": pref.digest_time,
+                "notifications_enabled": pref.notifications_enabled,
+                "quiet_hours": f"{pref.quiet_hours_start} - {pref.quiet_hours_end}",
+                "high_impact_alerts": pref.high_impact_alerts_enabled,
+                "weekly_report": pref.weekly_report_enabled,
+            },
+            "saved_articles_count": len(saved),
+            "watchlist_keywords": [w.keyword for w in watchlist],
+            "learning_records_count": len(learning),
+        }
+
+    async def delete_user_data(self, telegram_id: int) -> dict:
+        """Permanently delete all user data across preferences, bookmarks, watchlists, and learning progress."""
+        await self.session.execute(delete(SavedArticle).where(SavedArticle.user_id == telegram_id))
+        await self.session.execute(delete(UserPreference).where(UserPreference.user_id == telegram_id))
+        await self.session.execute(delete(UserWatchlist).where(UserWatchlist.user_id == telegram_id))
+        await self.session.execute(delete(UserLearningProgress).where(UserLearningProgress.user_id == telegram_id))
+        await self.session.execute(delete(UserFeedback).where(UserFeedback.user_id == telegram_id))
+        await self.session.execute(delete(NotificationLog).where(NotificationLog.user_id == telegram_id))
+        await self.session.commit()
+        return {"status": "deleted", "telegram_id": telegram_id}

@@ -10,10 +10,13 @@ from app.bot.filters.auth import authorized_only
 from app.bot.handlers.settings import settings_command
 from app.bot.keyboards.inline import (
     get_briefing_keyboard,
+    get_tech_radar_keyboard,
     get_watchlist_keyboard,
 )
 from app.bot.ui.formatters import (
     format_platform_stats,
+    format_tech_radar,
+    format_trend_velocity,
     format_trending_feed,
     format_watchlist,
 )
@@ -160,6 +163,45 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 
 @authorized_only
+async def radar_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Display interactive STEM Technology Radar classified into 4 adoption horizons."""
+    raw_args = context.args or []
+    horizon = (
+        raw_args[0].lower()
+        if raw_args and raw_args[0].lower() in ("all", "adopt", "trial", "assess", "hold")
+        else "all"
+    )
+
+    scored = await automation_service.get_trending_developments(limit=5)
+    velocities = await automation_service.calculate_domain_velocity()
+
+    text = format_tech_radar(horizon=horizon, scored_articles=scored, domain_velocities=velocities)
+    markup = get_tech_radar_keyboard(current_horizon=horizon)
+
+    if update.effective_message:
+        await update.effective_message.reply_text(
+            text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=markup,
+            disable_web_page_preview=True,
+        )
+
+
+@authorized_only
+async def velocity_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Display evidence-based trend velocity and momentum indicators across STEM domains."""
+    velocities = await automation_service.calculate_domain_velocity()
+    text = format_trend_velocity(velocities)
+
+    if update.effective_message:
+        await update.effective_message.reply_text(
+            text,
+            parse_mode=ParseMode.MARKDOWN,
+            disable_web_page_preview=True,
+        )
+
+
+@authorized_only
 async def automation_callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Route callback queries from watchlist and briefing interactive buttons."""
     query = update.callback_query
@@ -222,4 +264,25 @@ async def automation_callback_router(update: Update, context: ContextTypes.DEFAU
     if data == "open_settings":
         await query.answer()
         await settings_command(update, context)
+        return
+
+    if data.startswith("radar_h:"):
+        horizon = data.split(":", 1)[1]
+        if horizon == "refresh":
+            horizon = "all"
+            await query.answer("Refreshing technology radar...")
+        else:
+            await query.answer(f"Horizon: {horizon.upper()}")
+
+        scored = await automation_service.get_trending_developments(limit=5)
+        velocities = await automation_service.calculate_domain_velocity()
+        text = format_tech_radar(horizon=horizon, scored_articles=scored, domain_velocities=velocities)
+        markup = get_tech_radar_keyboard(current_horizon=horizon)
+        if query.message:
+            await query.message.edit_text(
+                text,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=markup,
+                disable_web_page_preview=True,
+            )
         return

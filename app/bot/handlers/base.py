@@ -2,20 +2,27 @@
 
 import logging
 
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from app.bot.filters.auth import authorized_only
 from app.bot.handlers.news import send_article_view
 from app.bot.handlers.settings import settings_command
+from app.bot.keyboards.inline import (
+    get_projects_hub_keyboard,
+    get_quiz_keyboard,
+    get_tech_radar_keyboard,
+)
 from app.bot.keyboards.navigation import get_back_home_keyboard
 from app.bot.ui.formatters import (
     format_impact_analysis,
     format_news_summary,
     format_project_recommendation,
+    format_quiz_question,
     format_search_results,
     format_stem_content,
+    format_tech_radar,
     format_trending_feed,
 )
 from app.bot.ui.menu import (
@@ -87,6 +94,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• `/github` — Trending GitHub repositories\n\n"
         "*Search & Personalization:*\n"
         "• `/briefing` — Executive daily STEM intelligence briefing\n"
+        "• `/radar` — Interactive STEM Technology Radar (Adopt/Trial/Assess/Hold)\n"
         "• `/watchlist` — Keyword & technology real-time alerts\n"
         "• `/trends` — SOTA breakthrough scoring & impact ranking\n"
         "• `/stats` — Platform telemetry & intelligence metrics\n"
@@ -105,7 +113,12 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "• `/explain <concept>` — Multi-tier concept breakdown\n"
         "• `/impact` — Strategic technology assessment\n"
         "• `/ideas` — Transform news into STEM content opportunities\n"
-        "• `/digest` — Daily intelligence summary"
+        "• `/digest` — Daily intelligence summary\n\n"
+        "*User & Privacy:*\n"
+        "• `/feedback <text>` — Submit suggestions or report issues\n"
+        "• `/privacy` — View privacy policy & data rights\n"
+        "• `/export` — Export a copy of your stored personal data\n"
+        "• `/delete_account` — Permanently purge your stored profile data"
     )
 
     markup = get_back_home_keyboard(back_target="menu:home", home_target="menu:home")
@@ -204,41 +217,72 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
         )
         return
 
-    # 7. Project Ideas
+    # 7. Project Ideas Hub
     if data == "menu:projects":
-        proj = await ai_service.recommend_project("robotics")
-        text = format_project_recommendation(proj)
+        text = (
+            "💡 *STEM Portfolio Project Generator*\n\n"
+            "Build practical, production-ready engineering systems that prove your technical depth.\n\n"
+            "Select an engineering discipline below to generate a tailored project architecture, "
+            "tech stack, required skills, and portfolio milestones:\n\n"
+            "Or type `/project <topic>` for any custom discipline (e.g. `/project Autonomous Drone`)."
+        )
         await safe_edit_or_reply(
             update,
             text,
-            reply_markup=get_back_home_keyboard(back_target="menu:home", home_target="menu:home"),
+            reply_markup=get_projects_hub_keyboard(),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # Project Idea Topic Generation
+    if data.startswith("prj_topic:"):
+        topic = data.split(":", 1)[1]
+        proj = await ai_service.recommend_project(topic)
+        text = format_project_recommendation(proj)
+        action_keyboard = InlineKeyboardMarkup(
+            [
+                [
+                    InlineKeyboardButton("🔄 Another Idea", callback_data=f"prj_topic:{topic}"),
+                    InlineKeyboardButton("🗂️ Other Domains", callback_data="menu:projects"),
+                ],
+                [
+                    InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                ],
+            ]
+        )
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=action_keyboard,
             parse_mode=ParseMode.MARKDOWN,
         )
         return
 
     # 8. Technology Radar
     if data == "menu:radar":
-        scored = await automation_service.get_trending_developments(limit=4)
-        radar_lines = [
-            "🎯 *STEM Technology Radar*\n",
-            "Autonomous radar classifying technologies into adoption horizons:\n",
-            "• *Adopt:* Large Language Models, PyTorch 2.x, Transformer Kernels",
-            "• *Trial:* Humanoid Robotics, Neuromorphic Chips, Vision-Language-Action (VLA)",
-            "• *Assess:* Quantum Error Mitigation, Room-Temp Superconductors, Fusion Energy",
-            "• *Hold:* Proprietary Monoliths, Unquantized Edge Models\n",
-            "📊 *Current Breakthrough Momentum:*",
-        ]
-        if scored:
-            for idx, (art, score) in enumerate(scored, 1):
-                clean_title = art.title[:75]
-                radar_lines.append(f"{idx}. *{clean_title}* — Score: `{score:.1f}`")
-        else:
-            radar_lines.append("Run `/collect` to calculate real-time radar velocity.")
-
+        scored = await automation_service.get_trending_developments(limit=5)
+        velocities = await automation_service.calculate_domain_velocity()
+        text = format_tech_radar(horizon="all", scored_articles=scored, domain_velocities=velocities)
         await safe_edit_or_reply(
             update,
-            "\n".join(radar_lines),
-            reply_markup=get_back_home_keyboard(back_target="menu:home", home_target="menu:home"),
+            text,
+            reply_markup=get_tech_radar_keyboard(current_horizon="all"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    # Technology Radar Horizon Switcher
+    if data.startswith("radar_h:"):
+        horizon = data.split(":", 1)[1]
+        if horizon == "refresh":
+            horizon = "all"
+        scored = await automation_service.get_trending_developments(limit=5)
+        velocities = await automation_service.calculate_domain_velocity()
+        text = format_tech_radar(horizon=horizon, scored_articles=scored, domain_velocities=velocities)
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_tech_radar_keyboard(current_horizon=horizon),
             parse_mode=ParseMode.MARKDOWN,
         )
         return
@@ -388,6 +432,38 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
             "• `/roadmap Artificial Intelligence`\n"
             "• `/roadmap Quantum Computing`\n"
             "• `/roadmap Cybersecurity`"
+        )
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=get_back_home_keyboard(back_target="menu:learn", home_target="menu:home"),
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    if data == "menu:learn_quiz":
+        topic = "Artificial Intelligence"
+        quiz = await ai_service.generate_quiz(topic)
+        text = format_quiz_question(quiz, question_index=0)
+        markup = get_quiz_keyboard(topic, q_index=0, total_q=len(quiz.questions))
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=markup,
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+
+    if data == "menu:learn_compare":
+        text = (
+            "⚖️ *STEM Architectural Concept Comparison*\n\n"
+            "Compare two competing frameworks, architectures, or protocols side-by-side.\n\n"
+            "Use the `/compare` command with any two technologies:\n\n"
+            "• `/compare PyTorch vs JAX`\n"
+            "• `/compare REST vs gRPC`\n"
+            "• `/compare Monolith vs Microservices`\n"
+            "• `/compare Transformer vs Mamba`\n"
+            "• `/compare Kafka vs RabbitMQ`"
         )
         await safe_edit_or_reply(
             update,

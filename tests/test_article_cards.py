@@ -237,3 +237,37 @@ async def test_search_command_with_query_renders_paginated_results(mock_news_upd
     reply_call = mock_news_update.effective_message.reply_text.call_args[1]
     assert 'Search Results for "kernel"' in reply_call["text"]
     assert "Page `1` of `3`" in reply_call["text"]
+
+
+@pytest.mark.asyncio
+async def test_search_command_real_news_service_signature_integration(test_session_factory, mock_news_update):
+    """Verify search_command calls real news_service methods without signature errors."""
+    from app.database.repository import Repository
+    from app.services.news_service import NewsService
+
+    # Seed an article in SQLite test database
+    async with test_session_factory() as session:
+        repo = Repository(session)
+        sources = await repo.get_sources()
+        cat = await repo.get_category_by_slug("ai")
+        await repo.save_article(
+            title="Real-Time Sparse Transformer Optimization",
+            url="https://example.com/sparse-opt-real",
+            source_id=sources[0].id,
+            description="Hardware acceleration for transformer attention.",
+            category_ids=[cat.id],
+        )
+
+    real_service = NewsService(session_factory=test_session_factory)
+    mock_news_update.callback_query = None
+    context = MagicMock()
+    context.args = ["transformer"]
+
+    with patch("app.bot.handlers.news.news_service", real_service):
+        with patch.object(settings, "allowed_user_ids", [112233]):
+            await search_command(mock_news_update, context)
+
+    mock_news_update.effective_message.reply_text.assert_called_once()
+    reply_call = mock_news_update.effective_message.reply_text.call_args[1]
+    assert 'Search Results for "transformer"' in reply_call["text"]
+    assert "Real-Time Sparse Transformer Optimization" in reply_call["text"]

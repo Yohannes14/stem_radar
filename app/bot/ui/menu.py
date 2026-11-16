@@ -130,8 +130,32 @@ def get_learn_hub_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🛡️ Cybersecurity", callback_data="ed_learn:Cybersecurity"),
         ],
         [
+            InlineKeyboardButton("📝 Interactive Quiz", callback_data="menu:learn_quiz"),
+            InlineKeyboardButton("⚖️ Compare Concepts", callback_data="menu:learn_compare"),
+        ],
+        [
             InlineKeyboardButton("🗺️ Curated Roadmaps", callback_data="menu:roadmaps"),
             InlineKeyboardButton("🏆 Learning Progress", callback_data="menu:progress"),
+        ],
+        nav_back_home_row(back_target="menu:home", home_target="menu:home"),
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_projects_hub_keyboard() -> InlineKeyboardMarkup:
+    """Sub-menu keyboard for generating practical engineering portfolio projects."""
+    buttons = [
+        [
+            InlineKeyboardButton("🤖 AI & LLMs", callback_data="prj_topic:Artificial Intelligence"),
+            InlineKeyboardButton("🦾 Robotics", callback_data="prj_topic:Robotics"),
+        ],
+        [
+            InlineKeyboardButton("🛡️ CyberSec", callback_data="prj_topic:Cybersecurity"),
+            InlineKeyboardButton("⚡ Embedded Systems", callback_data="prj_topic:Embedded Systems"),
+        ],
+        [
+            InlineKeyboardButton("💻 Software Systems", callback_data="prj_topic:Software Architecture"),
+            InlineKeyboardButton("⚛️ Quantum Computing", callback_data="prj_topic:Quantum Computing"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]

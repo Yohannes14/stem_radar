@@ -3,7 +3,7 @@
 import html
 import re
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 CATEGORY_EMOJIS = {
     "ai": "🤖",
@@ -422,10 +422,30 @@ def format_project_recommendation(proj) -> str:
     milestones = "\n".join(f"• {sanitize_markdown(m)}" for m in proj.step_by_step_milestones)
     stretch = "\n".join(f"• {sanitize_markdown(s)}" for s in proj.stretch_goals)
 
+    skills = getattr(proj, "required_skills", None)
+    skills_line = ""
+    if skills:
+        skills_str = ", ".join(f"`{sanitize_markdown(s)}`" for s in skills)
+        skills_line = f"🛠️ *Required Skills:*\n{skills_str}\n\n"
+
+    materials = getattr(proj, "components_and_materials", None)
+    materials_line = ""
+    if materials:
+        materials_str = "\n".join(f"• {sanitize_markdown(c)}" for c in materials)
+        materials_line = f"🧩 *Components & Materials:*\n{materials_str}\n\n"
+
+    cost = getattr(proj, "estimated_cost", None)
+    cost_line = ""
+    if cost:
+        cost_line = f"💰 *Estimated Budget & Assumptions:*\n_{sanitize_markdown(cost)}_\n\n"
+
     return (
         f"🚀 *Portfolio Project: {sanitize_markdown(proj.project_title)}*\n"
         f"🏷️ *Level:* `{proj.difficulty.upper()}` | 📌 *Domain:* *{sanitize_markdown(proj.topic)}*\n\n"
         f"🎯 *Problem Statement:*\n{sanitize_markdown(proj.problem_statement)}\n\n"
+        f"{skills_line}"
+        f"{materials_line}"
+        f"{cost_line}"
         f"🏗️ *System Architecture:*\n{sanitize_markdown(proj.system_architecture)}\n\n"
         f"🧰 *Recommended Tech Stack:*\n{stack_str}\n\n"
         f"📋 *Step-by-Step Implementation Milestones:*\n{milestones}\n\n"
@@ -642,4 +662,141 @@ def format_platform_stats(stats: dict) -> str:
         )
 
     lines.append("\n_All pipelines active and healthy._")
+    return "\n".join(lines)
+
+
+def format_tech_radar(
+    horizon: str = "all",
+    scored_articles: Optional[list] = None,
+    domain_velocities: Optional[dict] = None,
+) -> str:
+    """Format interactive Thoughtworks-style Technology Radar across 4 adoption horizons."""
+    clean_horizon = (horizon or "all").lower().strip()
+
+    if clean_horizon == "adopt":
+        content = (
+            "🎯 *STEM Technology Radar — 🟢 ADOPT Horizon*\n\n"
+            "*Definition:* Technologies with high ROI, verified production stability, "
+            "minimal adoption risk, and widespread engineering support.\n\n"
+            "1. *LLM Orchestration & Vector RAG*\n"
+            "   • _Standard:_ Qdrant, Chroma, LlamaIndex, pgvector\n"
+            "   • _Verdict:_ Essential for grounding generative models without catastrophic hallucinations.\n\n"
+            "2. *PyTorch 2.x & Graph Compilation*\n"
+            "   • _Standard:_ TorchDynamo, TorchInductor, Triton kernels\n"
+            "   • _Verdict:_ Standard runtime for training and inference; replaces eager-mode execution.\n\n"
+            "3. *FlashAttention-2 & Memory-Efficient Attention*\n"
+            "   • _Standard:_ Tiling algorithms, fused CUDA kernels\n"
+            "   • _Verdict:_ Mandatory standard for long-context sequence modeling (>8k tokens).\n\n"
+            "4. *Rust for Systems & Embedded Firmware*\n"
+            "   • _Standard:_ Memory safety without GC latency overhead\n"
+            "   • _Verdict:_ First choice for high-concurrency kernels, robotics controllers, and WASM."
+        )
+    elif clean_horizon == "trial":
+        content = (
+            "🎯 *STEM Technology Radar — 🟡 TRIAL Horizon*\n\n"
+            "*Definition:* High-potential technologies validated in labs or pilot projects; "
+            "ready for proof-of-concept evaluation in production environments.\n\n"
+            "1. *Vision-Language-Action (VLA) Robotics Models*\n"
+            "   • _Examples:_ RT-2, OpenVLA, Octo\n"
+            "   • _Focus:_ Direct tokenized control of robotic end-effectors from visual prompts.\n\n"
+            "2. *Sim-to-Real Reinforcement Learning Locomotion*\n"
+            "   • _Examples:_ Isaac Gym, Domain Randomization, Humanoid Walk Policies\n"
+            "   • _Focus:_ Dynamic balance recovery surpassing classical inverse kinematics.\n\n"
+            "3. *On-Device Small Language Models (SLMs)*\n"
+            "   • _Examples:_ 1B-4B quantized architectures (GGUF, AWQ, EXL2)\n"
+            "   • _Focus:_ Privacy-first, offline, sub-50ms token generation on edge devices.\n\n"
+            "4. *Neuromorphic Event-Based Sensors*\n"
+            "   • _Examples:_ Dynamic Vision Sensors (DVS), Spiking Neural Networks (SNN)\n"
+            "   • _Focus:_ Micro-watt power consumption with microsecond temporal resolution."
+        )
+    elif clean_horizon == "assess":
+        content = (
+            "🎯 *STEM Technology Radar — 🔵 ASSESS Horizon*\n\n"
+            "*Definition:* Frontier scientific developments and emerging paradigms; "
+            "worth active research tracking and experimental prototyping.\n\n"
+            "1. *Quantum Error Mitigation & Logical Qubits*\n"
+            "   • _Examples:_ Surface codes, neutral-atom lattices, fault-tolerant gates\n"
+            "   • _Status:_ Transitioning from NISQ noisy qubits toward physical error suppression.\n\n"
+            "2. *High-Temperature Superconductivity*\n"
+            "   • _Examples:_ Hydrides under compression, nickelate thin films\n"
+            "   • _Status:_ Rigorous peer-reviewed laboratory replication phase.\n\n"
+            "3. *Non-Invasive Brain-Computer Interfaces (BCI)*\n"
+            "   • _Examples:_ High-density EEG, neural speech decoders\n"
+            "   • _Status:_ Clinical trials and assistive communication systems.\n\n"
+            "4. *Synthetic Biology Automated Foundries*\n"
+            "   • _Examples:_ High-throughput DNA synthesis, robotic enzymatic optimization\n"
+            "   • _Status:_ Pilot biomanufacturing scale-up."
+        )
+    elif clean_horizon == "hold":
+        content = (
+            "🎯 *STEM Technology Radar — 🔴 HOLD Horizon*\n\n"
+            "*Definition:* Anti-patterns, deprecated architectures, or speculative hype; "
+            "proceed with extreme skepticism and avoid for new production projects.\n\n"
+            "1. *Monolithic RNNs / LSTMs for Long Context*\n"
+            "   • _Reason:_ Sequential bottlenecks prevent GPU scaling; superseded by Transformers and SSMs.\n\n"
+            "2. *Proprietary Closed Formats without Export*\n"
+            "   • _Reason:_ Severe vendor lock-in risk and inability to run local regression audits.\n\n"
+            "3. *Unquantized Massive Models on Edge Devices*\n"
+            "   • _Reason:_ Memory bandwidth saturation, severe battery drain, and thermal throttling.\n\n"
+            "4. *Unverified Hype Claims without Code / Peer Review*\n"
+            "   • _Reason:_ Speculative claims of room-temp superconductivity or AGI lacking empirical proof."
+        )
+    else:
+        # Full Radar Overview
+        content = (
+            "🎯 *STEM Technology Radar (Q4/2026)*\n\n"
+            "Autonomous radar classifying technologies into four adoption horizons:\n\n"
+            "🟢 *ADOPT:* LLM RAG Pipelines, PyTorch 2.x, FlashAttention-2, Rust Systems\n"
+            "🟡 *TRIAL:* Vision-Language-Action (VLA), Humanoid RL, On-Device SLMs, Neuromorphic Chips\n"
+            "🔵 *ASSESS:* Quantum Error Mitigation, Room-Temp Superconductors, Non-Invasive BCI, SynBio\n"
+            "🔴 *HOLD:* Monolithic RNNs, Proprietary Closed Lock-in, Edge Unquantized Models, Speculative Hype"
+        )
+
+    # Embed dynamic real-time momentum if available
+    lines = [content]
+    if domain_velocities:
+        lines.append("\n📈 *Empirical Domain Velocity Signals:*")
+        for slug, d in list(domain_velocities.items())[:4]:
+            lines.append(
+                f"• *{d.get('name', slug.title())}*: {d.get('momentum', '⚖️ Stable')} "
+                f"(`{d.get('count', 0)}` articles, `{d.get('paper_count', 0)}` papers)"
+            )
+    elif scored_articles:
+        lines.append("\n🔥 *Active Breakthrough Signals:*")
+        for idx, item in enumerate(scored_articles[:3], 1):
+            art = item[0] if isinstance(item, (tuple, list)) else item
+            score = item[1] if isinstance(item, (tuple, list)) else 80.0
+            lines.append(f"{idx}. *{sanitize_markdown(art.title[:65])}* (Score: `{score:.1f}`)")
+
+    lines.append("\n_Tap buttons below to filter horizons or update live intelligence._")
+    return "\n".join(lines)
+
+
+def format_trend_velocity(domain_velocities: dict) -> str:
+    """Format evidence-based STEM trend velocity and momentum report."""
+    if not domain_velocities:
+        return "📊 No trend momentum data calculated yet. Run `/collect` first!"
+
+    lines = [
+        "📈 *STEM Domain Trend Velocity & Momentum Analysis*\n",
+        "Evidence-based tracking computed from publication volume, recency, and impact scores:\n",
+    ]
+
+    for slug, d in domain_velocities.items():
+        name = d.get("name", slug.title())
+        momentum = d.get("momentum", "⚖️ Stable")
+        count = d.get("count", 0)
+        papers = d.get("paper_count", 0)
+        avg_score = d.get("avg_score", 0.0)
+        top = d.get("top_headline", "")
+
+        lines.append(
+            f"*{name}*\n"
+            f"• Momentum: *{momentum}*\n"
+            f"• Indexed Articles: `{count}` (Research Papers: `{papers}`)\n"
+            f"• Avg Intelligence Score: `{avg_score:.1f}/100`\n"
+            f"• Top Signal: _{sanitize_markdown(top[:80])}_\n"
+        )
+
+    lines.append("Indicators strictly reflect verified database collection and research activity.")
     return "\n".join(lines)

@@ -102,6 +102,83 @@ class AutomationService:
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:limit]
 
+    async def calculate_domain_velocity(
+        self,
+        session: Optional[AsyncSession] = None,
+        limit: int = 100,
+    ) -> dict:
+        """Compute evidence-based trend velocity indicators across STEM domains."""
+        close_session = False
+        if session is None:
+            session_factory = get_session_factory()
+            session = await session_factory().__aenter__()
+            close_session = True
+
+        try:
+            repo = Repository(session)
+            categories = await repo.get_categories()
+            articles = await repo.get_recent_articles(limit=limit)
+
+            domain_data: dict = {}
+            for cat in categories:
+                domain_data[cat.slug] = {
+                    "slug": cat.slug,
+                    "name": cat.name,
+                    "articles": [],
+                    "papers": 0,
+                }
+
+            for art in articles:
+                if not art.categories:
+                    continue
+                is_paper = bool(art.source and art.source.source_type == "arxiv")
+                score = self.ranker.calculate_score(
+                    title=art.title,
+                    description=art.description,
+                    published_at=art.published_at or art.collected_at,
+                    categories=[(c.slug, 1.0) for c in art.categories],
+                )
+                for c in art.categories:
+                    if c.slug in domain_data:
+                        domain_data[c.slug]["articles"].append((art, score))
+                        if is_paper:
+                            domain_data[c.slug]["papers"] += 1
+
+            results: dict = {}
+            for slug, d in domain_data.items():
+                scored_list = d["articles"]
+                count = len(scored_list)
+                if count > 0:
+                    avg_score = sum(s for _, s in scored_list) / count
+                    top_art, _ = max(scored_list, key=lambda x: x[1])
+                    top_headline = top_art.title
+                else:
+                    avg_score = 0.0
+                    top_headline = "No recent articles indexed"
+
+                # Calculate evidence-based momentum
+                if count >= 4 and avg_score >= 60.0:
+                    momentum = "🔥 Surging"
+                elif count >= 2 or avg_score >= 50.0:
+                    momentum = "📈 Rising"
+                else:
+                    momentum = "⚖️ Stable"
+
+                results[slug] = {
+                    "slug": slug,
+                    "name": d["name"],
+                    "count": count,
+                    "paper_count": d["papers"],
+                    "avg_score": round(avg_score, 1),
+                    "momentum": momentum,
+                    "top_headline": top_headline,
+                }
+
+            return results
+        finally:
+            if close_session and session:
+                await session.close()
+
     async def generate_daily_briefing(
         self, user_id: int, user_name: str = "", limit: int = 5, session: Optional[AsyncSession] = None
     ) -> Tuple[str, List[Article]]:
