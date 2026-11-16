@@ -9,10 +9,12 @@ from app.bot.filters.auth import authorized_only
 from app.bot.handlers.base import help_command, start_command
 from app.bot.handlers.news import (
     callback_router,
+    ethiopia_command,
     explain_command,
     github_command,
     impact_command,
     news_command,
+    politics_command,
     research_command,
     sources_command,
 )
@@ -177,3 +179,39 @@ async def test_impact_command_renders_assessment(mock_update):
         await impact_command(mock_update, context)
 
     assert mock_update.effective_message.reply_text.call_count >= 1
+
+
+@pytest.mark.asyncio
+async def test_ethiopia_and_politics_commands(mock_update):
+    """Verify /ethiopia and /politics commands call send_article_view with correct category slugs."""
+    from app.database.models import Article, Category, Source
+
+    sample_art = Article(
+        id=101,
+        title="Ethiopia Launches National AI Initiative",
+        url="https://example.com/eaii-initiative",
+        url_hash="hash_et_ai",
+        description="EAII announces research initiatives in Addis Ababa.",
+        source=Source(id=1, name="Shega", slug="shega", url="https://shega.co"),
+        categories=[Category(id=1, name="Ethiopia Tech & Innovation", slug="ethiopia-tech")],
+    )
+
+    with patch("app.bot.handlers.news.news_service.get_recent_news", AsyncMock(return_value=[sample_art])):
+        with patch.object(settings, "allowed_user_ids", [112233]):
+            await ethiopia_command(mock_update, MagicMock())
+
+    mock_update.effective_message.reply_text.assert_called_once()
+    reply_text = mock_update.effective_message.reply_text.call_args[0][0]
+    assert "Ethiopia Launches National AI Initiative" in reply_text
+
+    mock_update.effective_message.reply_text.reset_mock()
+    sample_art.title = "Global Treaty on Autonomous Systems"
+    sample_art.categories = [Category(id=2, name="Global Politics & Geopolitics", slug="global-politics")]
+
+    with patch("app.bot.handlers.news.news_service.get_recent_news", AsyncMock(return_value=[sample_art])):
+        with patch.object(settings, "allowed_user_ids", [112233]):
+            await politics_command(mock_update, MagicMock())
+
+    mock_update.effective_message.reply_text.assert_called_once()
+    reply_text2 = mock_update.effective_message.reply_text.call_args[0][0]
+    assert "Global Treaty on Autonomous Systems" in reply_text2

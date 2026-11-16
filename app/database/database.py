@@ -50,6 +50,26 @@ DEFAULT_CATEGORIES = [
     ("Renewable Energy", "renewable-energy", "Solar, wind, battery storage, clean tech"),
     ("STEM Education", "stem-education", "Pedagogy, learning tools, tutorials, student guides"),
     ("Emerging Technologies", "emerging-tech", "Brain-computer interfaces, quantum computing, fusion"),
+    (
+        "Ethiopia Tech & Innovation",
+        "ethiopia-tech",
+        "Startups, fintech, telecom, AI, and digital transformation in Ethiopia",
+    ),
+    (
+        "Ethiopian Affairs",
+        "ethiopia-affairs",
+        "Ethiopian politics, parliament, policy, economy, and Horn of Africa developments",
+    ),
+    (
+        "Global Politics & Geopolitics",
+        "global-politics",
+        "International relations, global governance, diplomacy, and world politics",
+    ),
+    (
+        "Tech Policy & Governance",
+        "tech-policy",
+        "AI safety regulations, digital sovereignty, data laws, and cybersecurity treaties",
+    ),
 ]
 
 # Initial reliable RSS & API sources verified on real networks
@@ -81,6 +101,75 @@ INITIAL_SOURCES = [
         "github-trending",
         "https://api.github.com/search/repositories?q=stars:>1000+topic:artificial-intelligence&sort=stars&order=desc&per_page=15",
         "github",
+    ),
+    ("Shega Media", "shega", "https://shega.co/feed/", "rss"),
+    ("Addis Standard", "addis-standard", "https://addisstandard.com/feed/", "rss"),
+    ("The Reporter Ethiopia", "reporter-ethiopia", "https://www.thereporterethiopia.com/feed/", "rss"),
+    ("BBC Africa", "bbc-africa", "https://feeds.bbci.co.uk/news/world/africa/rss.xml", "rss"),
+    ("Al Jazeera World", "aljazeera-world", "https://www.aljazeera.com/xml/rss/all.xml", "rss"),
+]
+
+# Baseline articles populated on launch for immediate discoverability
+BASELINE_ARTICLES = [
+    (
+        "Telebirr Reaches 45 Million Users and Integrates with National ID Fayda",
+        "https://shega.co/post/telebirr-expands-digital-payments-and-national-id-integration",
+        "shega",
+        (
+            "Ethio telecom's Telebirr platform expands digital financial inclusion across Ethiopia "
+            "with instant Fayda verification."
+        ),
+        ["ethiopia-tech", "software-engineering"],
+    ),
+    (
+        "Ethiopian AI Institute (EAII) Unveils Multilingual Healthcare Diagnostics Model",
+        "https://shega.co/post/eaii-unveils-healthcare-nlp-diagnostics",
+        "shega",
+        (
+            "The Ethiopian Artificial Intelligence Institute has launched a specialized diagnostic "
+            "assistant supporting local languages."
+        ),
+        ["ethiopia-tech", "ai"],
+    ),
+    (
+        "Chapa Payment Gateway Expands Cross-Border Remittances Across East Africa",
+        "https://shega.co/post/chapa-cross-border-fintech-remittance-expansion",
+        "shega",
+        (
+            "Ethiopian fintech startup Chapa launches multi-currency settlement and developer APIs "
+            "for regional Horn of Africa trade."
+        ),
+        ["ethiopia-tech", "software-engineering"],
+    ),
+    (
+        "National Bank of Ethiopia Accelerates Financial Market Reforms and Securities Exchange",
+        "https://addisstandard.com/national-bank-of-ethiopia-accelerates-financial-market-reforms",
+        "addis-standard",
+        (
+            "NBE announces updated foreign exchange directives and preliminary listing frameworks "
+            "for the Ethiopian Securities Exchange."
+        ),
+        ["ethiopia-affairs", "tech-policy"],
+    ),
+    (
+        "African Union Convenes Continental Summit on Renewable Energy Grid Integration and GERD",
+        "https://addisstandard.com/african-union-renewable-energy-grid-integration",
+        "addis-standard",
+        (
+            "Continental delegates in Addis Ababa discuss cross-border transmission of clean hydropower "
+            "from the Grand Ethiopian Renaissance Dam."
+        ),
+        ["ethiopia-affairs", "renewable-energy", "global-politics"],
+    ),
+    (
+        "United Nations Security Council Adopts Landmark Framework on Global AI Safety Treaties",
+        "https://www.aljazeera.com/news/un-security-council-ai-safety-framework",
+        "aljazeera-world",
+        (
+            "Member states pass multilateral resolution establishing verifiable safety benchmarks "
+            "and non-proliferation protocols for frontier autonomous systems."
+        ),
+        ["global-politics", "tech-policy"],
     ),
 ]
 
@@ -212,4 +301,32 @@ async def init_db() -> None:
             logger.info("Seeded %d initial sources", len(new_sources))
 
         await session.commit()
+
+        # Seed baseline articles for immediate discoverability
+        from app.database.repository import Repository
+
+        repo = Repository(session)
+        sources_list = await repo.get_sources(active_only=False)
+        source_map = {s.slug: s.id for s in sources_list}
+        cats_list = await repo.get_categories()
+        cat_map = {c.slug: c.id for c in cats_list}
+
+        seeded_articles = 0
+        for title, url, src_slug, desc, cat_slugs in BASELINE_ARTICLES:
+            src_id = source_map.get(src_slug)
+            if src_id and not (await repo.article_exists(url)):
+                c_ids = [cat_map[cs] for cs in cat_slugs if cs in cat_map]
+                await repo.save_article(
+                    title=title,
+                    url=url,
+                    source_id=src_id,
+                    description=desc,
+                    category_ids=c_ids,
+                    commit=False,
+                )
+                seeded_articles += 1
+
+        if seeded_articles:
+            await session.commit()
+            logger.info("Seeded %d baseline articles for new domains", seeded_articles)
     logger.info("Database initialized successfully.")

@@ -78,9 +78,12 @@ class AIService:
 
         if self.provider:
             system_prompt = (
-                f"You are a Principal AI & STEM Intelligence Analyst. "
-                f"Summarize the following technology news item with technical rigor for a {mode}-level audience. "
-                f"Never invent facts, benchmarks, or quotes. Clearly distinguish source facts from implications."
+                f"You are a Principal Intelligence & Science Analyst. "
+                f"Summarize the following development with objective rigor and clarity for a {mode}-level audience. "
+                f"For political, regional, or policy topics, maintain strict journalistic neutrality, "
+                f"avoid editorial bias, and attribute claims clearly to the source. "
+                f"Never invent facts, benchmarks, casualties, or quotes. "
+                f"Clearly distinguish source facts from implications."
             )
             prompt = (
                 f"Headline/Title: {article.title}\n"

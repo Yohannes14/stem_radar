@@ -60,7 +60,7 @@ def main() -> None:
 
         app = create_bot_app()
         logger.info("Bot application initialized. Commencing polling...")
-        app.run_polling(drop_pending_updates=True)
+        app.run_polling(drop_pending_updates=True, bootstrap_retries=5)
     except KeyboardInterrupt:
         logger.info("Bot stopped by user (Ctrl+C). Shutting down gracefully.")
     except Exception as exc:

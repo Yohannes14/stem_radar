@@ -87,6 +87,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "*Domain Commands:*\n"
         "• `/ai` — Artificial Intelligence & LLMs\n"
         "• `/robotics` — Robotics & Autonomous Systems\n"
+        "• `/ethiopia` — Ethiopia Tech, Innovation & Current Affairs\n"
+        "• `/politics` — Worldwide Politics & Geopolitics\n"
         "• `/science` — Physics, Chemistry & Biotechnology\n"
         "• `/engineering` — Electronics & Embedded Systems\n"
         "• `/programming` — Software Engineering & CS\n"
@@ -172,6 +174,16 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     # 2. Latest News
     if data == "menu:news":
         await send_article_view(update, category_slug="all", offset=0, is_edit=True)
+        return
+
+    # Ethiopia Radar
+    if data == "menu:ethiopia":
+        await send_article_view(update, category_slugs=["ethiopia-tech", "ethiopia-affairs"], offset=0, is_edit=True)
+        return
+
+    # World & Politics
+    if data == "menu:politics":
+        await send_article_view(update, category_slugs=["global-politics", "tech-policy"], offset=0, is_edit=True)
         return
 
     # 3. Trending Technology
@@ -333,10 +345,11 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
             pref = await repo.get_or_create_preference(user_id)
             active_slugs = [s.strip() for s in (pref.preferred_categories or "").split(",") if s.strip()]
 
+        safe_subs = (pref.preferred_categories or "All Domains").replace("_", "-")
         text = (
-            "🏷️ *My STEM Domain Subscriptions*\n\n"
+            "🏷 *My STEM Domain Subscriptions*\n\n"
             "Select the disciplines you want prioritized in your briefings, digests, and recommendations.\n\n"
-            f"Active Subscriptions: *{pref.preferred_categories or 'All STEM Domains'}*\n\n"
+            f"Active Subscriptions: `{safe_subs}`\n\n"
             "Tap below to toggle active subscriptions:"
         )
         await safe_edit_or_reply(

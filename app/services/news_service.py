@@ -13,6 +13,18 @@ from app.processors.deduplicator import normalize_url
 
 logger = logging.getLogger(__name__)
 
+# Default domain categories associated directly with authoritative feeds
+SOURCE_DEFAULT_CATEGORIES: Dict[str, List[str]] = {
+    "shega": ["ethiopia-tech"],
+    "addis-standard": ["ethiopia-affairs"],
+    "reporter-ethiopia": ["ethiopia-affairs"],
+    "bbc-africa": ["global-politics", "ethiopia-affairs"],
+    "aljazeera-world": ["global-politics"],
+    "arxiv-ai": ["ai", "machine-learning"],
+    "arxiv-robotics": ["robotics"],
+    "arxiv-cs": ["computer-science"],
+}
+
 
 class NewsService:
     """Core service for managing technology news and research paper ingestion."""
@@ -78,7 +90,11 @@ class NewsService:
                     # Classify article text into STEM categories
                     combined_text = f"{item.title} {item.description or ''}"
                     classification_matches = classifier.classify(combined_text, max_categories=2)
-                    matched_cat_ids = [cat_map[slug] for slug, _ in classification_matches if slug in cat_map]
+                    matched_slugs = {slug for slug, _ in classification_matches}
+                    for default_slug in SOURCE_DEFAULT_CATEGORIES.get(source.slug, []):
+                        matched_slugs.add(default_slug)
+
+                    matched_cat_ids = [cat_map[slug] for slug in matched_slugs if slug in cat_map]
 
                     # Save article in batch (commit=False for batch performance)
                     _, created = await repo.save_article(

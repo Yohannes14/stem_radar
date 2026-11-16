@@ -2,6 +2,7 @@
 
 import logging
 
+from telegram import BotCommand
 from telegram.ext import Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler
 from telegram.request import HTTPXRequest
 
@@ -36,10 +37,12 @@ from app.bot.handlers.news import (
     callback_router,
     collect_command,
     engineering_command,
+    ethiopia_command,
     explain_command,
     github_command,
     impact_command,
     news_command,
+    politics_command,
     programming_command,
     research_command,
     robotics_command,
@@ -71,6 +74,29 @@ async def on_startup(application: Application) -> None:
     """Lifecycle hook executed after bot initialization."""
     logger.info("Starting background intelligence scheduler alongside bot...")
     scheduler.start(bot=application.bot)
+
+    # Register commands with Telegram Bot API so they appear in the [ / ] Menu button
+    try:
+        commands = [
+            BotCommand("start", "🏠 Main Menu Dashboard"),
+            BotCommand("news", "📰 Latest Technology News"),
+            BotCommand("ethiopia", "🇪🇹 Ethiopia Tech & News"),
+            BotCommand("politics", "🌍 World Politics & Affairs"),
+            BotCommand("trending", "📈 High-Impact Breakthroughs"),
+            BotCommand("radar", "🎯 Technology Radar"),
+            BotCommand("ai", "🤖 Artificial Intelligence"),
+            BotCommand("research", "📄 Research Papers"),
+            BotCommand("search", "🔍 Search Articles"),
+            BotCommand("saved", "⭐ Bookmarked Items"),
+            BotCommand("interests", "🏷️ Customize Topics"),
+            BotCommand("briefing", "🌅 Executive Daily Briefing"),
+            BotCommand("learn", "🎓 STEM Learning Academy"),
+            BotCommand("help", "❓ Command Catalog"),
+        ]
+        await application.bot.set_my_commands(commands)
+        logger.info("Registered Telegram bot menu commands successfully.")
+    except Exception as exc:
+        logger.warning("Could not set bot menu commands: %s", exc)
 
 
 async def on_shutdown(application: Application) -> None:
@@ -107,6 +133,8 @@ def create_bot_app() -> Application:
 
     # News & domain commands
     app.add_handler(CommandHandler("news", news_command))
+    app.add_handler(CommandHandler("ethiopia", ethiopia_command))
+    app.add_handler(CommandHandler("politics", politics_command))
     app.add_handler(CommandHandler("ai", ai_command))
     app.add_handler(CommandHandler("robotics", robotics_command))
     app.add_handler(CommandHandler("science", science_command))
@@ -182,3 +210,9 @@ def create_bot_app() -> Application:
     app.add_error_handler(error_handler)
 
     return app
+
+
+if __name__ == "__main__":
+    from app.main import main
+
+    main()

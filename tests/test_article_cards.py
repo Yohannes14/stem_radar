@@ -271,3 +271,19 @@ async def test_search_command_real_news_service_signature_integration(test_sessi
     reply_call = mock_news_update.effective_message.reply_text.call_args[1]
     assert 'Search Results for "transformer"' in reply_call["text"]
     assert "Real-Time Sparse Transformer Optimization" in reply_call["text"]
+
+
+@pytest.mark.asyncio
+async def test_send_article_view_empty_category_idempotent_no_message_not_modified_crash(mock_news_update):
+    """Verify that clicking an empty category when message is already identical does not crash with BadRequest."""
+    mock_news_update.callback_query.data = "cat:ethiopia-tech"
+    mock_news_update.callback_query.message.edit_text.side_effect = Exception(
+        "BadRequest: Message is not modified: specified new message content and reply markup are exactly the same"
+    )
+
+    with patch("app.bot.handlers.news.news_service.get_recent_news", AsyncMock(return_value=[])):
+        with patch.object(settings, "allowed_user_ids", [112233]):
+            # Should not raise exception
+            await callback_router(mock_news_update, MagicMock())
+
+    mock_news_update.callback_query.message.edit_text.assert_called_once()

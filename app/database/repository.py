@@ -180,7 +180,7 @@ class Repository:
             slugs_to_filter.extend([s.strip() for s in category_slug.split(",") if s.strip()])
 
         if slugs_to_filter:
-            stmt = stmt.join(Article.categories).where(Category.slug.in_(slugs_to_filter))
+            stmt = stmt.join(Article.categories).where(Category.slug.in_(slugs_to_filter)).distinct()
 
         if source_slug or source_type:
             stmt = stmt.join(Article.source)
@@ -228,7 +228,7 @@ class Repository:
             slugs_to_filter.extend([s.strip() for s in category_slug.split(",") if s.strip()])
 
         if slugs_to_filter:
-            stmt = stmt.join(Article.categories).where(Category.slug.in_(slugs_to_filter))
+            stmt = stmt.join(Article.categories).where(Category.slug.in_(slugs_to_filter)).distinct()
 
         if source_slug or source_type:
             stmt = stmt.join(Article.source)

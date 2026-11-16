@@ -100,7 +100,7 @@ def get_concept_mode_keyboard(concept_name: str, current_mode: str = "intermedia
     return InlineKeyboardMarkup(buttons)
 
 
-def get_explanation_keyboard(article_id: int, current_mode: str = "intermediate") -> InlineKeyboardMarkup:
+def get_explanation_keyboard(article_id: int, current_mode: str = "interm      ediate") -> InlineKeyboardMarkup:
     """Difficulty mode selector attached to AI concept explanation."""
     b_mark = "• " if current_mode == "beginner" else ""
     i_mark = "• " if current_mode == "intermediate" else ""
@@ -159,6 +159,14 @@ def get_category_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🚀 Space Tech", callback_data="cat:space-technology"),
             InlineKeyboardButton("🌱 Clean Energy", callback_data="cat:renewable-energy"),
             InlineKeyboardButton("💡 Emerging", callback_data="cat:emerging-tech"),
+        ],
+        [
+            InlineKeyboardButton("🇪🇹 Ethiopia Tech", callback_data="cat:ethiopia-tech"),
+            InlineKeyboardButton("🇪🇹 Ethiopian Affairs", callback_data="cat:ethiopia-affairs"),
+        ],
+        [
+            InlineKeyboardButton("🌍 Global Politics", callback_data="cat:global-politics"),
+            InlineKeyboardButton("⚖️ Tech Policy", callback_data="cat:tech-policy"),
         ],
         [
             InlineKeyboardButton("🌐 All Latest News", callback_data="cat:all"),

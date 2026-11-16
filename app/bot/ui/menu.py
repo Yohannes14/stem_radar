@@ -1,6 +1,7 @@
 """Unified 12-section interactive Main Menu, sub-menus, and layout formatters for STEM RADAR."""
 
 import logging
+import re
 import time
 from typing import Dict, List, Optional
 
@@ -39,7 +40,7 @@ async def safe_edit_or_reply(
     update: Update,
     text: str,
     reply_markup: Optional[InlineKeyboardMarkup] = None,
-    parse_mode: str = ParseMode.MARKDOWN,
+    parse_mode: Optional[str] = ParseMode.MARKDOWN,
     disable_web_page_preview: bool = True,
 ) -> None:
     """Safely edit existing message text or fallback to sending a new message without crashing."""
@@ -57,6 +58,18 @@ async def safe_edit_or_reply(
             err_str = str(exc).lower()
             if "message is not modified" in err_str or "query is too old" in err_str:
                 return  # Safe idempotent update
+            if "can't parse entities" in err_str and parse_mode is not None:
+                # Markdown entity syntax error: retry immediately as plain text
+                try:
+                    await query.message.edit_text(
+                        text=text,
+                        reply_markup=reply_markup,
+                        parse_mode=None,
+                        disable_web_page_preview=disable_web_page_preview,
+                    )
+                    return
+                except Exception:
+                    pass
             logger.debug("safe_edit_or_reply edit_text fallback: %s", exc)
 
     if update.effective_message:
@@ -68,15 +81,34 @@ async def safe_edit_or_reply(
                 disable_web_page_preview=disable_web_page_preview,
             )
         except Exception as exc:
+            err_str = str(exc).lower()
+            if "message is not modified" in err_str:
+                return
+            if "can't parse entities" in err_str and parse_mode is not None:
+                # Fallback to plain text delivery
+                try:
+                    await update.effective_message.reply_text(
+                        text=text,
+                        reply_markup=reply_markup,
+                        parse_mode=None,
+                        disable_web_page_preview=disable_web_page_preview,
+                    )
+                    return
+                except Exception as inner_exc:
+                    logger.error("safe_edit_or_reply plain text reply failed: %s", inner_exc)
             logger.error("safe_edit_or_reply reply_text failed: %s", exc)
 
 
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Generate the flagship 12-section interactive main menu dashboard."""
+    """Generate the flagship interactive main menu dashboard."""
     buttons = [
         [
             InlineKeyboardButton("📰 Latest News", callback_data="menu:news"),
             InlineKeyboardButton("📈 Trending Tech", callback_data="menu:trending"),
+        ],
+        [
+            InlineKeyboardButton("🇪🇹 Ethiopia Radar", callback_data="menu:ethiopia"),
+            InlineKeyboardButton("🌍 World & Politics", callback_data="menu:politics"),
         ],
         [
             InlineKeyboardButton("🧠 AI Intelligence", callback_data="menu:ai"),
@@ -193,6 +225,10 @@ def get_interests_keyboard(active_slugs: Optional[List[str]] = None) -> InlineKe
         ("Physics", "physics"),
         ("Space Tech", "space-technology"),
         ("Clean Energy", "renewable-energy"),
+        ("🇪🇹 Ethiopia Tech", "ethiopia-tech"),
+        ("🇪🇹 Ethiopian Affairs", "ethiopia-affairs"),
+        ("🌍 Global Politics", "global-politics"),
+        ("⚖️ Tech Policy", "tech-policy"),
     ]
 
     rows: List[List[InlineKeyboardButton]] = []
@@ -222,15 +258,16 @@ def format_main_menu(user_name: str = "Researcher", stats: Optional[Dict[str, in
     total_articles = stats.get("total_articles", 0) if stats else 0
     active_sources = stats.get("active_sources", 0) if stats else 0
     user_saved = stats.get("user_saved_articles", 0) if stats else 0
+    safe_user_name = re.sub(r"[*_`]", "", user_name or "Researcher").strip() or "Researcher"
 
     lines = [
-        f"📡 *Welcome to STEM RADAR, {user_name}!* 🚀\n",
+        f"📡 *Welcome to STEM RADAR, {safe_user_name}!* 🚀\n",
         "Your AI-powered intelligence platform collecting, analyzing, and organizing "
         "the latest developments in Science, Technology, Engineering, and Mathematics.\n",
         "📊 *Live Platform Telemetry:*",
-        f"• *Monitored Sources:* `{active_sources or 8}` verified feeds & APIs",
+        f"• *Monitored Sources:* `{active_sources or 13}` verified feeds & APIs",
         f"• *Indexed Articles:* `{total_articles}` research records",
-        "• *STEM Categories:* `19 Specialized Domains`",
+        "• *Intelligence Domains:* `23 Specialized Topics & Regions`",
     ]
 
     if user_saved > 0:

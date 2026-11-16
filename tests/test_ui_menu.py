@@ -57,14 +57,16 @@ def mock_menu_update():
 
 
 def test_main_menu_keyboard_has_12_sections():
-    """Verify that get_main_menu_keyboard contains exactly the 12 specified sections."""
+    """Verify that get_main_menu_keyboard contains the flagship interactive sections."""
     keyboard = get_main_menu_keyboard()
-    assert len(keyboard.inline_keyboard) == 6  # 6 rows of 2 buttons each = 12 buttons
+    assert len(keyboard.inline_keyboard) == 7  # 7 rows of 2 buttons each = 14 buttons
 
     all_callbacks = [btn.callback_data for row in keyboard.inline_keyboard for btn in row]
     expected_callbacks = [
         "menu:news",
         "menu:trending",
+        "menu:ethiopia",
+        "menu:politics",
         "menu:ai",
         "menu:research",
         "menu:learn",
@@ -159,6 +161,19 @@ async def test_safe_edit_or_reply_handles_message_not_modified(mock_menu_update)
 
 
 @pytest.mark.asyncio
+async def test_safe_edit_or_reply_handles_cant_parse_entities_fallback(mock_menu_update):
+    """Verify that 'can't parse entities' errors immediately fall back to parse_mode=None."""
+    mock_menu_update.callback_query.message.edit_text.side_effect = [
+        Exception("Can't parse entities: can't find end of the entity starting at byte offset 37"),
+        None,
+    ]
+    await safe_edit_or_reply(mock_menu_update, "Text with unmatched *bold")
+    assert mock_menu_update.callback_query.message.edit_text.call_count == 2
+    second_call_kwargs = mock_menu_update.callback_query.message.edit_text.call_args_list[1][1]
+    assert second_call_kwargs["parse_mode"] is None
+
+
+@pytest.mark.asyncio
 async def test_start_command_renders_main_menu(mock_menu_update):
     """Verify /start displays the 12-section dashboard."""
     with patch.object(settings, "allowed_user_ids", [112233]):
@@ -170,7 +185,7 @@ async def test_start_command_renders_main_menu(mock_menu_update):
     markup = reply_call[1]["reply_markup"]
 
     assert "Welcome to STEM RADAR, Alan!" in text
-    assert len(markup.inline_keyboard) == 6
+    assert len(markup.inline_keyboard) == 7
 
 
 @pytest.mark.asyncio
@@ -256,3 +271,47 @@ async def test_main_menu_callback_routes_interests(mock_menu_update):
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
     assert "My STEM Domain Subscriptions" in text
+
+
+@pytest.mark.asyncio
+async def test_main_menu_callback_routes_ethiopia_and_politics(mock_menu_update):
+    """Verify clicking menu:ethiopia and menu:politics calls send_article_view with correct category slugs."""
+    from app.database.models import Article, Category, Source
+
+    sample_art = Article(
+        id=99,
+        title="Telebirr and Safaricom Expand Interoperability",
+        url="https://example.com/ethiopia-telebirr",
+        url_hash="hash_et",
+        description="Mobile money integration in Ethiopia.",
+        source=Source(id=1, name="Shega", slug="shega", url="https://shega.co"),
+        categories=[Category(id=1, name="Ethiopia Tech & Innovation", slug="ethiopia-tech")],
+    )
+
+    _RECENT_CALLBACKS.clear()
+    mock_menu_update.callback_query.data = "menu:ethiopia"
+
+    with patch("app.bot.handlers.news.news_service.get_recent_news", AsyncMock(return_value=[sample_art])):
+        with patch.object(settings, "allowed_user_ids", [112233]):
+            await main_menu_callback_router(mock_menu_update, MagicMock())
+
+    mock_menu_update.callback_query.message.edit_text.assert_called_once()
+    call_args = mock_menu_update.callback_query.message.edit_text.call_args
+    text = call_args[0][0] if call_args[0] else call_args[1].get("text", "")
+    assert "Telebirr and Safaricom" in text
+
+    _RECENT_CALLBACKS.clear()
+    mock_menu_update.callback_query.data = "menu:politics"
+    mock_menu_update.callback_query.message.edit_text.reset_mock()
+
+    sample_art.title = "Global Summit on AI Safety Treaties"
+    sample_art.categories = [Category(id=2, name="Global Politics & Geopolitics", slug="global-politics")]
+
+    with patch("app.bot.handlers.news.news_service.get_recent_news", AsyncMock(return_value=[sample_art])):
+        with patch.object(settings, "allowed_user_ids", [112233]):
+            await main_menu_callback_router(mock_menu_update, MagicMock())
+
+    mock_menu_update.callback_query.message.edit_text.assert_called_once()
+    call_args2 = mock_menu_update.callback_query.message.edit_text.call_args
+    text2 = call_args2[0][0] if call_args2[0] else call_args2[1].get("text", "")
+    assert "Global Summit on AI Safety Treaties" in text2

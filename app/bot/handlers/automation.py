@@ -20,6 +20,7 @@ from app.bot.ui.formatters import (
     format_trending_feed,
     format_watchlist,
 )
+from app.bot.ui.menu import safe_edit_or_reply
 from app.database.database import get_session_factory
 from app.database.repository import Repository
 from app.services.automation_service import automation_service
@@ -225,8 +226,7 @@ async def automation_callback_router(update: Update, context: ContextTypes.DEFAU
         await query.answer(f"Removed #{kw}")
         msg = format_watchlist(watchlist)
         markup = get_watchlist_keyboard(watchlist) if watchlist else None
-        if query.message:
-            await query.message.edit_text(msg, parse_mode=ParseMode.MARKDOWN, reply_markup=markup)
+        await safe_edit_or_reply(update, msg, parse_mode=ParseMode.MARKDOWN, reply_markup=markup)
         return
 
     if data == "wl_clear":
@@ -236,21 +236,20 @@ async def automation_callback_router(update: Update, context: ContextTypes.DEFAU
 
         await query.answer("Watchlist cleared!")
         msg = format_watchlist([])
-        if query.message:
-            await query.message.edit_text(msg, parse_mode=ParseMode.MARKDOWN)
+        await safe_edit_or_reply(update, msg, parse_mode=ParseMode.MARKDOWN)
         return
 
     if data == "refresh_briefing":
         await query.answer("Refreshing briefing...")
         user_name = user.first_name or "Engineer"
         text, _ = await automation_service.generate_daily_briefing(user_id=user.id, user_name=user_name)
-        if query.message:
-            await query.message.edit_text(
-                text,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=get_briefing_keyboard(),
-                disable_web_page_preview=True,
-            )
+        await safe_edit_or_reply(
+            update,
+            text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=get_briefing_keyboard(),
+            disable_web_page_preview=True,
+        )
         return
 
     if data == "nav_trends":
@@ -278,11 +277,11 @@ async def automation_callback_router(update: Update, context: ContextTypes.DEFAU
         velocities = await automation_service.calculate_domain_velocity()
         text = format_tech_radar(horizon=horizon, scored_articles=scored, domain_velocities=velocities)
         markup = get_tech_radar_keyboard(current_horizon=horizon)
-        if query.message:
-            await query.message.edit_text(
-                text,
-                parse_mode=ParseMode.MARKDOWN,
-                reply_markup=markup,
-                disable_web_page_preview=True,
-            )
+        await safe_edit_or_reply(
+            update,
+            text,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=markup,
+            disable_web_page_preview=True,
+        )
         return

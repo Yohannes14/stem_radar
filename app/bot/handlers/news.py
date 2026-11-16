@@ -1,7 +1,7 @@
 """News, category, search, and collection Telegram handlers."""
 
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from telegram import Update
 from telegram.constants import ParseMode
@@ -40,6 +40,7 @@ news_service = NewsService()
 async def send_article_view(
     update: Update,
     category_slug: Optional[str] = None,
+    category_slugs: Optional[List[str]] = None,
     source_slug: Optional[str] = None,
     source_type: Optional[str] = None,
     offset: int = 0,
@@ -53,6 +54,7 @@ async def send_article_view(
         limit=15,
         offset=0,
         category_slug=category_slug if category_slug != "all" else None,
+        category_slugs=category_slugs,
         source_slug=source_slug,
         source_type=source_type,
     )
@@ -62,14 +64,12 @@ async def send_article_view(
             "📭 *No articles found in this category yet.*\n\n"
             "Run `/collect` to fetch the latest technology feeds and papers right now!"
         )
-        if is_edit and update.callback_query and update.callback_query.message:
-            await update.callback_query.message.edit_text(
-                msg, parse_mode=ParseMode.MARKDOWN, reply_markup=get_category_keyboard()
-            )
-        elif update.effective_message:
-            await update.effective_message.reply_text(
-                msg, parse_mode=ParseMode.MARKDOWN, reply_markup=get_category_keyboard()
-            )
+        await safe_edit_or_reply(
+            update,
+            msg,
+            parse_mode=ParseMode.MARKDOWN,
+            reply_markup=get_category_keyboard(),
+        )
         return
 
     safe_offset = max(0, min(offset, len(articles) - 1))
@@ -84,25 +84,33 @@ async def send_article_view(
         and (current_article.source.source_type == "arxiv" or "arxiv" in current_article.source.slug.lower())
     )
 
+    nav_slug = category_slug
+    if not nav_slug and category_slugs:
+        if "ethiopia-tech" in category_slugs or "ethiopia-affairs" in category_slugs:
+            nav_slug = "ethiopia"
+        elif "global-politics" in category_slugs or "tech-policy" in category_slugs:
+            nav_slug = "politics"
+
     text = format_article_view(current_article, index=safe_offset, total=len(articles))
     reply_markup = get_article_keyboard(
         article_id=current_article.id,
         url=current_article.url,
         offset=safe_offset,
         total=len(articles),
-        category_slug=category_slug,
+        category_slug=nav_slug,
         is_saved=is_saved,
         title=current_article.title,
         is_paper=is_paper,
     )
 
-    if is_edit and update.callback_query and update.callback_query.message:
-        try:
-            await update.callback_query.message.edit_text(
-                text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup, disable_web_page_preview=True
-            )
-        except Exception:
-            pass
+    if is_edit:
+        await safe_edit_or_reply(
+            update,
+            text,
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.MARKDOWN,
+            disable_web_page_preview=True,
+        )
     elif update.effective_message:
         await update.effective_message.reply_text(
             text, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup, disable_web_page_preview=True
@@ -204,6 +212,18 @@ async def research_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def github_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Fetch trending repositories on GitHub."""
     await send_article_view(update, source_type="github", offset=0)
+
+
+@authorized_only
+async def ethiopia_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetch latest Ethiopia technology, startup, and current affairs developments."""
+    await send_article_view(update, category_slugs=["ethiopia-tech", "ethiopia-affairs"], offset=0)
+
+
+@authorized_only
+async def politics_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Fetch worldwide politics, geopolitics, and tech policy developments."""
+    await send_article_view(update, category_slugs=["global-politics", "tech-policy"], offset=0)
 
 
 @authorized_only
@@ -398,15 +418,23 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     if data == "show_cats":
-        if query.message:
-            await query.message.edit_text(
-                "Select a STEM domain to explore:",
-                reply_markup=get_category_keyboard(),
-            )
+        await safe_edit_or_reply(
+            update,
+            "Select a STEM domain to explore:",
+            reply_markup=get_category_keyboard(),
+        )
         return
 
     if data.startswith("cat:"):
         cat_slug = data.split(":", 1)[1]
+        if cat_slug in ("ethiopia", "ethiopia-tech", "ethiopia-affairs"):
+            await send_article_view(
+                update, category_slugs=["ethiopia-tech", "ethiopia-affairs"], offset=0, is_edit=True
+            )
+            return
+        if cat_slug in ("politics", "global-politics", "tech-policy"):
+            await send_article_view(update, category_slugs=["global-politics", "tech-policy"], offset=0, is_edit=True)
+            return
         await send_article_view(update, category_slug=cat_slug, offset=0, is_edit=True)
         return
 
@@ -414,6 +442,16 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         parts = data.split(":")
         cat_slug = parts[1] if len(parts) > 1 else "all"
         offset = int(parts[2]) if len(parts) > 2 else 0
+        if cat_slug in ("ethiopia", "ethiopia-tech", "ethiopia-affairs"):
+            await send_article_view(
+                update, category_slugs=["ethiopia-tech", "ethiopia-affairs"], offset=offset, is_edit=True
+            )
+            return
+        if cat_slug in ("politics", "global-politics", "tech-policy"):
+            await send_article_view(
+                update, category_slugs=["global-politics", "tech-policy"], offset=offset, is_edit=True
+            )
+            return
         await send_article_view(update, category_slug=cat_slug, offset=offset, is_edit=True)
         return
 

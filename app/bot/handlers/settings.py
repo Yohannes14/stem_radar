@@ -41,17 +41,23 @@ async def interests_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         active_slugs = await repo.get_user_preferred_categories(user.id)
 
     active_display = ", ".join([f"#{s}" for s in active_slugs]) if active_slugs else "All STEM Domains"
+    safe_display = active_display.replace("_", "-")
     text = (
-        "🏷️ *My STEM Domain Subscriptions*\n\n"
+        "🏷 *My STEM Domain Subscriptions*\n\n"
         "Select the disciplines you want prioritized in your daily briefings, digests, and intelligence feeds.\n\n"
-        f"Active Subscriptions: *{active_display}*\n\n"
+        f"Active Subscriptions: `{safe_display}`\n\n"
         "Tap below to toggle active subscriptions on or off:"
     )
 
     markup = get_interests_keyboard(active_slugs=active_slugs)
-
     if update.effective_message:
-        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=markup)
+        try:
+            await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=markup)
+        except Exception as exc:
+            if "can't parse entities" in str(exc).lower():
+                await update.effective_message.reply_text(text, parse_mode=None, reply_markup=markup)
+            else:
+                raise
 
 
 @authorized_only
@@ -201,12 +207,13 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
                     reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
                 )
         else:
-            active_display = ", ".join([f"#{s}" for s in active_slugs]) if active_slugs else "All STEM Domains"
+            active_display = ", ".join([f"#{s}" for s in active_slugs]) if active_slugs else "All Domains"
+            safe_display = active_display.replace("_", "-")
             text = (
-                "🏷️ *My STEM Domain Subscriptions*\n\n"
+                "🏷 *My STEM Domain Subscriptions*\n\n"
                 "Select the disciplines you want prioritized in your daily briefings, "
                 "digests, and intelligence feeds.\n\n"
-                f"Active Subscriptions: *{active_display}*\n\n"
+                f"Active Subscriptions: `{safe_display}`\n\n"
                 "Tap below to toggle active subscriptions on or off:"
             )
             markup = get_interests_keyboard(active_slugs=active_slugs)

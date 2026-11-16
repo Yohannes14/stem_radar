@@ -335,7 +335,8 @@ async def test_automation_callback_router_radar_horizon(mock_radar_update, mock_
     query.answer.assert_called_once()
     query.message.edit_text.assert_called_once()
     call_args = query.message.edit_text.call_args
-    assert "TRIAL Horizon" in call_args[0][0]
+    call_text = call_args[0][0] if call_args[0] else call_args[1].get("text", "")
+    assert "TRIAL Horizon" in call_text
 
 
 @pytest.mark.asyncio
