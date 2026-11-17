@@ -58,6 +58,14 @@ class Settings(BaseSettings):
     api_rate_limit_per_minute: int = Field(default=60, alias="API_RATE_LIMIT_PER_MINUTE")
     cors_origins: List[str] = Field(default_factory=lambda: ["*"])
 
+    # Stage 14: External Search Provider Integrations
+    external_search_enabled: bool = Field(default=True, alias="EXTERNAL_SEARCH_ENABLED")
+    semantic_scholar_api_key: Optional[str] = Field(default=None, alias="SEMANTIC_SCHOLAR_API_KEY")
+    brave_search_api_key: Optional[str] = Field(default=None, alias="BRAVE_SEARCH_API_KEY")
+    google_search_api_key: Optional[str] = Field(default=None, alias="GOOGLE_SEARCH_API_KEY")
+    google_search_engine_id: Optional[str] = Field(default=None, alias="GOOGLE_SEARCH_ENGINE_ID")
+    external_search_timeout_seconds: float = Field(default=4.0, alias="EXTERNAL_SEARCH_TIMEOUT_SECONDS")
+
     @model_validator(mode="after")
     def parse_user_ids(self) -> "Settings":
         if self.allowed_telegram_user_ids and not self.allowed_user_ids:

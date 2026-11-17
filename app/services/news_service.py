@@ -13,6 +13,18 @@ from app.processors.deduplicator import normalize_url
 
 logger = logging.getLogger(__name__)
 
+# Default domain categories associated directly with authoritative feeds
+SOURCE_DEFAULT_CATEGORIES: Dict[str, List[str]] = {
+    "shega": ["ethiopia-tech"],
+    "addis-standard": ["ethiopia-affairs"],
+    "reporter-ethiopia": ["ethiopia-affairs"],
+    "bbc-africa": ["global-politics", "ethiopia-affairs"],
+    "aljazeera-world": ["global-politics"],
+    "arxiv-ai": ["ai", "machine-learning"],
+    "arxiv-robotics": ["robotics"],
+    "arxiv-cs": ["computer-science"],
+}
+
 
 class NewsService:
     """Core service for managing technology news and research paper ingestion."""
@@ -78,7 +90,11 @@ class NewsService:
                     # Classify article text into STEM categories
                     combined_text = f"{item.title} {item.description or ''}"
                     classification_matches = classifier.classify(combined_text, max_categories=2)
-                    matched_cat_ids = [cat_map[slug] for slug, _ in classification_matches if slug in cat_map]
+                    matched_slugs = {slug for slug, _ in classification_matches}
+                    for default_slug in SOURCE_DEFAULT_CATEGORIES.get(source.slug, []):
+                        matched_slugs.add(default_slug)
+
+                    matched_cat_ids = [cat_map[slug] for slug in matched_slugs if slug in cat_map]
 
                     # Save article in batch (commit=False for batch performance)
                     _, created = await repo.save_article(
@@ -111,18 +127,22 @@ class NewsService:
         limit: int = 5,
         offset: int = 0,
         category_slug: Optional[str] = None,
+        category_slugs: Optional[List[str]] = None,
         source_slug: Optional[str] = None,
         source_type: Optional[str] = None,
+        query: Optional[str] = None,
     ) -> List[Article]:
-        """Fetch latest news articles with optional category, source, or type filters."""
+        """Fetch latest news articles with optional category, source, type, or query filters."""
         async with self.session_factory() as session:
             repo = Repository(session)
             return await repo.get_recent_articles(
                 limit=limit,
                 offset=offset,
                 category_slug=category_slug,
+                category_slugs=category_slugs,
                 source_slug=source_slug,
                 source_type=source_type,
+                query=query,
             )
 
     async def get_article_by_id(self, article_id: int) -> Optional[Article]:
@@ -154,3 +174,33 @@ class NewsService:
         async with self.session_factory() as session:
             repo = Repository(session)
             return await repo.get_saved_articles(user_id=user_id, limit=limit)
+
+    async def count_news(
+        self,
+        category_slug: Optional[str] = None,
+        category_slugs: Optional[List[str]] = None,
+        source_slug: Optional[str] = None,
+        source_type: Optional[str] = None,
+        query: Optional[str] = None,
+    ) -> int:
+        """Count articles matching filters."""
+        async with self.session_factory() as session:
+            repo = Repository(session)
+            return await repo.count_articles(
+                category_slug=category_slug,
+                category_slugs=category_slugs,
+                source_slug=source_slug,
+                source_type=source_type,
+                query=query,
+            )
+
+    async def get_related_articles(self, article_id: int, limit: int = 4) -> List[Article]:
+        """Fetch related articles based on category and domain overlap."""
+        async with self.session_factory() as session:
+            repo = Repository(session)
+            art = await repo.get_article_by_id(article_id)
+            if not art:
+                return []
+            primary_slug = art.categories[0].slug if art.categories else None
+            recent = await repo.get_recent_articles(limit=limit + 1, category_slug=primary_slug)
+            return [a for a in recent if a.id != article_id][:limit]

@@ -2,6 +2,7 @@
 
 import pytest
 
+from app.database.database import DEFAULT_CATEGORIES
 from app.database.repository import Repository
 
 
@@ -12,8 +13,9 @@ async def test_repository_get_sources_and_categories(test_session_factory):
         sources = await repo.get_sources()
         categories = await repo.get_categories()
 
-        assert len(sources) > 0
-        assert len(categories) == 19
+        assert len(sources) >= 13
+        assert len(categories) == len(DEFAULT_CATEGORIES)
+        assert len(categories) >= 23
 
 
 @pytest.mark.asyncio

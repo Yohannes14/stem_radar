@@ -11,6 +11,7 @@ from app.bot.filters.auth import authorized_only
 from app.bot.keyboards.inline import (
     get_education_topics_keyboard,
     get_lesson_keyboard,
+    get_project_card_keyboard,
     get_quiz_keyboard,
 )
 from app.bot.ui.formatters import (
@@ -235,14 +236,16 @@ async def project_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     proj = await ai_service.recommend_project(topic, difficulty=level)
     formatted = format_project_recommendation(proj)
     chunks = chunk_message(formatted, max_length=4000)
+    reply_markup = get_project_card_keyboard(topic, difficulty=level)
 
     if status_msg:
-        await status_msg.edit_text(chunks[0], parse_mode=ParseMode.MARKDOWN)
+        await status_msg.edit_text(chunks[0], parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
         for extra in chunks[1:]:
             await update.effective_message.reply_text(extra, parse_mode=ParseMode.MARKDOWN)
     elif update.effective_message:
-        for chunk in chunks:
-            await update.effective_message.reply_text(chunk, parse_mode=ParseMode.MARKDOWN)
+        await update.effective_message.reply_text(chunks[0], parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
+        for extra in chunks[1:]:
+            await update.effective_message.reply_text(extra, parse_mode=ParseMode.MARKDOWN)
 
 
 # ------------------ Command 6: /vocabulary ------------------
@@ -390,10 +393,11 @@ async def education_callback_router(update: Update, context: ContextTypes.DEFAUL
     if data.startswith("ed_prj:"):
         await query.answer("Designing project...")
         topic = data.split(":", 1)[1]
-        proj = await ai_service.recommend_project(topic)
+        proj = await ai_service.recommend_project(topic, difficulty="intermediate")
         formatted = format_project_recommendation(proj)
+        reply_markup = get_project_card_keyboard(topic, difficulty="intermediate")
         if query.message:
-            await query.message.reply_text(formatted, parse_mode=ParseMode.MARKDOWN)
+            await query.message.reply_text(formatted, parse_mode=ParseMode.MARKDOWN, reply_markup=reply_markup)
         return
 
     # 6. Switch Level: ed_lvl:<topic>:<level>

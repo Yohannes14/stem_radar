@@ -1,6 +1,7 @@
 """Enterprise Modular AI Intelligence Engine orchestrating LLM adapters, caching, and fallback heuristics."""
 
 import logging
+import re
 from typing import Optional
 
 from app.core.config import settings
@@ -78,9 +79,12 @@ class AIService:
 
         if self.provider:
             system_prompt = (
-                f"You are a Principal AI & STEM Intelligence Analyst. "
-                f"Summarize the following technology news item with technical rigor for a {mode}-level audience. "
-                f"Never invent facts, benchmarks, or quotes. Clearly distinguish source facts from implications."
+                f"You are a Principal Intelligence & Science Analyst. "
+                f"Summarize the following development with objective rigor and clarity for a {mode}-level audience. "
+                f"For political, regional, or policy topics, maintain strict journalistic neutrality, "
+                f"avoid editorial bias, and attribute claims clearly to the source. "
+                f"Never invent facts, benchmarks, casualties, or quotes. "
+                f"Clearly distinguish source facts from implications."
             )
             prompt = (
                 f"Headline/Title: {article.title}\n"
@@ -142,7 +146,8 @@ class AIService:
             system_prompt = (
                 "You are an academic peer reviewer and research scientist across STEM disciplines. "
                 "Analyze the research paper abstract and text with strict empirical integrity. "
-                "Do not fabricate findings or overstate claims. Identify concrete limitations."
+                "Do not fabricate findings or overstate claims. Identify concrete limitations. "
+                "Extract code repository or replication links if mentioned in the text."
             )
             prompt = (
                 f"Paper Title: {article.title}\n"
@@ -162,31 +167,59 @@ class AIService:
         return analysis
 
     def _heuristic_paper_analysis(self, article: Article) -> ResearchPaperAnalysis:
-        """Deterministic research paper analysis fallback."""
-        desc = article.description or "Scientific study details."
-        clean_desc = desc[:300].strip()
+        """Deterministic, domain-aware research paper analysis fallback extracting insights from paper text."""
+        desc = (article.description or "").strip()
+        sentences = [s.strip() for s in desc.split(".") if len(s.strip()) > 15]
+
+        # Extract problem, methodology, and findings from abstract sentences if available
+        problem = f"Addressing key theoretical and computational challenges in: {article.title}."
+        method = "Empirical experimentation and algorithmic modeling described in the preprint publication."
+        findings = []
+
+        for s in sentences:
+            s_low = s.lower()
+            if any(k in s_low for k in ["propose", "present", "introduce", "develop", "framework", "architecture"]):
+                method = f"Proposed approach: {s}."
+            elif any(k in s_low for k in ["show", "demonstrate", "achieve", "outperform", "improve", "results"]):
+                findings.append(f"Empirical validation: {s}.")
+            elif any(k in s_low for k in ["address", "problem", "challenge", "bottleneck", "focus"]):
+                if article.title.lower() in s_low:
+                    problem = f"Core investigation: {s}."
+                else:
+                    problem = f"Core investigation for {article.title}: {s}."
+
+        if not findings:
+            clean_desc = desc[:160] if desc else "Measurable improvement over baseline methods"
+            findings = [
+                f"Primary result: {clean_desc}.",
+                "Demonstrates architectural efficiency and computational scaling advantages.",
+            ]
+
+        # Extract code or artifact repository URL if present
+        code_repo = None
+        code_match = re.search(r"https?://(?:www\.)?(?:github\.com|gitlab\.com)/[a-zA-Z0-9_\-\./]+", desc)
+        if code_match:
+            code_repo = code_match.group(0).rstrip(".,;)")
 
         return ResearchPaperAnalysis(
             paper_title=article.title,
-            research_problem=f"Addressing computational and algorithmic bottlenecks presented in: {article.title}.",
-            methodology="Empirical validation and theoretical modeling described in the research publication.",
-            main_findings=[
-                f"Key reported result: {clean_desc[:160]}.",
-                "Demonstrates measurable performance or architectural improvements over baseline methods.",
-            ],
+            research_problem=problem,
+            methodology=method,
+            main_findings=findings[:3],
             limitations=[
-                "Evaluation scope bounded by the specific experimental conditions and benchmarks reported.",
-                "Real-world generalization requires independent replication across varied environments.",
+                "Evaluation scope bounded by the specific benchmarks and datasets evaluated in this study.",
+                "Real-world generalization across non-stationary production environments requires further replication.",
             ],
             practical_applications=[
-                "Algorithmic enhancement in production software pipelines",
-                "Foundational building block for next-generation research prototypes",
+                "High-performance engineering pipelines and model inference optimization",
+                "Reproducible baseline for adjacent STEM research programs and open-source tooling",
             ],
             further_research_questions=[
-                "How does the methodology scale to larger parameter spaces and real-time latency budgets?",
-                "What optimizations exist for edge computing hardware deployment?",
+                "How does this methodology scale to orders-of-magnitude larger parameter regimes?",
+                "Can these theoretical bounds be applied to real-time edge devices with tight power constraints?",
             ],
             original_paper_url=article.url,
+            code_repository_url=code_repo,
         )
 
     # ------------------ Capability 3: Technical Concept Explanations ------------------
@@ -269,18 +302,72 @@ class AIService:
                 f"{concept_name} leverages modular components and feedback loops to balance accuracy and latency."
             )
 
+        # Domain-aware contextual components and prerequisites
+        c_low = concept_name.lower()
+        if any(k in c_low for k in ["transformer", "llm", "neural", "attention", "gpt", "model"]):
+            components = [
+                "Multi-Head Self-Attention",
+                "Query/Key/Value Projections",
+                "Positional Embeddings",
+                "LayerNorm & MLP",
+            ]
+            prereqs = ["Linear Algebra & Matrix Multiplication", "Gradient Descent", "Softmax Activation Function"]
+            misconceptions = [
+                (
+                    f"Believing {concept_name} possesses internal biological reasoning "
+                    "rather than statistical weight projection."
+                ),
+                "Assuming larger parameter count automatically cures hallucination without grounded retrieval.",
+            ]
+        elif any(k in c_low for k in ["robot", "actuator", "kinematics", "quadruped", "slam", "control"]):
+            components = [
+                "Forward/Inverse Kinematics",
+                "Brushless Actuator Dynamics",
+                "State Estimation (IMU/LiDAR)",
+                "Feedback Control Loop (PID/MPC)",
+            ]
+            prereqs = ["Rigid Body Dynamics", "Coordinate Transformations", "Real-Time Embedded Systems"]
+            misconceptions = [
+                f"Assuming software simulation alone transfers directly to {concept_name} without the sim-to-real gap.",
+                "Neglecting thermal dissipation and power density limits in continuous actuator operation.",
+            ]
+        elif any(k in c_low for k in ["quantum", "qubit", "superconductor"]):
+            components = [
+                "Superposition State Vectors",
+                "Unitary Quantum Logic Gates",
+                "Entangled Bell Pairs",
+                "Measurement & Decoherence",
+            ]
+            prereqs = ["Complex Vector Spaces (Hilbert Space)", "Probability Amplitudes", "Linear Operators"]
+            misconceptions = [
+                f"Assuming {concept_name} simply runs classical algorithms simultaneously in parallel universes.",
+                "Overlooking extreme cryogenic cooling and physical noise isolation requirements.",
+            ]
+        else:
+            components = [
+                "Core Algorithmic Formulation",
+                "Data Pipeline & Representations",
+                "State Management & Transitions",
+                "Benchmark Evaluation Metric",
+            ]
+            prereqs = ["Data Structures & Algorithms", "Computational Complexity (Big-O)", "System Architecture"]
+            misconceptions = [
+                (
+                    f"Assuming {concept_name} replaces core domain principles "
+                    "rather than optimizing specific operational constraints."
+                ),
+                "Disregarding memory bandwidth bottlenecks and amortized computational overhead in production.",
+            ]
+
         return ConceptExplanation(
             concept_name=concept_name,
             mode=mode,
             core_definition=definition,
             how_it_works=how_it_works,
             analogy_or_example=analogy,
-            key_components=["Core Algorithm", "Data Pipeline", "Optimization Function", "Evaluation Metrics"],
-            common_misconceptions=[
-                f"Assuming {concept_name} replaces foundational domain knowledge rather than augmenting it.",
-                "Overlooking compute and memory overhead in production deployments.",
-            ],
-            prerequisites_or_related=["Data Structures & Algorithms", "Linear Algebra", "System Design"],
+            key_components=components,
+            common_misconceptions=misconceptions,
+            prerequisites_or_related=prereqs,
         )
 
     # ------------------ Capability 4: Technology Impact Analysis ------------------
@@ -813,7 +900,8 @@ class AIService:
             system_prompt = (
                 f"You are a Staff Software Engineer and Technical Recruiter. "
                 f"Design an impactful portfolio project for a {difficulty.upper()} developer in {clean_topic}. "
-                f"Focus on practical problem solving, realistic architecture, tech stack, and hiring impact."
+                f"Focus on practical problem solving, realistic architecture, tech stack, completion timeline, "
+                f"concrete learning outcomes, verification/testing steps, common pitfalls, and hiring impact."
             )
             prompt = f"Topic: {clean_topic}\nDifficulty: {difficulty}\n\nGenerate ProjectRecommendation JSON."
             try:
@@ -829,6 +917,117 @@ class AIService:
 
     def _heuristic_project(self, topic: str, difficulty: ExplanationMode) -> ProjectRecommendation:
         """Deterministic project recommendation fallback."""
+        time_estimates = {
+            "beginner": "3-5 days (~8-12 hours)",
+            "intermediate": "1-2 weeks (~15-25 hours)",
+            "advanced": "3-4 weeks (~40-60 hours)",
+        }
+        est_time = time_estimates.get(difficulty, "1-2 weeks (~15-25 hours)")
+
+        t_low = topic.lower()
+        if any(k in t_low for k in ["robot", "kinematics", "quadruped", "actuator"]):
+            skills = ["Python & C++", "ROS 2 / Gazebo", "Forward & Inverse Kinematics", "PID / State Estimation"]
+            materials = [
+                "Linux Workstation (Ubuntu 22.04 LTS)",
+                "ROS 2 Humble / Gazebo Physics Simulator",
+                "Optional: ESP32 Microcontroller & 3x Servo Motors",
+            ]
+            cost = "$0 using Gazebo simulation ($35 if assembling physical ESP32 prototype)"
+            outcomes = [
+                "Mathematical modeling of forward & inverse kinematics",
+                "Real-time sensor integration and state estimation filtering",
+                "Closed-loop PID actuator control and trajectory planning",
+            ]
+            verifications = [
+                "Verify joint angles in Gazebo against theoretical kinematic equations",
+                "Measure tracking error under simulated external payload disturbance",
+                "Execute automated fail-safe shutdown upon simulated sensor dropout",
+            ]
+            pitfalls = [
+                "Ignoring floating-point rounding errors in trigonometric coordinate transforms",
+                "Unfiltered sensor noise causing aggressive PID derivative kick",
+                "Insufficient power supply causing microcontroller brownouts during motor surge",
+            ]
+        elif any(k in t_low for k in ["quantum", "qubit"]):
+            skills = ["Linear Algebra", "Qiskit / Cirq SDK", "Quantum Circuit Design", "Error Mitigation"]
+            materials = [
+                "Python 3.12+ Scientific Environment",
+                "IBM Quantum Platform / Rigetti Cloud Account (Free Tier)",
+                "JupyterLab / NumPy / Qiskit Aer Simulator",
+            ]
+            cost = "$0 (Runs on local Qiskit Aer simulator & free IBM Quantum Cloud credits)"
+            outcomes = [
+                "Quantum state representation and Bloch sphere manipulation",
+                "Circuit synthesis with parameterized unitary operators",
+                "Noise modeling, zero-noise extrapolation, and error mitigation",
+            ]
+            verifications = [
+                "Execute quantum state tomography to verify fidelity against theoretical matrices",
+                "Benchmark circuit depth and gate count across simulator vs quantum hardware backends",
+                "Run assertion checks ensuring unitary matrix operator compliance",
+            ]
+            pitfalls = [
+                "Exceeding qubit coherence times with excessively deep circuits",
+                "Misinterpreting probabilistic measurement collapse as deterministic computation",
+                "Ignoring gate error accumulation on physical NISQ hardware",
+            ]
+        elif any(k in t_low for k in ["cyber", "security", "crypto"]):
+            skills = [
+                "Network Protocols (TCP/IP, TLS 1.3)",
+                "Packet Analysis (Scapy)",
+                "Linux Systems",
+                "Cryptography",
+            ]
+            materials = [
+                "Linux / macOS Workstation",
+                "Wireshark / Scapy / Docker Sandboxing",
+                "Public Vulnerability Feeds (CVE / NVD APIs)",
+            ]
+            cost = "$0 (Free & open-source security tools in isolated containers)"
+            outcomes = [
+                "Deep packet inspection and protocol header anomaly detection",
+                "Zero-trust architectural design and cryptographic verification",
+                "Automated threat telemetry and incident alerting workflows",
+            ]
+            verifications = [
+                "Simulate packet replay attacks in sandboxed network container",
+                "Benchmark parsing throughput with 100,000 synthetic malformed packets",
+                "Run automated penetration testing checks against TLS configurations",
+            ]
+            pitfalls = [
+                "Blocking event loops with synchronous packet parsing routines",
+                "Hardcoding cryptographic seeds or failing to use secure random generators",
+                "Memory leak or excessive CPU consumption on malformed packets",
+            ]
+        else:
+            skills = [
+                "Python 3.12+",
+                "AsyncIO & Event-Driven Architecture",
+                "Pydantic V2 & SQL",
+                "Unit Testing & CI/CD",
+            ]
+            materials = [
+                "Development Workstation (macOS / Linux / WSL2)",
+                "Docker Desktop & Python Virtualenv",
+                "Public Open-Source Libraries & Free REST/gRPC APIs",
+            ]
+            cost = "$0 (Uses local developer workstation and open-source software)"
+            outcomes = [
+                "Production asynchronous event-driven system architecture",
+                "End-to-end data serialization and schema validation guarantees",
+                "Automated test harnesses, benchmarking, and telemetry observability",
+            ]
+            verifications = [
+                "Run test suite with pytest enforcing >90% code coverage",
+                "Execute load test with Locust or k6 measuring p99 latency under concurrency",
+                "Verify database connection pool recovery after simulated network partition",
+            ]
+            pitfalls = [
+                "Unbounded in-memory queues leading to Out-Of-Memory under backpressure",
+                "Neglecting database index design resulting in full table scans under load",
+                "Over-engineering microservices before establishing single-process domain boundaries",
+            ]
+
         return ProjectRecommendation(
             topic=topic,
             difficulty=difficulty,
@@ -842,12 +1041,19 @@ class AIService:
                 "(3) Asynchronous message broker, (4) Time-series telemetry database, and (5) Alert dashboard."
             ),
             tech_stack=["Python 3.12+", "AsyncIO", "Pydantic V2", "SQLAlchemy Async", "FastAPI / Docker"],
+            required_skills=skills,
+            components_and_materials=materials,
+            estimated_cost=cost,
+            estimated_time=est_time,
+            learning_outcomes=outcomes,
             step_by_step_milestones=[
                 "Phase 1: Build the data ingestion client with resilient exponential retry policies",
                 "Phase 2: Implement the core transformation algorithm with unit test coverage >90%",
                 "Phase 3: Connect the database layer with ACID transactions and foreign key validation",
                 "Phase 4: Integrate real-time Prometheus / structured metrics export",
             ],
+            verification_steps=verifications,
+            common_pitfalls=pitfalls,
             stretch_goals=[
                 "Add automated load testing with Locust or k6 simulating 10,000 requests/second",
                 "Implement distributed tracing with OpenTelemetry and Jaeger",

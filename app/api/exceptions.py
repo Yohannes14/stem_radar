@@ -39,6 +39,18 @@ class EntityNotFoundException(APIException):
         )
 
 
+class BadRequestException(APIException):
+    """Raised when request payload or parameters are invalid."""
+
+    def __init__(self, message: str = "Invalid request payload.", details: Optional[Any] = None) -> None:
+        super().__init__(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="BAD_REQUEST",
+            message=message,
+            details=details,
+        )
+
+
 class UnauthorizedException(APIException):
     """Raised when authentication credentials are missing or invalid."""
 

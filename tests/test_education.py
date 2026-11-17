@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from telegram import Chat, Message, Update, User
 
+from app.bot.handlers.base import main_menu_callback_router
 from app.bot.handlers.education import (
     compare_command,
     education_callback_router,
@@ -14,6 +15,13 @@ from app.bot.handlers.education import (
     quiz_command,
     roadmap_command,
     vocabulary_command,
+)
+from app.bot.keyboards.inline import get_project_card_keyboard
+from app.bot.ui.formatters import format_project_recommendation
+from app.bot.ui.menu import (
+    format_learn_hub_intro,
+    format_projects_hub_intro,
+    get_learn_hub_keyboard,
 )
 from app.config import settings
 from app.database.repository import Repository
@@ -97,6 +105,17 @@ async def test_ai_service_recommends_project():
     assert len(proj.tech_stack) >= 3
     assert len(proj.step_by_step_milestones) >= 3
     assert proj.portfolio_impact is not None
+    assert proj.estimated_time is not None
+    assert len(proj.learning_outcomes) >= 1
+    assert len(proj.verification_steps) >= 1
+    assert len(proj.common_pitfalls) >= 1
+
+    formatted = format_project_recommendation(proj)
+    assert "Portfolio Project:" in formatted
+    assert "Estimated Time:" in formatted
+    assert "Core Learning Outcomes:" in formatted
+    assert "Verification & Testing Steps:" in formatted
+    assert "Common Pitfalls to Avoid:" in formatted
 
 
 @pytest.mark.asyncio
@@ -271,3 +290,118 @@ async def test_education_callback_router_handles_quiz_answer(mock_update, test_s
     reply_text = mock_update.callback_query.message.reply_text.call_args[0][0]
     assert "Correct!" in reply_text or "Incorrect" in reply_text
     assert "Explanation:" in reply_text
+
+
+def test_project_card_keyboard():
+    """Verify project recommendation action keyboard with difficulty switchers."""
+    kb = get_project_card_keyboard("Robotics", difficulty="intermediate")
+    flattened = [btn.callback_data for row in kb.inline_keyboard for btn in row]
+    assert "prj_gen:Robotics:beginner" in flattened
+    assert "prj_gen:Robotics:intermediate" in flattened
+    assert "prj_gen:Robotics:advanced" in flattened
+    assert "menu:projects" in flattened
+    assert "menu:home" in flattened
+
+    # Verify bullet mark on selected difficulty
+    assert "• " in kb.inline_keyboard[0][1].text
+
+
+def test_learn_hub_keyboard_and_intros():
+    """Verify Learn Hub keyboard contains difficulty paths and intros are compliant."""
+    learn_kb = get_learn_hub_keyboard()
+    flattened = [btn.callback_data for row in learn_kb.inline_keyboard for btn in row]
+    assert "learn_lvl:beginner" in flattened
+    assert "learn_lvl:intermediate" in flattened
+    assert "learn_lvl:advanced" in flattened
+    assert "menu:learn_quiz" in flattened
+    assert "menu:roadmaps" in flattened
+    assert "menu:home" in flattened
+
+    learn_intro = format_learn_hub_intro()
+    assert "STEM Learning Academy" in learn_intro
+    assert "Structured Paths:" in learn_intro
+
+    prj_intro = format_projects_hub_intro()
+    assert "Portfolio Project Generator" in prj_intro
+    assert "Portfolio-Ready Specs:" in prj_intro
+    assert "Testing & Benchmarking:" in prj_intro
+
+
+@pytest.mark.asyncio
+async def test_main_menu_callback_routes_project_and_learn_tracks(mock_update):
+    """Verify main menu router properly handles project generators, levels, and learning tracks."""
+    mock_update.callback_query = MagicMock()
+    mock_update.callback_query.answer = AsyncMock()
+    mock_update.callback_query.message = MagicMock()
+    mock_update.callback_query.message.edit_text = AsyncMock()
+    mock_update.callback_query.message.reply_text = AsyncMock()
+
+    with patch.object(settings, "allowed_user_ids", [887766]):
+        # 1. prj_topic:Robotics
+        mock_update.callback_query.data = "prj_topic:Robotics"
+        await main_menu_callback_router(mock_update, MagicMock())
+        mock_update.callback_query.message.edit_text.assert_called_once()
+        text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
+        markup = mock_update.callback_query.message.edit_text.call_args[1]["reply_markup"]
+        assert "Portfolio Project:" in text
+        assert "Estimated Time:" in text
+        assert any("prj_gen:Robotics:advanced" == btn.callback_data for row in markup.inline_keyboard for btn in row)
+
+        # 2. prj_gen:Robotics:advanced
+        mock_update.callback_query.message.edit_text.reset_mock()
+        mock_update.callback_query.data = "prj_gen:Robotics:advanced"
+        await main_menu_callback_router(mock_update, MagicMock())
+        mock_update.callback_query.message.edit_text.assert_called_once()
+        text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
+        assert "ADVANCED" in text
+
+        # 3. prj_diff:beginner
+        mock_update.callback_query.message.edit_text.reset_mock()
+        mock_update.callback_query.data = "prj_diff:beginner"
+        await main_menu_callback_router(mock_update, MagicMock())
+        mock_update.callback_query.message.edit_text.assert_called_once()
+        text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
+        assert "Beginner Engineering Labs" in text
+
+        # 4. prj_rand
+        mock_update.callback_query.message.edit_text.reset_mock()
+        mock_update.callback_query.data = "prj_rand"
+        await main_menu_callback_router(mock_update, MagicMock())
+        mock_update.callback_query.message.edit_text.assert_called_once()
+        text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
+        assert "Portfolio Project:" in text
+
+        # 5. menu:portfolio_tips
+        mock_update.callback_query.message.edit_text.reset_mock()
+        mock_update.callback_query.data = "menu:portfolio_tips"
+        await main_menu_callback_router(mock_update, MagicMock())
+        mock_update.callback_query.message.edit_text.assert_called_once()
+        text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
+        assert "Engineering Portfolio Strategy" in text
+
+        # 6. learn_lvl:beginner
+        mock_update.callback_query.message.edit_text.reset_mock()
+        mock_update.callback_query.data = "learn_lvl:beginner"
+        await main_menu_callback_router(mock_update, MagicMock())
+        mock_update.callback_query.message.edit_text.assert_called_once()
+        text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
+        assert "Beginner STEM Learning Track" in text
+
+
+@pytest.mark.asyncio
+async def test_education_callback_router_ed_prj(mock_update):
+    """Verify ed_prj:<topic> renders project recommendation with project card keyboard."""
+    mock_update.callback_query = MagicMock()
+    mock_update.callback_query.data = "ed_prj:Robotics"
+    mock_update.callback_query.answer = AsyncMock()
+    mock_update.callback_query.message = MagicMock()
+    mock_update.callback_query.message.reply_text = AsyncMock()
+
+    with patch.object(settings, "allowed_user_ids", [887766]):
+        await education_callback_router(mock_update, MagicMock())
+
+    mock_update.callback_query.message.reply_text.assert_called_once()
+    reply_args = mock_update.callback_query.message.reply_text.call_args
+    assert "Portfolio Project:" in reply_args[0][0]
+    markup = reply_args[1]["reply_markup"]
+    assert any("prj_gen:Robotics:beginner" == btn.callback_data for row in markup.inline_keyboard for btn in row)

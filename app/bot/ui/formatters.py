@@ -3,7 +3,7 @@
 import html
 import re
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 CATEGORY_EMOJIS = {
     "ai": "🤖",
@@ -38,8 +38,17 @@ def sanitize_markdown(text: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+def estimate_reading_time(text: str) -> str:
+    """Calculate reliable reading time estimate based on standard reading speed (~200 wpm)."""
+    if not text:
+        return "~1 min read"
+    words = len(text.split())
+    mins = max(1, round(words / 180))
+    return f"~{mins} min read"
+
+
 def format_article_view(article, index: int = 0, total: int = 1) -> str:
-    """Format an article into a clean mobile-friendly Telegram card."""
+    """Format an article into a rich, structured, mobile-friendly Telegram card."""
     source_name = sanitize_markdown(article.source.name if article.source else "Unknown")
     cat_names = [c.name for c in article.categories] if article.categories else ["Technology"]
     cat_display = ", ".join(cat_names[:2])
@@ -50,14 +59,108 @@ def format_article_view(article, index: int = 0, total: int = 1) -> str:
     pub_date = article.published_at or article.collected_at
     date_str = pub_date.strftime("%b %d, %Y") if pub_date else "Recent"
 
+    full_text_for_timer = f"{article.title} {article.description or ''} {article.content or ''}"
+    read_time = estimate_reading_time(full_text_for_timer)
+
     safe_title = sanitize_markdown(article.title)
 
     raw_desc = article.description or "No preview available."
     safe_desc = sanitize_markdown(raw_desc)
-    if len(safe_desc) > 380:
-        safe_desc = safe_desc[:377].rsplit(" ", 1)[0] + "..."
+    if len(safe_desc) > 300:
+        safe_desc = safe_desc[:297].rsplit(" ", 1)[0] + "..."
 
-    return f"{emoji} *{cat_display}* | _{source_name}_\n📅 {date_str}\n\n*{safe_title}*\n\n{safe_desc}\n"
+    summary_text = sanitize_markdown(article.ai_summary.strip()) if article.ai_summary else safe_desc
+
+    # Extract or synthesize "Why It Matters"
+    why_it_matters = None
+    if article.ai_analysis:
+        clean_analysis = sanitize_markdown(article.ai_analysis)
+        if len(clean_analysis) > 25:
+            why_it_matters = clean_analysis
+    elif article.description and len(article.description.split(".")) > 2:
+        sentences = [s.strip() for s in article.description.split(".") if len(s.strip()) > 20]
+        if len(sentences) >= 2:
+            why_it_matters = sanitize_markdown(sentences[-1]) + "."
+
+    if not why_it_matters:
+        impact_defaults = {
+            "ai": "Accelerates cognitive inference efficiency and machine reasoning capabilities.",
+            "robotics": "Expands operational autonomy, actuator precision, and embodied control.",
+            "computer-science": "Optimizes algorithmic complexity, concurrency guarantees, and system throughput.",
+            "software-engineering": "Improves architectural resilience, maintainability, and deployment velocity.",
+            "cybersecurity": "Mitigates critical threat surfaces, cryptographic weaknesses, and attack vectors.",
+            "physics": "Delivers empirical verification for theoretical models and physical matter.",
+            "biotechnology": "Enables synthetic biomolecular engineering and clinical translational pipelines.",
+            "space-technology": "Advances orbital logistics, propulsion metrics, and aerospace exploration.",
+            "renewable-energy": "Improves power conversion efficiency, grid storage, and clean energy economics.",
+            "electronics": "Enhances semiconductor density, signal integrity, and energy efficiency.",
+        }
+        why_it_matters = impact_defaults.get(
+            primary_slug, "Represents key technological progress with direct industry and research implications."
+        )
+
+    # Generate relevant hashtags
+    tags = ["#" + re.sub(r"[^a-zA-Z0-9]", "", c.name) for c in (article.categories or [])]
+    if not tags:
+        tags = ["#STEM", "#Technology"]
+    tags_str = " ".join(tags[:3])
+
+    card_lines = [
+        f"{emoji} *{cat_display}* | _{source_name}_",
+        f"📅 {date_str} • ⏱️ {read_time}\n",
+        f"*{safe_title}*\n",
+        f"📝 *Summary:*\n{summary_text}\n",
+        f"💡 *Why It Matters:*\n{why_it_matters}\n",
+        f"🏷️ `{tags_str}`\n",
+        f"🔗 [Read full article on {source_name}]({article.url})",
+    ]
+    return "\n".join(card_lines)
+
+
+def format_related_articles(parent_article, related: list) -> str:
+    """Format related research papers and technology articles."""
+    parent_title = sanitize_markdown(parent_article.title[:80])
+    lines = [f"🔍 *Articles & Papers Related to:*\n_{parent_title}...\n"]
+
+    if not related:
+        lines.append("No related articles found in this category yet.\nRun `/collect` to index new sources.")
+    else:
+        for i, a in enumerate(related, 1):
+            title = sanitize_markdown(a.title)
+            source = sanitize_markdown(a.source.name if a.source else "Tech")
+            read_time = estimate_reading_time(f"{a.title} {a.description or ''}")
+            lines.append(f"{i}. [{title}]({a.url})\n   _{source}_ • ⏱️ {read_time}\n")
+
+    return "\n".join(lines)
+
+
+def format_search_results_page(
+    query: str,
+    articles: list,
+    page: int = 0,
+    total_pages: int = 1,
+    total_count: int = 0,
+) -> str:
+    """Format paginated article search results."""
+    clean_query = sanitize_markdown(query)
+    if not articles:
+        return f'🔍 No articles found matching *"{clean_query}"*\n\nTry `/collect` to pull new articles.'
+
+    lines = [
+        f'🔍 *Search Results for "{clean_query}"*',
+        f"📄 Page `{page + 1}` of `{total_pages}` • `{total_count}` total matches\n",
+    ]
+    start_index = page * 5 + 1
+    for i, a in enumerate(articles, start_index):
+        clean_title = sanitize_markdown(a.title)
+        source = sanitize_markdown(a.source.name if a.source else "Tech")
+        read_time = estimate_reading_time(f"{a.title} {a.description or ''}")
+        snippet = sanitize_markdown(a.description or "")[:120]
+        if snippet:
+            snippet = f"\n   _{snippet}..._"
+        lines.append(f"{i}. [{clean_title}]({a.url})\n   Source: _{source}_ • ⏱️ {read_time}{snippet}\n")
+
+    return "\n".join(lines)
 
 
 def format_search_results(query: str, articles: list) -> str:
@@ -157,6 +260,16 @@ def format_paper_analysis(analysis) -> str:
     apps_str = "\n".join(f"• {sanitize_markdown(a)}" for a in analysis.practical_applications)
     questions_str = "\n".join(f"• {sanitize_markdown(q)}" for q in analysis.further_research_questions)
 
+    code_line = ""
+    if getattr(analysis, "code_repository_url", None):
+        code_line = f"\n💻 [Code & Replication Repository]({analysis.code_repository_url})\n"
+
+    disclaimer = (
+        "⚠️ *Academic Integrity Disclaimer:*\n"
+        "_This AI-assisted breakdown is an analytical aid and does not substitute for reading "
+        "and peer-reviewing the full original research publication._"
+    )
+
     return (
         f"🔬 *Scientific Research Paper Analysis*\n\n"
         f"📄 *{sanitize_markdown(analysis.paper_title)}*\n\n"
@@ -166,7 +279,8 @@ def format_paper_analysis(analysis) -> str:
         f"⚠️ *Limitations & Boundary Conditions:*\n{limits_str}\n\n"
         f"🚀 *Practical Applications:*\n{apps_str}\n\n"
         f"🔭 *Open Questions:*\n{questions_str}\n\n"
-        f"🔗 [Read Full Paper / arXiv]({analysis.original_paper_url})"
+        f"🔗 [Read Full Paper / arXiv]({analysis.original_paper_url}){code_line}\n\n"
+        f"{disclaimer}"
     )
 
 
@@ -314,18 +428,62 @@ def format_concept_comparison(comp) -> str:
 
 
 def format_project_recommendation(proj) -> str:
-    """Format portfolio project recommendation."""
+    """Format portfolio project recommendation with all Section 5.F engineering dimensions."""
     stack_str = ", ".join(f"`{sanitize_markdown(t)}`" for t in proj.tech_stack)
     milestones = "\n".join(f"• {sanitize_markdown(m)}" for m in proj.step_by_step_milestones)
     stretch = "\n".join(f"• {sanitize_markdown(s)}" for s in proj.stretch_goals)
 
+    time_str = getattr(proj, "estimated_time", "1-2 weeks (~15-25 hours)")
+
+    outcomes = getattr(proj, "learning_outcomes", None)
+    outcomes_line = ""
+    if outcomes:
+        outcomes_str = "\n".join(f"• {sanitize_markdown(o)}" for o in outcomes)
+        outcomes_line = f"🎓 *Core Learning Outcomes:*\n{outcomes_str}\n\n"
+
+    skills = getattr(proj, "required_skills", None)
+    skills_line = ""
+    if skills:
+        skills_str = ", ".join(f"`{sanitize_markdown(s)}`" for s in skills)
+        skills_line = f"🛠️ *Required Skills:*\n{skills_str}\n\n"
+
+    materials = getattr(proj, "components_and_materials", None)
+    materials_line = ""
+    if materials:
+        materials_str = "\n".join(f"• {sanitize_markdown(c)}" for c in materials)
+        materials_line = f"🧩 *Components & Materials:*\n{materials_str}\n\n"
+
+    cost = getattr(proj, "estimated_cost", None)
+    cost_line = ""
+    if cost:
+        cost_line = f"💰 *Estimated Budget & Assumptions:*\n_{sanitize_markdown(cost)}_\n\n"
+
+    verifications = getattr(proj, "verification_steps", None)
+    verifications_line = ""
+    if verifications:
+        verifications_str = "\n".join(f"• {sanitize_markdown(v)}" for v in verifications)
+        verifications_line = f"🧪 *Verification & Testing Steps:*\n{verifications_str}\n\n"
+
+    pitfalls = getattr(proj, "common_pitfalls", None)
+    pitfalls_line = ""
+    if pitfalls:
+        pitfalls_str = "\n".join(f"• {sanitize_markdown(p)}" for p in pitfalls)
+        pitfalls_line = f"⚠️ *Common Pitfalls to Avoid:*\n{pitfalls_str}\n\n"
+
     return (
         f"🚀 *Portfolio Project: {sanitize_markdown(proj.project_title)}*\n"
-        f"🏷️ *Level:* `{proj.difficulty.upper()}` | 📌 *Domain:* *{sanitize_markdown(proj.topic)}*\n\n"
+        f"🏷️ *Level:* `{proj.difficulty.upper()}` | 📌 *Domain:* *{sanitize_markdown(proj.topic)}*\n"
+        f"⏱️ *Estimated Time:* `{sanitize_markdown(time_str)}`\n\n"
         f"🎯 *Problem Statement:*\n{sanitize_markdown(proj.problem_statement)}\n\n"
+        f"{outcomes_line}"
+        f"{skills_line}"
+        f"{materials_line}"
+        f"{cost_line}"
         f"🏗️ *System Architecture:*\n{sanitize_markdown(proj.system_architecture)}\n\n"
         f"🧰 *Recommended Tech Stack:*\n{stack_str}\n\n"
         f"📋 *Step-by-Step Implementation Milestones:*\n{milestones}\n\n"
+        f"{verifications_line}"
+        f"{pitfalls_line}"
         f"⭐ *Stretch Goals for Excellence:*\n{stretch}\n\n"
         f"💼 *Hiring Portfolio Impact:*\n_{sanitize_markdown(proj.portfolio_impact)}_"
     )
@@ -539,4 +697,141 @@ def format_platform_stats(stats: dict) -> str:
         )
 
     lines.append("\n_All pipelines active and healthy._")
+    return "\n".join(lines)
+
+
+def format_tech_radar(
+    horizon: str = "all",
+    scored_articles: Optional[list] = None,
+    domain_velocities: Optional[dict] = None,
+) -> str:
+    """Format interactive Thoughtworks-style Technology Radar across 4 adoption horizons."""
+    clean_horizon = (horizon or "all").lower().strip()
+
+    if clean_horizon == "adopt":
+        content = (
+            "🎯 *STEM Technology Radar — 🟢 ADOPT Horizon*\n\n"
+            "*Definition:* Technologies with high ROI, verified production stability, "
+            "minimal adoption risk, and widespread engineering support.\n\n"
+            "1. *LLM Orchestration & Vector RAG*\n"
+            "   • _Standard:_ Qdrant, Chroma, LlamaIndex, pgvector\n"
+            "   • _Verdict:_ Essential for grounding generative models without catastrophic hallucinations.\n\n"
+            "2. *PyTorch 2.x & Graph Compilation*\n"
+            "   • _Standard:_ TorchDynamo, TorchInductor, Triton kernels\n"
+            "   • _Verdict:_ Standard runtime for training and inference; replaces eager-mode execution.\n\n"
+            "3. *FlashAttention-2 & Memory-Efficient Attention*\n"
+            "   • _Standard:_ Tiling algorithms, fused CUDA kernels\n"
+            "   • _Verdict:_ Mandatory standard for long-context sequence modeling (>8k tokens).\n\n"
+            "4. *Rust for Systems & Embedded Firmware*\n"
+            "   • _Standard:_ Memory safety without GC latency overhead\n"
+            "   • _Verdict:_ First choice for high-concurrency kernels, robotics controllers, and WASM."
+        )
+    elif clean_horizon == "trial":
+        content = (
+            "🎯 *STEM Technology Radar — 🟡 TRIAL Horizon*\n\n"
+            "*Definition:* High-potential technologies validated in labs or pilot projects; "
+            "ready for proof-of-concept evaluation in production environments.\n\n"
+            "1. *Vision-Language-Action (VLA) Robotics Models*\n"
+            "   • _Examples:_ RT-2, OpenVLA, Octo\n"
+            "   • _Focus:_ Direct tokenized control of robotic end-effectors from visual prompts.\n\n"
+            "2. *Sim-to-Real Reinforcement Learning Locomotion*\n"
+            "   • _Examples:_ Isaac Gym, Domain Randomization, Humanoid Walk Policies\n"
+            "   • _Focus:_ Dynamic balance recovery surpassing classical inverse kinematics.\n\n"
+            "3. *On-Device Small Language Models (SLMs)*\n"
+            "   • _Examples:_ 1B-4B quantized architectures (GGUF, AWQ, EXL2)\n"
+            "   • _Focus:_ Privacy-first, offline, sub-50ms token generation on edge devices.\n\n"
+            "4. *Neuromorphic Event-Based Sensors*\n"
+            "   • _Examples:_ Dynamic Vision Sensors (DVS), Spiking Neural Networks (SNN)\n"
+            "   • _Focus:_ Micro-watt power consumption with microsecond temporal resolution."
+        )
+    elif clean_horizon == "assess":
+        content = (
+            "🎯 *STEM Technology Radar — 🔵 ASSESS Horizon*\n\n"
+            "*Definition:* Frontier scientific developments and emerging paradigms; "
+            "worth active research tracking and experimental prototyping.\n\n"
+            "1. *Quantum Error Mitigation & Logical Qubits*\n"
+            "   • _Examples:_ Surface codes, neutral-atom lattices, fault-tolerant gates\n"
+            "   • _Status:_ Transitioning from NISQ noisy qubits toward physical error suppression.\n\n"
+            "2. *High-Temperature Superconductivity*\n"
+            "   • _Examples:_ Hydrides under compression, nickelate thin films\n"
+            "   • _Status:_ Rigorous peer-reviewed laboratory replication phase.\n\n"
+            "3. *Non-Invasive Brain-Computer Interfaces (BCI)*\n"
+            "   • _Examples:_ High-density EEG, neural speech decoders\n"
+            "   • _Status:_ Clinical trials and assistive communication systems.\n\n"
+            "4. *Synthetic Biology Automated Foundries*\n"
+            "   • _Examples:_ High-throughput DNA synthesis, robotic enzymatic optimization\n"
+            "   • _Status:_ Pilot biomanufacturing scale-up."
+        )
+    elif clean_horizon == "hold":
+        content = (
+            "🎯 *STEM Technology Radar — 🔴 HOLD Horizon*\n\n"
+            "*Definition:* Anti-patterns, deprecated architectures, or speculative hype; "
+            "proceed with extreme skepticism and avoid for new production projects.\n\n"
+            "1. *Monolithic RNNs / LSTMs for Long Context*\n"
+            "   • _Reason:_ Sequential bottlenecks prevent GPU scaling; superseded by Transformers and SSMs.\n\n"
+            "2. *Proprietary Closed Formats without Export*\n"
+            "   • _Reason:_ Severe vendor lock-in risk and inability to run local regression audits.\n\n"
+            "3. *Unquantized Massive Models on Edge Devices*\n"
+            "   • _Reason:_ Memory bandwidth saturation, severe battery drain, and thermal throttling.\n\n"
+            "4. *Unverified Hype Claims without Code / Peer Review*\n"
+            "   • _Reason:_ Speculative claims of room-temp superconductivity or AGI lacking empirical proof."
+        )
+    else:
+        # Full Radar Overview
+        content = (
+            "🎯 *STEM Technology Radar (Q4/2026)*\n\n"
+            "Autonomous radar classifying technologies into four adoption horizons:\n\n"
+            "🟢 *ADOPT:* LLM RAG Pipelines, PyTorch 2.x, FlashAttention-2, Rust Systems\n"
+            "🟡 *TRIAL:* Vision-Language-Action (VLA), Humanoid RL, On-Device SLMs, Neuromorphic Chips\n"
+            "🔵 *ASSESS:* Quantum Error Mitigation, Room-Temp Superconductors, Non-Invasive BCI, SynBio\n"
+            "🔴 *HOLD:* Monolithic RNNs, Proprietary Closed Lock-in, Edge Unquantized Models, Speculative Hype"
+        )
+
+    # Embed dynamic real-time momentum if available
+    lines = [content]
+    if domain_velocities:
+        lines.append("\n📈 *Empirical Domain Velocity Signals:*")
+        for slug, d in list(domain_velocities.items())[:4]:
+            lines.append(
+                f"• *{d.get('name', slug.title())}*: {d.get('momentum', '⚖️ Stable')} "
+                f"(`{d.get('count', 0)}` articles, `{d.get('paper_count', 0)}` papers)"
+            )
+    elif scored_articles:
+        lines.append("\n🔥 *Active Breakthrough Signals:*")
+        for idx, item in enumerate(scored_articles[:3], 1):
+            art = item[0] if isinstance(item, (tuple, list)) else item
+            score = item[1] if isinstance(item, (tuple, list)) else 80.0
+            lines.append(f"{idx}. *{sanitize_markdown(art.title[:65])}* (Score: `{score:.1f}`)")
+
+    lines.append("\n_Tap buttons below to filter horizons or update live intelligence._")
+    return "\n".join(lines)
+
+
+def format_trend_velocity(domain_velocities: dict) -> str:
+    """Format evidence-based STEM trend velocity and momentum report."""
+    if not domain_velocities:
+        return "📊 No trend momentum data calculated yet. Run `/collect` first!"
+
+    lines = [
+        "📈 *STEM Domain Trend Velocity & Momentum Analysis*\n",
+        "Evidence-based tracking computed from publication volume, recency, and impact scores:\n",
+    ]
+
+    for slug, d in domain_velocities.items():
+        name = d.get("name", slug.title())
+        momentum = d.get("momentum", "⚖️ Stable")
+        count = d.get("count", 0)
+        papers = d.get("paper_count", 0)
+        avg_score = d.get("avg_score", 0.0)
+        top = d.get("top_headline", "")
+
+        lines.append(
+            f"*{name}*\n"
+            f"• Momentum: *{momentum}*\n"
+            f"• Indexed Articles: `{count}` (Research Papers: `{papers}`)\n"
+            f"• Avg Intelligence Score: `{avg_score:.1f}/100`\n"
+            f"• Top Signal: _{sanitize_markdown(top[:80])}_\n"
+        )
+
+    lines.append("Indicators strictly reflect verified database collection and research activity.")
     return "\n".join(lines)

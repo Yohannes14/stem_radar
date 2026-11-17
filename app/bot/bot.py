@@ -2,17 +2,36 @@
 
 import logging
 
-from telegram.ext import Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler
+from telegram import BotCommand
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 from telegram.request import HTTPXRequest
 
 from app.bot.handlers.automation import (
     automation_callback_router,
     briefing_command,
+    radar_command,
     stats_command,
     trends_command,
+    velocity_command,
     watchlist_command,
 )
-from app.bot.handlers.base import error_handler, help_command, start_command
+from app.bot.handlers.base import (
+    discover_command,
+    error_handler,
+    help_command,
+    main_menu_callback_router,
+    menu_command,
+    myspace_command,
+    start_command,
+    stem_command,
+)
 from app.bot.handlers.content import digest_command, ideas_command, trending_command
 from app.bot.handlers.education import (
     compare_command,
@@ -29,19 +48,50 @@ from app.bot.handlers.news import (
     callback_router,
     collect_command,
     engineering_command,
+    ethiopia_command,
     explain_command,
     github_command,
     impact_command,
     news_command,
+    politics_command,
     programming_command,
+    quick_ai_summary_command,
     research_command,
     robotics_command,
     saved_command,
     science_command,
+    search_ai_command,
     search_command,
     sources_command,
+    websearch_command,
 )
-from app.bot.handlers.settings import settings_callback_router, settings_command
+from app.bot.handlers.settings import (
+    interests_command,
+    settings_callback_router,
+    settings_command,
+)
+from app.bot.handlers.student_hub import (
+    courses_command,
+    deadlines_command,
+    moderation_callback_router,
+    moderation_command,
+    quick_opportunity_command,
+    quick_resource_command,
+    quick_university_command,
+    scholarships_command,
+    student_hub_callback_router,
+    student_hub_command,
+    submit_opportunity_command,
+    universities_command,
+)
+from app.bot.handlers.user_management import (
+    ban_command,
+    delete_account_command,
+    export_command,
+    feedback_command,
+    privacy_command,
+    unban_command,
+)
 from app.config import settings
 from app.scheduler.jobs import scheduler
 
@@ -52,6 +102,25 @@ async def on_startup(application: Application) -> None:
     """Lifecycle hook executed after bot initialization."""
     logger.info("Starting background intelligence scheduler alongside bot...")
     scheduler.start(bot=application.bot)
+
+    # Register flagship commands with Telegram Bot API so they appear cleanly in the [ / ] Menu button
+    try:
+        commands = [
+            BotCommand("start", "🚀 Welcome & Dashboard"),
+            BotCommand("menu", "🧭 Flagship 8-Hub Main Menu"),
+            BotCommand("discover", "🌅 Daily Pulse & Intelligence Briefing"),
+            BotCommand("stem", "🔬 12 Foundational STEM Disciplines"),
+            BotCommand("research", "📄 arXiv Papers & AI Explanations"),
+            BotCommand("student", "🎓 Scholarships & Academic Hub"),
+            BotCommand("learn", "🧠 STEM Academy & Interactive Lessons"),
+            BotCommand("search", "🔍 Unified AI & Live Web Search"),
+            BotCommand("myspace", "👤 Bookmarks, Subscriptions & Settings"),
+            BotCommand("help", "📚 Complete Command Catalog"),
+        ]
+        await application.bot.set_my_commands(commands)
+        logger.info("Registered Telegram bot menu commands successfully.")
+    except Exception as exc:
+        logger.warning("Could not set bot menu commands: %s", exc)
 
 
 async def on_shutdown(application: Application) -> None:
@@ -82,12 +151,19 @@ def create_bot_app() -> Application:
         .build()
     )
 
-    # Core base commands
+    # Flagship 8-Hub commands
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("menu", menu_command))
+    app.add_handler(CommandHandler("discover", discover_command))
+    app.add_handler(CommandHandler("stem", stem_command))
+    app.add_handler(CommandHandler("student", student_hub_command))
+    app.add_handler(CommandHandler("myspace", myspace_command))
     app.add_handler(CommandHandler("help", help_command))
 
     # News & domain commands
     app.add_handler(CommandHandler("news", news_command))
+    app.add_handler(CommandHandler("ethiopia", ethiopia_command))
+    app.add_handler(CommandHandler("politics", politics_command))
     app.add_handler(CommandHandler("ai", ai_command))
     app.add_handler(CommandHandler("robotics", robotics_command))
     app.add_handler(CommandHandler("science", science_command))
@@ -108,8 +184,11 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("collect", collect_command))
     app.add_handler(CommandHandler("refresh", collect_command))
     app.add_handler(CommandHandler("search", search_command))
+    app.add_handler(CommandHandler("search_ai", search_ai_command))
+    app.add_handler(CommandHandler("websearch", websearch_command))
     app.add_handler(CommandHandler("saved", saved_command))
     app.add_handler(CommandHandler("settings", settings_command))
+    app.add_handler(CommandHandler("interests", interests_command))
 
     # Phase 4: Interactive STEM Education & Learning Assistant
     app.add_handler(CommandHandler("learn", learn_command))
@@ -125,18 +204,51 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("watchlist", watchlist_command))
     app.add_handler(CommandHandler("trends", trends_command))
     app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler("radar", radar_command))
+    app.add_handler(CommandHandler("velocity", velocity_command))
+
+    # Phase 7: Public User Management, Privacy & Admin Moderation
+    app.add_handler(CommandHandler("feedback", feedback_command))
+    app.add_handler(CommandHandler("privacy", privacy_command))
+    app.add_handler(CommandHandler("export", export_command))
+    app.add_handler(CommandHandler("delete_account", delete_account_command))
+    app.add_handler(CommandHandler("ban", ban_command))
+    app.add_handler(CommandHandler("unban", unban_command))
+
+    # Stage 11 & 12: Student Hub, Scholarship, University & Course Commands
+    app.add_handler(CommandHandler("scholarships", scholarships_command))
+    app.add_handler(CommandHandler("universities", universities_command))
+    app.add_handler(CommandHandler("courses", courses_command))
+    app.add_handler(CommandHandler("deadlines", deadlines_command))
+    app.add_handler(CommandHandler("studenthub", student_hub_command))
+    app.add_handler(CommandHandler("submit_opportunity", submit_opportunity_command))
+    app.add_handler(CommandHandler("moderation", moderation_command))
+
+    # Dynamic deep-link commands (/scholarship_12, /opp_12, /university_slug, /resource_slug, /ai_sum_12)
+    app.add_handler(MessageHandler(filters.Regex(r"^/(?:scholarship|opp)_(\d+)"), quick_opportunity_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/university_([a-zA-Z0-9_\-]+)"), quick_university_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/resource_([a-zA-Z0-9_\-]+)"), quick_resource_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/ai_sum_(\d+)"), quick_ai_summary_command))
 
     # Interactive inline callbacks
+    app.add_handler(CallbackQueryHandler(student_hub_callback_router, pattern="^hub:.*$"))
+    app.add_handler(CallbackQueryHandler(moderation_callback_router, pattern="^mod:.*$"))
+    app.add_handler(
+        CallbackQueryHandler(
+            main_menu_callback_router,
+            pattern="^(menu:.*|nav:home|search_kw:.*|radar_h:.*|prj_topic:.*|prj_gen:.*|prj_diff:.*|prj_rand|learn_lvl:.*|onboard:.*|arxiv_cat:.*)$",
+        )
+    )
     app.add_handler(
         CallbackQueryHandler(
             settings_callback_router,
-            pattern="^(toggle_notif|toggle_impact|toggle_weekly|pref_cat:.*)$",
+            pattern="^(toggle_notif|toggle_impact|toggle_weekly|toggle_quiet|pref_cat:.*)$",
         )
     )
     app.add_handler(
         CallbackQueryHandler(
             automation_callback_router,
-            pattern="^(wl_rm:.*|wl_clear|refresh_briefing|nav_trends|open_settings)$",
+            pattern="^(wl_rm:.*|wl_clear|refresh_briefing|nav_trends|open_settings|radar_h:.*)$",
         )
     )
     app.add_handler(CallbackQueryHandler(education_callback_router, pattern="^(qz_|ed_)"))
@@ -146,3 +258,9 @@ def create_bot_app() -> Application:
     app.add_error_handler(error_handler)
 
     return app
+
+
+if __name__ == "__main__":
+    from app.main import main
+
+    main()
