@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     linkedin_client_id: Optional[str] = Field(default=None, alias="LINKEDIN_CLIENT_ID")
     linkedin_client_secret: Optional[str] = Field(default=None, alias="LINKEDIN_CLIENT_SECRET")
 
+    # FastAPI Server & Security Settings
+    api_host: str = Field(default="0.0.0.0", alias="API_HOST")
+    api_port: int = Field(default=8000, alias="API_PORT")
+    api_key: Optional[str] = Field(default=None, alias="API_KEY")
+    api_admin_key: Optional[str] = Field(default=None, alias="API_ADMIN_KEY")
+    api_rate_limit_per_minute: int = Field(default=60, alias="API_RATE_LIMIT_PER_MINUTE")
+    cors_origins: List[str] = Field(default_factory=lambda: ["*"])
+
     @model_validator(mode="after")
     def parse_user_ids(self) -> "Settings":
         if self.allowed_telegram_user_ids and not self.allowed_user_ids:

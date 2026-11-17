@@ -36,10 +36,7 @@ class GitHubCollector(BaseCollector):
         if not url:
             selected_topics = topics or DEFAULT_STEM_TOPICS
             topic_query = "+OR+".join(f"topic:{t}" for t in selected_topics)
-            url = (
-                f"{GITHUB_API_BASE}?q=stars:>{min_stars}+{topic_query}"
-                f"&sort=updated&order=desc&per_page={per_page}"
-            )
+            url = f"{GITHUB_API_BASE}?q=stars:>{min_stars}+{topic_query}&sort=updated&order=desc&per_page={per_page}"
 
         super().__init__(source_name=source_name, source_slug=source_slug, url=url)
         self.headers["Accept"] = "application/vnd.github.v3+json"

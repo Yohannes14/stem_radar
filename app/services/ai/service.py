@@ -255,9 +255,7 @@ class AIService:
                 f"{concept_name} represents an algorithmic paradigm optimizing computational complexity, "
                 "throughput, and state transitions."
             )
-            analogy = (
-                "Analogous to distributed asynchronous message passing with fault-tolerant state replication."
-            )
+            analogy = "Analogous to distributed asynchronous message passing with fault-tolerant state replication."
             how_it_works = (
                 "Operates via mathematical transformations, parameter optimization over loss landscapes, "
                 "and low-level resource scheduling."
@@ -745,9 +743,7 @@ class AIService:
                 "scalability, and provide definitive use-case guidelines."
             )
             prompt = (
-                f"Compare Concept A: {concept_a}\n"
-                f"Against Concept B: {concept_b}\n\n"
-                "Generate ConceptComparison JSON."
+                f"Compare Concept A: {concept_a}\nAgainst Concept B: {concept_b}\n\nGenerate ConceptComparison JSON."
             )
             try:
                 comp, _ = await self.provider.generate_structured(prompt, system_prompt, ConceptComparison)
@@ -766,9 +762,7 @@ class AIService:
             ComparisonDimension(
                 dimension="Computational Complexity & Overhead",
                 concept_a_value=f"Optimized for deterministic performance with bounded memory overhead in {concept_a}.",
-                concept_b_value=(
-                    f"Higher dynamic flexibility at the expense of runtime overhead in {concept_b}."
-                ),
+                concept_b_value=(f"Higher dynamic flexibility at the expense of runtime overhead in {concept_b}."),
             ),
             ComparisonDimension(
                 dimension="Ease of Implementation & Tooling",
@@ -821,11 +815,7 @@ class AIService:
                 f"Design an impactful portfolio project for a {difficulty.upper()} developer in {clean_topic}. "
                 f"Focus on practical problem solving, realistic architecture, tech stack, and hiring impact."
             )
-            prompt = (
-                f"Topic: {clean_topic}\n"
-                f"Difficulty: {difficulty}\n\n"
-                "Generate ProjectRecommendation JSON."
-            )
+            prompt = f"Topic: {clean_topic}\nDifficulty: {difficulty}\n\nGenerate ProjectRecommendation JSON."
             try:
                 proj, _ = await self.provider.generate_structured(prompt, system_prompt, ProjectRecommendation)
                 ai_cache.set("project", clean_topic.lower(), proj, mode=difficulty)

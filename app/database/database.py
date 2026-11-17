@@ -98,6 +98,7 @@ def get_engine() -> AsyncEngine:
 
         # Enforce foreign key constraints in SQLite
         if "sqlite" in settings.database_url:
+
             @event.listens_for(_engine.sync_engine, "connect")
             def set_sqlite_pragma(dbapi_connection, connection_record):
                 cursor = dbapi_connection.cursor()
@@ -163,9 +164,7 @@ def _migrate_sqlite_schema(conn) -> None:
                 )
                 logger.info("Migrated schema: added user_preferences.high_impact_alerts_enabled")
             if "weekly_report_enabled" not in pref_cols:
-                conn.exec_driver_sql(
-                    "ALTER TABLE user_preferences ADD COLUMN weekly_report_enabled BOOLEAN DEFAULT 1"
-                )
+                conn.exec_driver_sql("ALTER TABLE user_preferences ADD COLUMN weekly_report_enabled BOOLEAN DEFAULT 1")
                 logger.info("Migrated schema: added user_preferences.weekly_report_enabled")
     except Exception as exc:
         logger.warning("Schema migration warning (ignored for non-sqlite or fresh db): %s", exc)

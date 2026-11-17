@@ -177,5 +177,3 @@ async def test_impact_command_renders_assessment(mock_update):
         await impact_command(mock_update, context)
 
     assert mock_update.effective_message.reply_text.call_count >= 1
-
-

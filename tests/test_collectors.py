@@ -450,4 +450,3 @@ def test_github_collector_custom_topics_and_stars():
     assert "topic:quantum-computing+OR+topic:robotics" in collector.url
     assert "stars:>1000" in collector.url
     assert "per_page=10" in collector.url
-

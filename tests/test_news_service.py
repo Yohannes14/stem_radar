@@ -178,4 +178,3 @@ async def test_news_service_source_type_filtering(test_session_factory):
     github_articles = await service.get_recent_news(source_type="github")
     assert len(github_articles) == 1
     assert "autonomous-systems/core" in github_articles[0].title
-

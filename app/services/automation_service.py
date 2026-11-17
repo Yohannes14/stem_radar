@@ -177,9 +177,7 @@ class AutomationService:
             if close_session and session:
                 await session.__aexit__(None, None, None)
 
-    def match_watchlist_keywords(
-        self, text: str, watchlist: List[UserWatchlist]
-    ) -> List[UserWatchlist]:
+    def match_watchlist_keywords(self, text: str, watchlist: List[UserWatchlist]) -> List[UserWatchlist]:
         """Identify which user watchlist keywords match the given article text."""
         matched: List[UserWatchlist] = []
         lower_text = text.lower()
@@ -206,12 +204,14 @@ class AutomationService:
         # 1. Watchlist keywords check
         matches = self.match_watchlist_keywords(corpus, watchlist)
         for m in matches:
-            alerts.append({
-                "type": "watchlist_alert",
-                "keyword": m.keyword,
-                "watchlist_id": m.id,
-                "article": article,
-            })
+            alerts.append(
+                {
+                    "type": "watchlist_alert",
+                    "keyword": m.keyword,
+                    "watchlist_id": m.id,
+                    "article": article,
+                }
+            )
 
         # 2. High-impact development check
         if pref.high_impact_alerts_enabled:
@@ -222,11 +222,13 @@ class AutomationService:
             )
             # Threshold for high-impact alert notification
             if score >= 75.0:
-                alerts.append({
-                    "type": "high_impact_alert",
-                    "score": score,
-                    "article": article,
-                })
+                alerts.append(
+                    {
+                        "type": "high_impact_alert",
+                        "score": score,
+                        "article": article,
+                    }
+                )
 
         return alerts
 
@@ -247,8 +249,12 @@ class AutomationService:
             return 0
 
         if is_in_quiet_hours(pref):
-            logger.info("User %d is in quiet hours (%s - %s). Suppressing alerts.",
-                        user_id, pref.quiet_hours_start, pref.quiet_hours_end)
+            logger.info(
+                "User %d is in quiet hours (%s - %s). Suppressing alerts.",
+                user_id,
+                pref.quiet_hours_start,
+                pref.quiet_hours_end,
+            )
             return 0
 
         delivered_count = 0
@@ -353,9 +359,7 @@ class AutomationService:
 
         return total_delivered
 
-    async def check_and_dispatch_daily_briefings(
-        self, bot=None, current_hour_str: Optional[str] = None
-    ) -> int:
+    async def check_and_dispatch_daily_briefings(self, bot=None, current_hour_str: Optional[str] = None) -> int:
         """Hourly worker: checks users whose digest_time matches current hour and sends daily briefing."""
         target_hour = current_hour_str or datetime.now(timezone.utc).strftime("%H:00")
         session_factory = get_session_factory()
@@ -383,9 +387,7 @@ class AutomationService:
                 if already_sent:
                     continue
 
-                briefing_text, _ = await self.generate_daily_briefing(
-                    user_id=pref.user_id, session=session
-                )
+                briefing_text, _ = await self.generate_daily_briefing(user_id=pref.user_id, session=session)
 
                 sent = True
                 if bot is not None:
@@ -433,9 +435,7 @@ class AutomationService:
                 if already_sent:
                     continue
 
-                report_text, _ = await self.generate_weekly_report(
-                    user_id=pref.user_id, session=session
-                )
+                report_text, _ = await self.generate_weekly_report(user_id=pref.user_id, session=session)
 
                 sent = True
                 if bot is not None:
