@@ -5,6 +5,8 @@ from urllib.parse import quote
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.bot.ui.menu import get_projects_hub_keyboard  # noqa: F401
+
 
 def get_article_keyboard(
     article_id: int,
@@ -55,8 +57,13 @@ def get_article_keyboard(
         row3.append(InlineKeyboardButton("Next ➡️", callback_data=f"nav:{cat_tag}:{offset + 1}"))
 
     # Row 4: Navigation controls
+    cat_nav_btn = (
+        InlineKeyboardButton("📄 Research Hub", callback_data="menu:research")
+        if is_paper
+        else InlineKeyboardButton("🗂️ Categories", callback_data="show_cats")
+    )
     row4 = [
-        InlineKeyboardButton("🗂️ Categories", callback_data="show_cats"),
+        cat_nav_btn,
         InlineKeyboardButton("🔄 Refresh", callback_data=f"nav:{cat_tag}:{offset}"),
         InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
     ]
@@ -64,12 +71,21 @@ def get_article_keyboard(
     return InlineKeyboardMarkup([row1, row2, row3, row4])
 
 
-def get_paper_analysis_keyboard(article_id: int) -> InlineKeyboardMarkup:
+def get_paper_analysis_keyboard(
+    article_id: int,
+    is_saved: bool = False,
+    paper_url: Optional[str] = None,
+) -> InlineKeyboardMarkup:
     """Action keyboard attached to scientific research paper analysis."""
+    bookmark_btn = InlineKeyboardButton("Saved ✅" if is_saved else "⭐ Bookmark", callback_data=f"save:{article_id}")
     buttons = [
         [
             InlineKeyboardButton("💡 Concept Breakdown", callback_data=f"ai_exp:{article_id}"),
             InlineKeyboardButton("🔍 Related Papers", callback_data=f"rel:{article_id}"),
+        ],
+        [
+            bookmark_btn,
+            InlineKeyboardButton("📄 arXiv Literature", callback_data="menu:arxiv_papers"),
         ],
         [
             InlineKeyboardButton("⬅️ Back to Paper", callback_data=f"back_art:{article_id}"),
@@ -189,7 +205,11 @@ def get_lesson_keyboard(topic: str, level: str) -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("🗺️ Full Roadmap", callback_data=f"ed_map:{topic}"),
-            InlineKeyboardButton("🚀 Project Idea", callback_data=f"ed_prj:{topic}"),
+            InlineKeyboardButton("🚀 Project Lab", callback_data=f"prj_topic:{topic}"),
+        ],
+        [
+            InlineKeyboardButton("⬅️ Back to Academy", callback_data="menu:learn"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
@@ -203,6 +223,10 @@ def get_quiz_keyboard(topic: str, q_index: int, total_q: int) -> InlineKeyboardM
             InlineKeyboardButton("B", callback_data=f"qz_ans:{topic}:{q_index}:1"),
             InlineKeyboardButton("C", callback_data=f"qz_ans:{topic}:{q_index}:2"),
             InlineKeyboardButton("D", callback_data=f"qz_ans:{topic}:{q_index}:3"),
+        ],
+        [
+            InlineKeyboardButton("🏳️ End Quiz", callback_data="menu:learn"),
+            InlineKeyboardButton("📊 Progress", callback_data="menu:progress"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
@@ -223,6 +247,32 @@ def get_education_topics_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("⚡ Embedded Systems", callback_data="ed_learn:Embedded Systems"),
             InlineKeyboardButton("💻 Software Systems", callback_data="ed_learn:Software Architecture"),
         ],
+        [
+            InlineKeyboardButton("⬅️ Back to Academy", callback_data="menu:learn"),
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ],
+    ]
+    return InlineKeyboardMarkup(buttons)
+
+
+def get_project_card_keyboard(topic: str, difficulty: str = "intermediate") -> InlineKeyboardMarkup:
+    """Action buttons attached to a portfolio project recommendation."""
+    b_mark = "• " if difficulty == "beginner" else ""
+    i_mark = "• " if difficulty == "intermediate" else ""
+    a_mark = "• " if difficulty == "advanced" else ""
+    buttons = [
+        [
+            InlineKeyboardButton(f"{b_mark}🐣 Beginner", callback_data=f"prj_gen:{topic}:beginner"),
+            InlineKeyboardButton(f"{i_mark}🧑‍💻 Intermediate", callback_data=f"prj_gen:{topic}:intermediate"),
+            InlineKeyboardButton(f"{a_mark}🔬 Advanced", callback_data=f"prj_gen:{topic}:advanced"),
+        ],
+        [
+            InlineKeyboardButton("🔄 Another Project", callback_data=f"prj_gen:{topic}:{difficulty}"),
+            InlineKeyboardButton("🗂️ All Labs", callback_data="menu:projects"),
+        ],
+        [
+            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+        ],
     ]
     return InlineKeyboardMarkup(buttons)
 
@@ -234,16 +284,19 @@ def get_settings_panel_keyboard(
     notifications_enabled: bool,
     high_impact_enabled: bool = True,
     weekly_reports_enabled: bool = True,
+    quiet_hours_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Build interactive preference management panel with toggle controls."""
     notif_btn = "🔔 Notifications: ON" if notifications_enabled else "🔕 Notifications: OFF"
     impact_btn = "⚡ High-Impact Alerts: ON" if high_impact_enabled else "⚡ High-Impact Alerts: OFF"
     weekly_btn = "🌐 Weekly Report: ON" if weekly_reports_enabled else "🌐 Weekly Report: OFF"
+    quiet_btn = "🌙 Quiet Hours (22-07): ON" if quiet_hours_enabled else "🌙 Quiet Hours: OFF"
 
     buttons = [
         [InlineKeyboardButton(notif_btn, callback_data="toggle_notif")],
         [InlineKeyboardButton(impact_btn, callback_data="toggle_impact")],
         [InlineKeyboardButton(weekly_btn, callback_data="toggle_weekly")],
+        [InlineKeyboardButton(quiet_btn, callback_data="toggle_quiet")],
         [
             InlineKeyboardButton("🤖 AI", callback_data="pref_cat:ai"),
             InlineKeyboardButton("🦾 Robotics", callback_data="pref_cat:robotics"),
@@ -253,6 +306,10 @@ def get_settings_panel_keyboard(
             InlineKeyboardButton("🛡️ CyberSec", callback_data="pref_cat:cybersecurity"),
             InlineKeyboardButton("⚛️ Physics", callback_data="pref_cat:physics"),
             InlineKeyboardButton("🌐 All STEM", callback_data="pref_cat:all"),
+        ],
+        [
+            InlineKeyboardButton("🏷️ Subscriptions", callback_data="menu:interests"),
+            InlineKeyboardButton("👁️ Watchlist", callback_data="menu:watchlist"),
         ],
         [
             InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
@@ -318,28 +375,6 @@ def get_tech_radar_keyboard(current_horizon: str = "all") -> InlineKeyboardMarku
         [
             InlineKeyboardButton(f"{all_mark}🌐 Full Radar", callback_data="radar_h:all"),
             InlineKeyboardButton("🔄 Refresh Signals", callback_data="radar_h:refresh"),
-        ],
-        [
-            InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
-        ],
-    ]
-    return InlineKeyboardMarkup(buttons)
-
-
-def get_projects_hub_keyboard() -> InlineKeyboardMarkup:
-    """Action keyboard for generating practical engineering portfolio projects by domain."""
-    buttons = [
-        [
-            InlineKeyboardButton("🤖 AI & ML", callback_data="prj_topic:Artificial Intelligence"),
-            InlineKeyboardButton("🦾 Robotics", callback_data="prj_topic:Robotics"),
-        ],
-        [
-            InlineKeyboardButton("🛡️ CyberSec", callback_data="prj_topic:Cybersecurity"),
-            InlineKeyboardButton("⚡ Embedded", callback_data="prj_topic:Embedded Systems"),
-        ],
-        [
-            InlineKeyboardButton("💻 Software Systems", callback_data="prj_topic:Software Architecture"),
-            InlineKeyboardButton("⚛️ Quantum Computing", callback_data="prj_topic:Quantum Computing"),
         ],
         [
             InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),

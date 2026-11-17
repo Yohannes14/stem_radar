@@ -50,3 +50,62 @@ class PaginatedScholarshipsResponse(BaseModel):
 def build_opportunity_response(opp: Opportunity) -> OpportunityResponse:
     """Helper to convert ORM Opportunity model into Pydantic schema."""
     return OpportunityResponse.model_validate(opp)
+
+
+# ------------------ Stage 16: Submissions & Reports Schemas ------------------
+
+
+class OpportunitySubmissionRequest(BaseModel):
+    """Payload for submitting a new academic opportunity for moderator review."""
+
+    title: str = Field(..., min_length=3, max_length=500, description="Opportunity title")
+    provider_name: str = Field(..., min_length=2, max_length=255, description="Sponsoring provider or university")
+    official_url: str = Field(..., min_length=10, max_length=1000, description="Official announcement URL")
+    country: str = Field(..., min_length=2, max_length=100, description="Host country")
+    study_level: str = Field(..., description="Target degree level: undergraduate, masters, phd, postdoctoral")
+    funding_type: str = Field(default="fully_funded", description="Financial structure: fully_funded, partially_funded")
+    stem_fields: str = Field(default="All STEM", description="Eligible STEM disciplines")
+    opportunity_type: str = Field(default="scholarship", description="Opportunity type")
+    application_url: Optional[str] = Field(None, max_length=1000, description="Direct application portal URL")
+    eligibility_criteria: Optional[str] = Field(None, description="Detailed eligibility criteria")
+    application_deadline: Optional[datetime] = Field(None, description="Application submission deadline")
+    is_rolling: bool = Field(False, description="Whether applications are accepted on rolling basis")
+    benefits: Optional[str] = Field(None, description="Financial benefits, stipend, and coverage")
+    required_documents: Optional[str] = Field(None, description="Required documents for application")
+    user_id: Optional[int] = Field(default=0, description="Optional ID of submitting user")
+
+
+class OpportunitySubmissionResponse(BaseModel):
+    """Response confirming receipt of public submission into review queue."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="Opportunity ID in database")
+    title: str = Field(..., description="Submitted title")
+    status: str = Field(..., description="Status (pending_approval)")
+    verification_tier: str = Field(..., description="Trust tier (unverified_submission)")
+    message: str = Field(..., description="Confirmation feedback for submitter")
+
+
+class OpportunityReportRequest(BaseModel):
+    """Payload for reporting an expired, inaccurate, broken, or fraudulent opportunity."""
+
+    report_type: str = Field(
+        ...,
+        pattern="^(expired|broken_link|inaccurate|fraudulent|other)$",
+        description="Category of issue observed",
+    )
+    details: str = Field(..., min_length=5, max_length=2000, description="Detailed explanation of the issue")
+    user_id: Optional[int] = Field(default=0, description="Optional reporter user ID")
+
+
+class OpportunityReportResponse(BaseModel):
+    """Confirmation of community report submission."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int = Field(..., description="Report log ID")
+    opportunity_id: Optional[int] = Field(None, description="Target opportunity ID")
+    report_type: str = Field(..., description="Report category")
+    status: str = Field(..., description="Report status: pending_review")
+    message: str = Field(..., description="Feedback acknowledgment")

@@ -29,6 +29,14 @@ class SearchSort(str, Enum):
     DATE = "date"
 
 
+class SearchSource(str, Enum):
+    """Source scope for search execution."""
+
+    ALL = "all"
+    INTERNAL = "internal"
+    EXTERNAL = "external"
+
+
 class SearchResultItem(BaseModel):
     """Normalized search result item across all indexable domains."""
 
@@ -58,4 +66,70 @@ class UnifiedSearchResponse(BaseModel):
     query: str = Field(..., description="Original search query string")
     category: str = Field(default="all", description="Category filter applied")
     sort_by: str = Field(default="relevance", description="Sorting method used: relevance or date")
+    source: str = Field(default="all", description="Source scope used: all, internal, or external")
 
+
+class SourceCitation(BaseModel):
+    """Accredited source citation referencing an indexable item."""
+
+    index: int = Field(..., description="Numeric citation reference index (e.g. 1 for [1])")
+    title: str = Field(..., description="Publication or document title")
+    url: str = Field(..., description="Direct destination or open access URL")
+    source_name: str = Field(..., description="Publisher, provider, or institution name")
+    published_at: Optional[datetime] = Field(None, description="Publication timestamp")
+    category: str = Field(default="STEM", description="Content domain category")
+    is_verified: bool = Field(default=False, description="Whether from an officially verified source")
+
+
+class SearchAISummary(BaseModel):
+    """Synthesized AI search intelligence with citations, implications, and discovery avenues."""
+
+    query: str = Field(..., description="Original search query topic")
+    executive_summary: str = Field(..., description="High-level synthesis across retrieved sources")
+    sourced_facts: List[str] = Field(
+        default_factory=list,
+        description="Factual findings strictly attributed to citation indices [1], [2]",
+    )
+    analytical_implications: List[str] = Field(
+        default_factory=list,
+        description="Engineering, practical, and analytical interpretations distinguished from raw facts",
+    )
+    source_citations: List[SourceCitation] = Field(
+        default_factory=list,
+        description="All referenced source citations",
+    )
+    related_questions: List[str] = Field(
+        default_factory=list,
+        description="Curated follow-up discovery questions",
+    )
+    research_recommendations: List[str] = Field(
+        default_factory=list,
+        description="Recommended next steps, research avenues, or practical explorations",
+    )
+    disclaimer: str = Field(
+        default=(
+            "AI synthesis derived strictly from cited search results. Facts are attributed to respective publishers."
+        ),
+        description="Accuracy and attribution disclaimer",
+    )
+
+
+class SourceComparison(BaseModel):
+    """Comparative AI analysis between two distinct information sources."""
+
+    topic: str = Field(..., description="Subject domain or inquiry being compared")
+    source_a: SourceCitation = Field(..., description="First compared source")
+    source_b: SourceCitation = Field(..., description="Second compared source")
+    common_ground: List[str] = Field(
+        default_factory=list,
+        description="Points of shared consensus, methodology, or mutual alignment",
+    )
+    divergent_points: List[str] = Field(
+        default_factory=list,
+        description="Differences in methodology, empirical claims, scope, or perspective",
+    )
+    synthesis: str = Field(..., description="Objective synthesis evaluating both perspectives")
+    recommended_context: str = Field(
+        ...,
+        description="Guidance on which source is best applied for specific STEM use cases",
+    )

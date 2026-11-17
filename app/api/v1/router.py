@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     ai,
     categories,
     health,
+    moderation,
     news,
     radar,
     research,
@@ -32,3 +33,4 @@ v1_router.include_router(categories.router)
 v1_router.include_router(ai.router)
 v1_router.include_router(radar.router)
 v1_router.include_router(user.router)
+v1_router.include_router(moderation.router)

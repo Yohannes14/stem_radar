@@ -6,10 +6,14 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.dependencies import get_repository
-from app.api.exceptions import EntityNotFoundException
+from app.api.exceptions import BadRequestException, EntityNotFoundException
 from app.api.v1.schemas.common import PaginationMeta
 from app.api.v1.schemas.scholarships import (
+    OpportunityReportRequest,
+    OpportunityReportResponse,
     OpportunityResponse,
+    OpportunitySubmissionRequest,
+    OpportunitySubmissionResponse,
     PaginatedScholarshipsResponse,
     build_opportunity_response,
 )
@@ -103,3 +107,80 @@ async def get_scholarship_by_slug(
     if not opp:
         raise EntityNotFoundException(message=f"Opportunity with slug '{slug}' not found.")
     return build_opportunity_response(opp)
+
+
+# ------------------ Stage 16: Public Submissions & Issue Reporting ------------------
+
+
+@router.post(
+    "/submit",
+    response_model=OpportunitySubmissionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Submit Academic Opportunity for Review",
+    description="Submit a scholarship, fellowship, or research grant for administrative moderation.",
+)
+async def submit_opportunity(
+    payload: OpportunitySubmissionRequest,
+    repo: Repository = Depends(get_repository),
+) -> OpportunitySubmissionResponse:
+    """Submit a new opportunity record. Saved with pending_approval status until reviewed."""
+    success, opp, message = await student_hub_service.submit_public_opportunity(
+        user_id=payload.user_id or 0,
+        title=payload.title,
+        provider_name=payload.provider_name,
+        official_url=payload.official_url,
+        country=payload.country,
+        study_level=payload.study_level,
+        opportunity_type=payload.opportunity_type,
+        stem_fields=payload.stem_fields,
+        funding_type=payload.funding_type,
+        application_url=payload.application_url,
+        eligibility_criteria=payload.eligibility_criteria or "",
+        application_deadline=payload.application_deadline,
+        is_rolling=payload.is_rolling,
+        benefits=payload.benefits,
+        required_documents=payload.required_documents,
+        repo=repo,
+    )
+    if not success or not opp:
+        raise BadRequestException(message=message)
+
+    return OpportunitySubmissionResponse(
+        id=opp.id,
+        title=opp.title,
+        status=opp.status,
+        verification_tier=opp.verification_tier,
+        message=message,
+    )
+
+
+@router.post(
+    "/{opportunity_id}/report",
+    response_model=OpportunityReportResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Report Opportunity Issue",
+    description="Report an expired deadline, broken official link, inaccurate requirement, or fraudulent listing.",
+)
+async def report_opportunity(
+    opportunity_id: int,
+    payload: OpportunityReportRequest,
+    repo: Repository = Depends(get_repository),
+) -> OpportunityReportResponse:
+    """Submit a community issue report regarding an opportunity."""
+    opp = await repo.get_opportunity_by_id(opportunity_id)
+    if not opp:
+        raise EntityNotFoundException(message=f"Opportunity with ID {opportunity_id} not found.")
+
+    report = await repo.submit_opportunity_report(
+        user_id=payload.user_id or 0,
+        opportunity_id=opportunity_id,
+        report_type=payload.report_type,
+        details=payload.details,
+    )
+    return OpportunityReportResponse(
+        id=report.id,
+        opportunity_id=report.opportunity_id,
+        report_type=report.report_type,
+        status=report.status,
+        message="Issue report received. Our moderation team will audit the provider source.",
+    )

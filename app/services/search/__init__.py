@@ -1,9 +1,13 @@
 """Unified Search Service package."""
 
 from app.services.search.models import (
+    SearchAISummary,
     SearchCategory,
     SearchResultItem,
     SearchSort,
+    SearchSource,
+    SourceCitation,
+    SourceComparison,
     UnifiedSearchResponse,
 )
 from app.services.search.providers.base import BaseSearchProvider
@@ -18,8 +22,11 @@ __all__ = [
     "UnifiedSearchResponse",
     "SearchCategory",
     "SearchSort",
+    "SearchSource",
+    "SourceCitation",
+    "SearchAISummary",
+    "SourceComparison",
     "BaseSearchProvider",
     "InternalSearchProvider",
     "ExternalSearchProvider",
 ]
-

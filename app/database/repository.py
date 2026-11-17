@@ -652,6 +652,11 @@ class Repository:
         categories_count = (await self.session.execute(select(func.count(Category.id)))).scalar_one() or 0
         total_delivered = (await self.session.execute(select(func.count(NotificationLog.id)))).scalar_one() or 0
         users_count = (await self.session.execute(select(func.count(User.id)))).scalar_one() or 0
+        opportunities_count = (
+            await self.session.execute(select(func.count(Opportunity.id)).where(Opportunity.status == "open"))
+        ).scalar_one() or 0
+        universities_count = (await self.session.execute(select(func.count(UniversityProfile.id)))).scalar_one() or 0
+        resources_count = (await self.session.execute(select(func.count(AcademicResource.id)))).scalar_one() or 0
 
         stats = {
             "total_articles": articles_count,
@@ -659,6 +664,9 @@ class Repository:
             "stem_categories": categories_count,
             "total_notifications_sent": total_delivered,
             "total_users": users_count,
+            "verified_opportunities": opportunities_count,
+            "universities_count": universities_count,
+            "academic_resources_count": resources_count,
         }
 
         if user_id is not None:
@@ -1184,6 +1192,129 @@ class Repository:
         stmt = stmt.order_by(OpportunityReport.created_at.desc()).limit(limit).offset(offset)
         res = await self.session.execute(stmt)
         return list(res.scalars().all())
+
+    async def count_opportunity_reports(self, status: str = "pending_review") -> int:
+        """Count community reports by status."""
+        stmt = select(func.count(OpportunityReport.id))
+        if status != "all":
+            stmt = stmt.where(OpportunityReport.status == status)
+        res = await self.session.execute(stmt)
+        return res.scalar() or 0
+
+    async def get_pending_opportunities(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[Opportunity]:
+        """Fetch submitted opportunities awaiting administrative moderation and verification."""
+        stmt = (
+            select(Opportunity)
+            .where(Opportunity.status == "pending_approval")
+            .order_by(Opportunity.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def count_pending_opportunities(self) -> int:
+        """Count submitted opportunities awaiting review."""
+        stmt = select(func.count(Opportunity.id)).where(Opportunity.status == "pending_approval")
+        res = await self.session.execute(stmt)
+        return res.scalar() or 0
+
+    async def approve_opportunity(
+        self,
+        opportunity_id: int,
+        admin_user_id: int,
+        verification_tier: str = "officially_verified",
+        notes: Optional[str] = None,
+    ) -> Optional[Opportunity]:
+        """Approve an unverified opportunity, assign verification tier, and publish."""
+        stmt = select(Opportunity).where(Opportunity.id == opportunity_id)
+        res = await self.session.execute(stmt)
+        opp = res.scalar_one_or_none()
+        if not opp:
+            return None
+
+        opp.status = "open"
+        opp.verification_tier = verification_tier
+        opp.last_verified_at = datetime.now(timezone.utc)
+
+        # Resolve any pending submission reports for this opportunity
+        rep_stmt = (
+            select(OpportunityReport)
+            .where(OpportunityReport.opportunity_id == opportunity_id)
+            .where(OpportunityReport.report_type == "submission")
+            .where(OpportunityReport.status == "pending_review")
+        )
+        rep_res = await self.session.execute(rep_stmt)
+        for rep in rep_res.scalars().all():
+            rep.status = "verified_resolved"
+            rep.reviewed_by_admin_id = admin_user_id
+
+        await self.session.commit()
+        await self.session.refresh(opp)
+        return opp
+
+    async def reject_opportunity(
+        self,
+        opportunity_id: int,
+        admin_user_id: int,
+        reason: Optional[str] = None,
+    ) -> Optional[Opportunity]:
+        """Reject an opportunity submission and archive."""
+        stmt = select(Opportunity).where(Opportunity.id == opportunity_id)
+        res = await self.session.execute(stmt)
+        opp = res.scalar_one_or_none()
+        if not opp:
+            return None
+
+        opp.status = "rejected"
+
+        rep_stmt = (
+            select(OpportunityReport)
+            .where(OpportunityReport.opportunity_id == opportunity_id)
+            .where(OpportunityReport.report_type == "submission")
+            .where(OpportunityReport.status == "pending_review")
+        )
+        rep_res = await self.session.execute(rep_stmt)
+        for rep in rep_res.scalars().all():
+            rep.status = "dismissed"
+            rep.reviewed_by_admin_id = admin_user_id
+
+        await self.session.commit()
+        await self.session.refresh(opp)
+        return opp
+
+    async def resolve_opportunity_report(
+        self,
+        report_id: int,
+        admin_user_id: int,
+        resolution: str = "verified_resolved",
+        action_taken: Optional[str] = None,
+    ) -> Optional[OpportunityReport]:
+        """Resolve a community issue report with optional action on the opportunity."""
+        stmt = select(OpportunityReport).where(OpportunityReport.id == report_id)
+        res = await self.session.execute(stmt)
+        report = res.scalar_one_or_none()
+        if not report:
+            return None
+
+        report.status = resolution
+        report.reviewed_by_admin_id = admin_user_id
+
+        # If action is to mark opportunity expired
+        if action_taken == "expire_opportunity" and report.opportunity_id:
+            opp_stmt = select(Opportunity).where(Opportunity.id == report.opportunity_id)
+            opp_res = await self.session.execute(opp_stmt)
+            opp = opp_res.scalar_one_or_none()
+            if opp:
+                opp.status = "expired"
+
+        await self.session.commit()
+        await self.session.refresh(report)
+        return report
 
     # ------------------ Unified Search Across Domains ------------------
 

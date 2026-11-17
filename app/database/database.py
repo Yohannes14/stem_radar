@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.config import settings
+from app.core.taxonomy import DEFAULT_CATEGORIES
 from app.database.models import (  # noqa: F401
     AcademicResource,
     Article,
@@ -33,49 +34,6 @@ from app.database.models import (  # noqa: F401
 )
 
 logger = logging.getLogger(__name__)
-
-# STEM categories registry
-DEFAULT_CATEGORIES = [
-    ("Artificial Intelligence", "ai", "AI research, models, generative AI, LLMs"),
-    ("Machine Learning", "machine-learning", "Algorithms, neural networks, deep learning"),
-    ("Robotics", "robotics", "Humanoids, autonomous systems, kinematics, drones"),
-    ("Computer Science", "computer-science", "Algorithms, theory, data structures"),
-    ("Software Engineering", "software-engineering", "Architecture, systems, DevOps, best practices"),
-    ("Cybersecurity", "cybersecurity", "InfoSec, cryptography, privacy, vulnerabilities"),
-    ("Electronics", "electronics", "Circuits, microelectronics, semiconductors, chips"),
-    ("Embedded Systems", "embedded-systems", "Firmware, microcontrollers, ARM, RISC-V"),
-    ("Internet of Things", "iot", "Connected devices, sensors, smart systems"),
-    ("Mechanical Engineering", "mechanical-engineering", "CAD, robotics mechanics, dynamics, thermodynamics"),
-    ("Electrical Engineering", "electrical-engineering", "Power systems, signal processing, grid"),
-    ("Biotechnology", "biotechnology", "CRISPR, bioengineering, synthetic biology, genetics"),
-    ("Physics", "physics", "Quantum mechanics, astrophysics, particle physics"),
-    ("Chemistry", "chemistry", "Materials science, molecular biology, nano-chemistry"),
-    ("Mathematics", "mathematics", "Applied math, statistics, cryptography, topology"),
-    ("Space Technology", "space-technology", "Aerospace, rocketry, satellites, exploration"),
-    ("Renewable Energy", "renewable-energy", "Solar, wind, battery storage, clean tech"),
-    ("STEM Education", "stem-education", "Pedagogy, learning tools, tutorials, student guides"),
-    ("Emerging Technologies", "emerging-tech", "Brain-computer interfaces, quantum computing, fusion"),
-    (
-        "Ethiopia Tech & Innovation",
-        "ethiopia-tech",
-        "Startups, fintech, telecom, AI, and digital transformation in Ethiopia",
-    ),
-    (
-        "Ethiopian Affairs",
-        "ethiopia-affairs",
-        "Ethiopian politics, parliament, policy, economy, and Horn of Africa developments",
-    ),
-    (
-        "Global Politics & Geopolitics",
-        "global-politics",
-        "International relations, global governance, diplomacy, and world politics",
-    ),
-    (
-        "Tech Policy & Governance",
-        "tech-policy",
-        "AI safety regulations, digital sovereignty, data laws, and cybersecurity treaties",
-    ),
-]
 
 # Initial reliable RSS & API sources verified on real networks
 INITIAL_SOURCES = [

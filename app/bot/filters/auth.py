@@ -83,12 +83,15 @@ def authorized_only(func: Callable):
             session_factory = get_session_factory()
             async with session_factory() as session:
                 repo = Repository(session)
-                db_user, _ = await repo.get_or_create_user(
+                db_user, created = await repo.get_or_create_user(
                     telegram_id=user_id,
                     username=user.username,
                     first_name=user.first_name,
                     last_name=user.last_name,
                 )
+                if created and hasattr(context, "user_data") and isinstance(context.user_data, dict):
+                    context.user_data["is_new_registration"] = True
+
                 if db_user and db_user.is_banned:
                     logger.warning("Banned user %d attempted access", user_id)
                     banned_msg = (

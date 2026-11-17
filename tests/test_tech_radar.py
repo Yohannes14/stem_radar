@@ -31,7 +31,7 @@ from app.services.automation_service import automation_service
 @pytest.fixture
 def mock_bot_user():
     user = MagicMock(spec=User)
-    user.id = 554433
+    user.id = 778899
     user.first_name = "Alan"
     return user
 

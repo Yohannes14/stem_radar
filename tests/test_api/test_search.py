@@ -54,9 +54,21 @@ async def test_api_unified_search_endpoint(api_client: AsyncClient, test_session
     data_sch = res_sch.json()
     assert all(it["item_type"] == "scholarship" for it in data_sch["items"])
 
-    # 3. Validation error: query too short
+    # 3. Filter by source=internal vs external
+    res_internal = await api_client.get("/api/v1/search?q=Chemistry&source=internal")
+    assert res_internal.status_code == 200
+    assert res_internal.json()["source"] == "internal"
+
+    res_external = await api_client.get("/api/v1/search?q=Chemistry&source=external")
+    assert res_external.status_code == 200
+    assert res_external.json()["source"] == "external"
+
+    # 4. Validation error: query too short or invalid source
     res_short = await api_client.get("/api/v1/search?q=a")
     assert res_short.status_code == 422
+
+    res_bad_source = await api_client.get("/api/v1/search?q=Chemistry&source=unsupported")
+    assert res_bad_source.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -90,3 +102,67 @@ async def test_api_search_history_endpoints(api_client: AsyncClient, test_sessio
     assert res_empty.status_code == 200
     assert res_empty.json()["total"] == 0
 
+
+@pytest.mark.asyncio
+async def test_api_search_assistant_endpoints(api_client: AsyncClient, test_session_factory):
+    """Test AI Search Assistant endpoints: summary, compare, and explain."""
+    now = datetime.now(timezone.utc)
+    async with test_session_factory() as session:
+        repo = Repository(session)
+        sources = await repo.get_sources()
+        await repo.save_article(
+            title="Bio-Inspired Soft Grippers in Robotics",
+            url="https://example.com/soft-grippers-study",
+            source_id=sources[0].id,
+            description="Elastomeric actuators achieving fragile object manipulation without sensory feedback.",
+            published_at=now,
+        )
+
+    # 1. GET /api/v1/search/assistant/summary
+    res_sum = await api_client.get("/api/v1/search/assistant/summary?q=grippers&limit=3")
+    assert res_sum.status_code == 200
+    data_sum = res_sum.json()
+    assert data_sum["query"] == "grippers"
+    assert "executive_summary" in data_sum
+    assert len(data_sum["source_citations"]) >= 1
+    assert any("[1]" in f for f in data_sum["sourced_facts"])
+    assert len(data_sum["related_questions"]) >= 1
+
+    # 2. POST /api/v1/search/assistant/compare
+    payload = {
+        "topic": "Soft Grippers vs Rigid Grippers",
+        "item_a": {
+            "id": "item:1",
+            "title": "Bio-Inspired Soft Grippers in Robotics",
+            "snippet": "Elastomeric actuators achieving fragile manipulation.",
+            "source_name": "Robotics Journal",
+            "category": "Research Papers",
+            "url": "https://example.com/soft-grippers",
+            "item_type": "paper",
+        },
+        "item_b": {
+            "id": "item:2",
+            "title": "Industrial High-Payload Rigid Grippers",
+            "snippet": "Pneumatic two-jaw precision grippers for manufacturing.",
+            "source_name": "Automation Today",
+            "category": "STEM News",
+            "url": "https://example.com/rigid-grippers",
+            "item_type": "news",
+        },
+    }
+    res_cmp = await api_client.post("/api/v1/search/assistant/compare", json=payload)
+    assert res_cmp.status_code == 200
+    data_cmp = res_cmp.json()
+    assert data_cmp["topic"] == "Soft Grippers vs Rigid Grippers"
+    assert len(data_cmp["common_ground"]) >= 1
+    assert len(data_cmp["divergent_points"]) >= 1
+    assert "synthesis" in data_cmp
+    assert "recommended_context" in data_cmp
+
+    # 3. GET /api/v1/search/assistant/explain
+    res_exp = await api_client.get("/api/v1/search/assistant/explain?topic=Pneumatic+Actuators&mode=intermediate")
+    assert res_exp.status_code == 200
+    data_exp = res_exp.json()
+    assert data_exp["concept_name"] == "Pneumatic Actuators"
+    assert "core_definition" in data_exp
+    assert "how_it_works" in data_exp

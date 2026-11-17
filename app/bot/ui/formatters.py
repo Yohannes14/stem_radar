@@ -260,6 +260,16 @@ def format_paper_analysis(analysis) -> str:
     apps_str = "\n".join(f"• {sanitize_markdown(a)}" for a in analysis.practical_applications)
     questions_str = "\n".join(f"• {sanitize_markdown(q)}" for q in analysis.further_research_questions)
 
+    code_line = ""
+    if getattr(analysis, "code_repository_url", None):
+        code_line = f"\n💻 [Code & Replication Repository]({analysis.code_repository_url})\n"
+
+    disclaimer = (
+        "⚠️ *Academic Integrity Disclaimer:*\n"
+        "_This AI-assisted breakdown is an analytical aid and does not substitute for reading "
+        "and peer-reviewing the full original research publication._"
+    )
+
     return (
         f"🔬 *Scientific Research Paper Analysis*\n\n"
         f"📄 *{sanitize_markdown(analysis.paper_title)}*\n\n"
@@ -269,7 +279,8 @@ def format_paper_analysis(analysis) -> str:
         f"⚠️ *Limitations & Boundary Conditions:*\n{limits_str}\n\n"
         f"🚀 *Practical Applications:*\n{apps_str}\n\n"
         f"🔭 *Open Questions:*\n{questions_str}\n\n"
-        f"🔗 [Read Full Paper / arXiv]({analysis.original_paper_url})"
+        f"🔗 [Read Full Paper / arXiv]({analysis.original_paper_url}){code_line}\n\n"
+        f"{disclaimer}"
     )
 
 
@@ -417,10 +428,18 @@ def format_concept_comparison(comp) -> str:
 
 
 def format_project_recommendation(proj) -> str:
-    """Format portfolio project recommendation."""
+    """Format portfolio project recommendation with all Section 5.F engineering dimensions."""
     stack_str = ", ".join(f"`{sanitize_markdown(t)}`" for t in proj.tech_stack)
     milestones = "\n".join(f"• {sanitize_markdown(m)}" for m in proj.step_by_step_milestones)
     stretch = "\n".join(f"• {sanitize_markdown(s)}" for s in proj.stretch_goals)
+
+    time_str = getattr(proj, "estimated_time", "1-2 weeks (~15-25 hours)")
+
+    outcomes = getattr(proj, "learning_outcomes", None)
+    outcomes_line = ""
+    if outcomes:
+        outcomes_str = "\n".join(f"• {sanitize_markdown(o)}" for o in outcomes)
+        outcomes_line = f"🎓 *Core Learning Outcomes:*\n{outcomes_str}\n\n"
 
     skills = getattr(proj, "required_skills", None)
     skills_line = ""
@@ -439,16 +458,32 @@ def format_project_recommendation(proj) -> str:
     if cost:
         cost_line = f"💰 *Estimated Budget & Assumptions:*\n_{sanitize_markdown(cost)}_\n\n"
 
+    verifications = getattr(proj, "verification_steps", None)
+    verifications_line = ""
+    if verifications:
+        verifications_str = "\n".join(f"• {sanitize_markdown(v)}" for v in verifications)
+        verifications_line = f"🧪 *Verification & Testing Steps:*\n{verifications_str}\n\n"
+
+    pitfalls = getattr(proj, "common_pitfalls", None)
+    pitfalls_line = ""
+    if pitfalls:
+        pitfalls_str = "\n".join(f"• {sanitize_markdown(p)}" for p in pitfalls)
+        pitfalls_line = f"⚠️ *Common Pitfalls to Avoid:*\n{pitfalls_str}\n\n"
+
     return (
         f"🚀 *Portfolio Project: {sanitize_markdown(proj.project_title)}*\n"
-        f"🏷️ *Level:* `{proj.difficulty.upper()}` | 📌 *Domain:* *{sanitize_markdown(proj.topic)}*\n\n"
+        f"🏷️ *Level:* `{proj.difficulty.upper()}` | 📌 *Domain:* *{sanitize_markdown(proj.topic)}*\n"
+        f"⏱️ *Estimated Time:* `{sanitize_markdown(time_str)}`\n\n"
         f"🎯 *Problem Statement:*\n{sanitize_markdown(proj.problem_statement)}\n\n"
+        f"{outcomes_line}"
         f"{skills_line}"
         f"{materials_line}"
         f"{cost_line}"
         f"🏗️ *System Architecture:*\n{sanitize_markdown(proj.system_architecture)}\n\n"
         f"🧰 *Recommended Tech Stack:*\n{stack_str}\n\n"
         f"📋 *Step-by-Step Implementation Milestones:*\n{milestones}\n\n"
+        f"{verifications_line}"
+        f"{pitfalls_line}"
         f"⭐ *Stretch Goals for Excellence:*\n{stretch}\n\n"
         f"💼 *Hiring Portfolio Impact:*\n_{sanitize_markdown(proj.portfolio_impact)}_"
     )

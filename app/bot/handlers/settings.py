@@ -19,12 +19,14 @@ def get_settings_keyboard(
     notifications_enabled: bool,
     high_impact_enabled: bool = True,
     weekly_reports_enabled: bool = True,
+    quiet_hours_enabled: bool = True,
 ) -> InlineKeyboardMarkup:
     """Build inline keyboard for managing user preferences."""
     return get_settings_panel_keyboard(
         notifications_enabled=notifications_enabled,
         high_impact_enabled=high_impact_enabled,
         weekly_reports_enabled=weekly_reports_enabled,
+        quiet_hours_enabled=quiet_hours_enabled,
     )
 
 
@@ -75,8 +77,11 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     status_str = "Enabled 🟢" if pref.notifications_enabled else "Disabled 🔴"
     impact_str = "Enabled 🟢" if pref.high_impact_alerts_enabled else "Disabled 🔴"
     weekly_str = "Enabled 🟢" if pref.weekly_report_enabled else "Disabled 🔴"
+    quiet_hours_on = pref.quiet_hours_start != pref.quiet_hours_end
+    quiet_status = (
+        f"`{pref.quiet_hours_start}` to `{pref.quiet_hours_end}` UTC (Active 🌙)" if quiet_hours_on else "Disabled ☀️"
+    )
     cats_str = pref.preferred_categories or "All Categories"
-    quiet_str = f"`{pref.quiet_hours_start}` to `{pref.quiet_hours_end}` UTC"
 
     text = (
         f"⚙️ *STEM RADAR User Settings*\n\n"
@@ -85,7 +90,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         f"⚡ *High-Impact Alerts:* {impact_str}\n"
         f"🌐 *Weekly Intelligence Report:* {weekly_str}\n"
         f"⏰ *Scheduled Digest Time:* `{pref.digest_time}` UTC\n"
-        f"🌙 *Quiet Hours:* {quiet_str}\n"
+        f"🌙 *Quiet Hours:* {quiet_status}\n"
         f"🗂️ *Active Subscribed Domain:* `{cats_str}`\n\n"
         "Tap the buttons below to toggle your notification & domain subscriptions:"
     )
@@ -98,6 +103,7 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 pref.notifications_enabled,
                 pref.high_impact_alerts_enabled,
                 pref.weekly_report_enabled,
+                quiet_hours_on,
             ),
         )
 
@@ -125,12 +131,13 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             notif_state = pref.notifications_enabled
             impact_state = pref.high_impact_alerts_enabled
             weekly_state = pref.weekly_report_enabled
+            quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
 
         status_text = "Notifications turned ON 🔔" if notif_state else "Notifications turned OFF 🔕"
         await query.answer(status_text)
         if query.message:
             await query.message.edit_reply_markup(
-                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
+                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state, quiet_state)
             )
         return
 
@@ -143,12 +150,13 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             notif_state = pref.notifications_enabled
             impact_state = pref.high_impact_alerts_enabled
             weekly_state = pref.weekly_report_enabled
+            quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
 
         status_text = "High-impact alerts ON ⚡" if impact_state else "High-impact alerts OFF"
         await query.answer(status_text)
         if query.message:
             await query.message.edit_reply_markup(
-                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
+                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state, quiet_state)
             )
         return
 
@@ -161,12 +169,38 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             notif_state = pref.notifications_enabled
             impact_state = pref.high_impact_alerts_enabled
             weekly_state = pref.weekly_report_enabled
+            quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
 
         status_text = "Weekly report ON 🌐" if weekly_state else "Weekly report OFF"
         await query.answer(status_text)
         if query.message:
             await query.message.edit_reply_markup(
-                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
+                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state, quiet_state)
+            )
+        return
+
+    if data == "toggle_quiet":
+        async with session_factory() as session:
+            repo = Repository(session)
+            pref = await repo.get_or_create_preference(user.id)
+            is_currently_on = pref.quiet_hours_start != pref.quiet_hours_end
+            if is_currently_on:
+                pref.quiet_hours_start = "00:00"
+                pref.quiet_hours_end = "00:00"
+            else:
+                pref.quiet_hours_start = "22:00"
+                pref.quiet_hours_end = "07:00"
+            await session.commit()
+            notif_state = pref.notifications_enabled
+            impact_state = pref.high_impact_alerts_enabled
+            weekly_state = pref.weekly_report_enabled
+            quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
+
+        status_text = "Quiet hours enabled (22:00–07:00 UTC) 🌙" if quiet_state else "Quiet hours disabled ☀️"
+        await query.answer(status_text)
+        if query.message:
+            await query.message.edit_reply_markup(
+                reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state, quiet_state)
             )
         return
 
@@ -201,10 +235,11 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
                 notif_state = pref.notifications_enabled
                 impact_state = pref.high_impact_alerts_enabled
                 weekly_state = pref.weekly_report_enabled
+                quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
 
             if query.message:
                 await query.message.edit_reply_markup(
-                    reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state)
+                    reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state, quiet_state)
                 )
         else:
             active_display = ", ".join([f"#{s}" for s in active_slugs]) if active_slugs else "All Domains"

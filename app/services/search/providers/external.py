@@ -108,4 +108,3 @@ class ExternalSearchProvider(BaseSearchProvider):
         except Exception as exc:
             logger.error("External search provider encountered failure: %s", exc)
             return [], 0
-

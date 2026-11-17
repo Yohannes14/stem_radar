@@ -1,6 +1,6 @@
 """Pydantic structured output models for STEM RADAR AI intelligence capabilities."""
 
-from typing import List, Literal
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -31,6 +31,10 @@ class ResearchPaperAnalysis(BaseModel):
     practical_applications: List[str] = Field(description="Translational impact for industry or software systems.")
     further_research_questions: List[str] = Field(description="Unresolved hypotheses and promising directions.")
     original_paper_url: str = Field(description="Direct URL to the paper or arXiv abstract.")
+    code_repository_url: Optional[str] = Field(
+        default=None,
+        description="Direct URL to open source code, model weights, or replication repository if available.",
+    )
 
 
 class ConceptExplanation(BaseModel):
@@ -204,7 +208,23 @@ class ProjectRecommendation(BaseModel):
         default="Free / Open-Source (assumes workstation and public APIs)",
         description="Estimated cost with explicit assumptions.",
     )
+    estimated_time: str = Field(
+        default="1-2 weeks (~15-25 hours)",
+        description="Estimated completion timeline for development and testing.",
+    )
+    learning_outcomes: List[str] = Field(
+        default_factory=list,
+        description="Core engineering principles and technical skills acquired upon completion.",
+    )
     step_by_step_milestones: List[str] = Field(description="Phased implementation steps.")
+    verification_steps: List[str] = Field(
+        default_factory=list,
+        description="Automated tests, physical validation, and benchmarking procedures.",
+    )
+    common_pitfalls: List[str] = Field(
+        default_factory=list,
+        description="Frequent architectural, hardware, or debugging mistakes to avoid.",
+    )
     stretch_goals: List[str] = Field(description="Advanced extensions for top-tier portfolios.")
     portfolio_impact: str = Field(description="What this demonstrates to engineering hiring managers.")
 

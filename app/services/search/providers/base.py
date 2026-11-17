@@ -31,4 +31,3 @@ class BaseSearchProvider(ABC):
     ) -> Tuple[List[SearchResultItem], int]:
         """Execute query and return normalized results and total estimated match count."""
         ...
-

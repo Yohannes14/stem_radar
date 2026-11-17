@@ -81,6 +81,15 @@ class IntelligenceScheduler:
             replace_existing=True,
         )
 
+        # 5. Periodic Opportunity Expiry Sweeper Job (runs every 4 hours)
+        self.scheduler.add_job(
+            self._scheduled_opportunity_expiry_job,
+            trigger=IntervalTrigger(hours=4),
+            id="periodic_opportunity_expiry_sweep",
+            name="Periodic Opportunity Expiry Sweep",
+            replace_existing=True,
+        )
+
         self.scheduler.start()
         logger.info(
             "IntelligenceScheduler started. Ingestion: every %d min, Alerts: every %d min.",
@@ -135,6 +144,17 @@ class IntelligenceScheduler:
                 logger.info("[Scheduler] Dispatched %d weekly intelligence reports.", delivered)
         except Exception as exc:
             logger.error("[Scheduler] Error dispatching weekly reports: %s", exc, exc_info=True)
+
+    async def _scheduled_opportunity_expiry_job(self) -> None:
+        """Background worker transitioning lapsed application deadlines to expired status."""
+        try:
+            from app.services.student_hub_service import student_hub_service
+
+            count = await student_hub_service.expire_lapsed_opportunities()
+            if count > 0:
+                logger.info("[Scheduler] Automated sweep transitioned %d lapsed opportunities to expired.", count)
+        except Exception as exc:
+            logger.error("[Scheduler] Error in opportunity expiry sweeper: %s", exc, exc_info=True)
 
 
 scheduler = IntelligenceScheduler()

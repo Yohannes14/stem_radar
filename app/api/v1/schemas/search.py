@@ -34,6 +34,7 @@ class UnifiedSearchResponseSchema(BaseModel):
     query: str = Field(..., description="Original search query string")
     category: str = Field(..., description="Category filter applied")
     sort_by: str = Field(..., description="Sorting method used: relevance or date")
+    source: str = Field(default="all", description="Source scope used: all, internal, or external")
     items: List[SearchResultItemResponse] = Field(..., description="Ranked search result items")
     pagination: PaginationMeta = Field(..., description="Pagination metadata")
 
@@ -56,3 +57,57 @@ class SearchHistoryListResponse(BaseModel):
     items: List[SearchHistoryItemResponse] = Field(..., description="Recent search queries")
     total: int = Field(..., description="Total history records")
 
+
+class SourceCitationSchema(BaseModel):
+    """Cited source item in an AI search synthesis."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    index: int = Field(..., description="Citation index reference e.g. 1")
+    title: str = Field(..., description="Title of document or opportunity")
+    url: str = Field(..., description="Source destination or portal URL")
+    source_name: str = Field(..., description="Publishing organization or institution")
+    published_at: Optional[datetime] = Field(None, description="Publication timestamp")
+    category: str = Field(default="STEM", description="Domain category")
+    is_verified: bool = Field(default=False, description="Whether from verified source")
+
+
+class SearchAISummarySchema(BaseModel):
+    """Synthesized AI search overview with source citations and follow-up guidance."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    query: str = Field(..., description="Queried subject or term")
+    executive_summary: str = Field(..., description="High-level factual synthesis")
+    sourced_facts: List[str] = Field(default_factory=list, description="Findings with citation references [1], [2]")
+    analytical_implications: List[str] = Field(
+        default_factory=list, description="Practical and architectural deductions"
+    )
+    source_citations: List[SourceCitationSchema] = Field(default_factory=list, description="Referenced sources")
+    related_questions: List[str] = Field(default_factory=list, description="Follow-up exploration questions")
+    research_recommendations: List[str] = Field(default_factory=list, description="Actionable next research avenues")
+    disclaimer: str = Field(..., description="Accuracy and attribution disclaimer")
+
+
+class SourceComparisonRequest(BaseModel):
+    """Request payload to compare two search result items."""
+
+    topic: Optional[str] = Field(None, description="Topic or comparison focal point")
+    item_a: SearchResultItemResponse = Field(..., description="First item to compare")
+    item_b: SearchResultItemResponse = Field(..., description="Second item to compare")
+
+
+class SourceComparisonSchema(BaseModel):
+    """Comparative analysis response between two distinct sources."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    topic: str = Field(..., description="Subject domain of comparison")
+    source_a: SourceCitationSchema = Field(..., description="First source")
+    source_b: SourceCitationSchema = Field(..., description="Second source")
+    common_ground: List[str] = Field(default_factory=list, description="Agreed consensus or common principles")
+    divergent_points: List[str] = Field(
+        default_factory=list, description="Points of divergence or contrasting methodology"
+    )
+    synthesis: str = Field(..., description="Unbiased objective synthesis")
+    recommended_context: str = Field(..., description="Recommended application context")

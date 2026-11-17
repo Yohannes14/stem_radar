@@ -46,8 +46,9 @@ def get_scholarships_filter_keyboard(
     total_pages: int = 1,
     level: str = "all",
     funding: str = "all",
+    country: str = "all",
 ) -> InlineKeyboardMarkup:
-    """Interactive paginated scholarship browser with level and funding filter chips."""
+    """Interactive paginated scholarship browser with level, funding, and country filter chips."""
     buttons: List[List[InlineKeyboardButton]] = []
 
     # Individual Opportunity Quick-Select Cards
@@ -56,29 +57,40 @@ def get_scholarships_filter_keyboard(
         buttons.append([InlineKeyboardButton(btn_title, callback_data=f"hub:view:{opp.slug}")])
 
     # Filter selector controls
-    level_label = f"🎯 Level: {level.capitalize() if level != 'all' else 'All'}"
-    funding_label = f"💰 Funding: {funding.replace('_', ' ').capitalize() if funding != 'all' else 'All'}"
+    level_label = f"🎯 {level.capitalize() if level != 'all' else 'All Levels'}"
+    funding_label = f"💰 {funding.replace('_', ' ').capitalize() if funding != 'all' else 'All Funding'}"
+    country_label = f"🌍 {country.title() if country != 'all' else 'All Countries'}"
+
     buttons.append(
         [
-            InlineKeyboardButton(level_label, callback_data=f"hub:pick_level:{page}:{level}:{funding}"),
-            InlineKeyboardButton(funding_label, callback_data=f"hub:pick_funding:{page}:{level}:{funding}"),
+            InlineKeyboardButton(level_label, callback_data=f"hub:pick_level:{page}:{level}:{funding}:{country}"),
+            InlineKeyboardButton(funding_label, callback_data=f"hub:pick_funding:{page}:{level}:{funding}:{country}"),
+        ]
+    )
+    buttons.append(
+        [
+            InlineKeyboardButton(country_label, callback_data=f"hub:pick_country:{page}:{level}:{funding}:{country}"),
+            InlineKeyboardButton("🔄 Reset All", callback_data="hub:sch_page:0:all:all:all"),
         ]
     )
 
     # Pagination navigation
     nav_row: List[InlineKeyboardButton] = []
     if page > 0:
-        nav_row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"hub:sch_page:{page - 1}:{level}:{funding}"))
+        nav_row.append(
+            InlineKeyboardButton("⬅️ Prev", callback_data=f"hub:sch_page:{page - 1}:{level}:{funding}:{country}")
+        )
     nav_row.append(InlineKeyboardButton(f"📄 {page + 1}/{max(1, total_pages)}", callback_data="hub:noop"))
     if page < total_pages - 1:
-        nav_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"hub:sch_page:{page + 1}:{level}:{funding}"))
+        nav_row.append(
+            InlineKeyboardButton("Next ➡️", callback_data=f"hub:sch_page:{page + 1}:{level}:{funding}:{country}")
+        )
     buttons.append(nav_row)
 
-    # Action row (Reset Filters & Deadlines)
+    # Deadlines action row
     buttons.append(
         [
-            InlineKeyboardButton("🔄 Reset Filters", callback_data="hub:sch_page:0:all:all"),
-            InlineKeyboardButton("⏰ View Deadlines", callback_data="hub:deadlines"),
+            InlineKeyboardButton("⏰ Upcoming Deadlines", callback_data="hub:deadlines"),
         ]
     )
 
@@ -115,7 +127,7 @@ def get_scholarship_detail_keyboard(
     return InlineKeyboardMarkup(rows)
 
 
-def get_study_level_keyboard(page: int, current_funding: str) -> InlineKeyboardMarkup:
+def get_study_level_keyboard(page: int, current_funding: str, current_country: str = "all") -> InlineKeyboardMarkup:
     """Picker keyboard to filter by academic degree level."""
     levels = [
         ("🎓 All Study Levels", "all"),
@@ -126,13 +138,15 @@ def get_study_level_keyboard(page: int, current_funding: str) -> InlineKeyboardM
     ]
     rows: List[List[InlineKeyboardButton]] = []
     for label, slug in levels:
-        rows.append([InlineKeyboardButton(label, callback_data=f"hub:sch_page:0:{slug}:{current_funding}")])
-    back_data = f"hub:sch_page:{page}:all:{current_funding}"
+        rows.append(
+            [InlineKeyboardButton(label, callback_data=f"hub:sch_page:0:{slug}:{current_funding}:{current_country}")]
+        )
+    back_data = f"hub:sch_page:{page}:all:{current_funding}:{current_country}"
     rows.append([InlineKeyboardButton("⬅️ Back to Scholarships", callback_data=back_data)])
     return InlineKeyboardMarkup(rows)
 
 
-def get_funding_filter_keyboard(page: int, current_level: str) -> InlineKeyboardMarkup:
+def get_funding_filter_keyboard(page: int, current_level: str, current_country: str = "all") -> InlineKeyboardMarkup:
     """Picker keyboard to filter by financial coverage."""
     fundings = [
         ("🌐 All Funding Types", "all"),
@@ -143,8 +157,39 @@ def get_funding_filter_keyboard(page: int, current_level: str) -> InlineKeyboard
     ]
     rows: List[List[InlineKeyboardButton]] = []
     for label, slug in fundings:
-        rows.append([InlineKeyboardButton(label, callback_data=f"hub:sch_page:0:{current_level}:{slug}")])
-    back_data = f"hub:sch_page:{page}:{current_level}:all"
+        rows.append(
+            [InlineKeyboardButton(label, callback_data=f"hub:sch_page:0:{current_level}:{slug}:{current_country}")]
+        )
+    back_data = f"hub:sch_page:{page}:{current_level}:all:{current_country}"
+    rows.append([InlineKeyboardButton("⬅️ Back to Scholarships", callback_data=back_data)])
+    return InlineKeyboardMarkup(rows)
+
+
+def get_country_filter_keyboard(page: int, current_level: str, current_funding: str) -> InlineKeyboardMarkup:
+    """Picker keyboard to filter opportunities by host country."""
+    countries = [
+        ("🌐 All Countries", "all"),
+        ("🇩🇪 Germany", "germany"),
+        ("🇺🇸 United States", "united states"),
+        ("🇬🇧 United Kingdom", "united kingdom"),
+        ("🇨🇦 Canada", "canada"),
+        ("🇸🇪 Sweden", "sweden"),
+        ("🇯🇵 Japan", "japan"),
+        ("🇨🇭 Switzerland", "switzerland"),
+        ("🇫🇷 France", "france"),
+    ]
+    rows: List[List[InlineKeyboardButton]] = []
+    current_row: List[InlineKeyboardButton] = []
+    for label, slug in countries:
+        btn = InlineKeyboardButton(label, callback_data=f"hub:sch_page:0:{current_level}:{current_funding}:{slug}")
+        current_row.append(btn)
+        if len(current_row) == 2:
+            rows.append(current_row)
+            current_row = []
+    if current_row:
+        rows.append(current_row)
+
+    back_data = f"hub:sch_page:{page}:{current_level}:{current_funding}:all"
     rows.append([InlineKeyboardButton("⬅️ Back to Scholarships", callback_data=back_data)])
     return InlineKeyboardMarkup(rows)
 
@@ -262,5 +307,103 @@ def get_academic_resource_detail_keyboard(
             InlineKeyboardButton("🔗 Open Official Course / Material", url=res.official_access_url),
         ],
         nav_back_home_row(back_target=back_target, home_target="menu:home"),
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
+# ------------------ Stage 16: Moderation & Submission Keyboards ------------------
+
+
+def get_moderation_dashboard_keyboard(
+    pending_submissions_count: int,
+    pending_reports_count: int,
+) -> InlineKeyboardMarkup:
+    """Admin moderation dashboard controls."""
+    rows = [
+        [
+            InlineKeyboardButton(
+                f"📋 Submissions Review ({pending_submissions_count})",
+                callback_data="mod:subs:0",
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"🚩 Community Reports ({pending_reports_count})",
+                callback_data="mod:reps:0",
+            ),
+        ],
+        [
+            InlineKeyboardButton("⏰ Run Expiry Sweep", callback_data="mod:sweep"),
+        ],
+        nav_back_home_row(back_target="hub:student_hub", home_target="menu:home"),
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
+def get_moderation_submission_keyboard(
+    opportunity_id: int,
+    page: int = 0,
+    total_pages: int = 1,
+) -> InlineKeyboardMarkup:
+    """Action buttons to approve or reject a pending submission."""
+    rows = [
+        [
+            InlineKeyboardButton("🟢 Approve (Verified)", callback_data=f"mod:appr_v:{opportunity_id}:{page}"),
+            InlineKeyboardButton("🟡 Approve (Secondary)", callback_data=f"mod:appr_s:{opportunity_id}:{page}"),
+        ],
+        [
+            InlineKeyboardButton("❌ Reject Submission", callback_data=f"mod:rej:{opportunity_id}:{page}"),
+        ],
+    ]
+
+    # Pagination if multiple submissions
+    if total_pages > 1:
+        pag_row: List[InlineKeyboardButton] = []
+        if page > 0:
+            pag_row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"mod:subs:{page - 1}"))
+        pag_row.append(InlineKeyboardButton(f"📄 {page + 1}/{total_pages}", callback_data="hub:noop"))
+        if page < total_pages - 1:
+            pag_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"mod:subs:{page + 1}"))
+        rows.append(pag_row)
+
+    rows.append([InlineKeyboardButton("🔙 Moderation Hub", callback_data="mod:dash")])
+    return InlineKeyboardMarkup(rows)
+
+
+def get_moderation_report_keyboard(
+    report_id: int,
+    opportunity_id: int | None = None,
+    page: int = 0,
+    total_pages: int = 1,
+) -> InlineKeyboardMarkup:
+    """Action buttons to resolve, dismiss, or expire an opportunity from a community report."""
+    rows: List[List[InlineKeyboardButton]] = []
+    action_row: List[InlineKeyboardButton] = []
+    if opportunity_id:
+        action_row.append(InlineKeyboardButton("🛑 Mark Expired", callback_data=f"mod:rep_exp:{report_id}:{page}"))
+    action_row.append(InlineKeyboardButton("✅ Resolve", callback_data=f"mod:rep_res:{report_id}:{page}"))
+    action_row.append(InlineKeyboardButton("🗑️ Dismiss", callback_data=f"mod:rep_dsm:{report_id}:{page}"))
+    rows.append(action_row)
+
+    if total_pages > 1:
+        pag_row: List[InlineKeyboardButton] = []
+        if page > 0:
+            pag_row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"mod:reps:{page - 1}"))
+        pag_row.append(InlineKeyboardButton(f"📄 {page + 1}/{total_pages}", callback_data="hub:noop"))
+        if page < total_pages - 1:
+            pag_row.append(InlineKeyboardButton("Next ➡️", callback_data=f"mod:reps:{page + 1}"))
+        rows.append(pag_row)
+
+    rows.append([InlineKeyboardButton("🔙 Moderation Hub", callback_data="mod:dash")])
+    return InlineKeyboardMarkup(rows)
+
+
+def get_submission_guide_keyboard() -> InlineKeyboardMarkup:
+    """Submission guide and action buttons for public community contributors."""
+    rows = [
+        [
+            InlineKeyboardButton("➕ Submit via Command Template", callback_data="hub:submit_template"),
+        ],
+        nav_back_home_row(back_target="hub:student_hub", home_target="menu:home"),
     ]
     return InlineKeyboardMarkup(rows)

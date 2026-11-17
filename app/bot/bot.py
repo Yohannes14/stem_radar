@@ -3,7 +3,14 @@
 import logging
 
 from telegram import BotCommand
-from telegram.ext import Application, ApplicationBuilder, CallbackQueryHandler, CommandHandler
+from telegram.ext import (
+    Application,
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    MessageHandler,
+    filters,
+)
 from telegram.request import HTTPXRequest
 
 from app.bot.handlers.automation import (
@@ -16,10 +23,14 @@ from app.bot.handlers.automation import (
     watchlist_command,
 )
 from app.bot.handlers.base import (
+    discover_command,
     error_handler,
     help_command,
     main_menu_callback_router,
+    menu_command,
+    myspace_command,
     start_command,
+    stem_command,
 )
 from app.bot.handlers.content import digest_command, ideas_command, trending_command
 from app.bot.handlers.education import (
@@ -44,12 +55,15 @@ from app.bot.handlers.news import (
     news_command,
     politics_command,
     programming_command,
+    quick_ai_summary_command,
     research_command,
     robotics_command,
     saved_command,
     science_command,
+    search_ai_command,
     search_command,
     sources_command,
+    websearch_command,
 )
 from app.bot.handlers.settings import (
     interests_command,
@@ -59,9 +73,15 @@ from app.bot.handlers.settings import (
 from app.bot.handlers.student_hub import (
     courses_command,
     deadlines_command,
+    moderation_callback_router,
+    moderation_command,
+    quick_opportunity_command,
+    quick_resource_command,
+    quick_university_command,
     scholarships_command,
     student_hub_callback_router,
     student_hub_command,
+    submit_opportunity_command,
     universities_command,
 )
 from app.bot.handlers.user_management import (
@@ -83,28 +103,19 @@ async def on_startup(application: Application) -> None:
     logger.info("Starting background intelligence scheduler alongside bot...")
     scheduler.start(bot=application.bot)
 
-    # Register commands with Telegram Bot API so they appear in the [ / ] Menu button
+    # Register flagship commands with Telegram Bot API so they appear cleanly in the [ / ] Menu button
     try:
         commands = [
-            BotCommand("start", "🏠 Main Menu Dashboard"),
-            BotCommand("news", "📰 Latest Technology News"),
-            BotCommand("scholarships", "🎁 Verified STEM Scholarships"),
-            BotCommand("universities", "🏛️ University Admissions & Guides"),
-            BotCommand("courses", "📚 Free STEM Courses & Materials"),
-            BotCommand("deadlines", "⏰ Upcoming Application Deadlines"),
-            BotCommand("studenthub", "🎓 Student Hub & Academic Resources"),
-            BotCommand("ethiopia", "🇪🇹 Ethiopia Tech & News"),
-            BotCommand("politics", "🌍 World Politics & Affairs"),
-            BotCommand("trending", "📈 High-Impact Breakthroughs"),
-            BotCommand("radar", "🎯 Technology Radar"),
-            BotCommand("ai", "🤖 Artificial Intelligence"),
-            BotCommand("research", "📄 Research Papers"),
-            BotCommand("search", "🔍 Unified STEM Search"),
-            BotCommand("saved", "⭐ Bookmarked Items"),
-            BotCommand("interests", "🏷️ Customize Topics"),
-            BotCommand("briefing", "🌅 Executive Daily Briefing"),
-            BotCommand("learn", "🎓 STEM Learning Academy"),
-            BotCommand("help", "❓ Command Catalog"),
+            BotCommand("start", "🚀 Welcome & Dashboard"),
+            BotCommand("menu", "🧭 Flagship 8-Hub Main Menu"),
+            BotCommand("discover", "🌅 Daily Pulse & Intelligence Briefing"),
+            BotCommand("stem", "🔬 12 Foundational STEM Disciplines"),
+            BotCommand("research", "📄 arXiv Papers & AI Explanations"),
+            BotCommand("student", "🎓 Scholarships & Academic Hub"),
+            BotCommand("learn", "🧠 STEM Academy & Interactive Lessons"),
+            BotCommand("search", "🔍 Unified AI & Live Web Search"),
+            BotCommand("myspace", "👤 Bookmarks, Subscriptions & Settings"),
+            BotCommand("help", "📚 Complete Command Catalog"),
         ]
         await application.bot.set_my_commands(commands)
         logger.info("Registered Telegram bot menu commands successfully.")
@@ -140,8 +151,13 @@ def create_bot_app() -> Application:
         .build()
     )
 
-    # Core base commands
+    # Flagship 8-Hub commands
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("menu", menu_command))
+    app.add_handler(CommandHandler("discover", discover_command))
+    app.add_handler(CommandHandler("stem", stem_command))
+    app.add_handler(CommandHandler("student", student_hub_command))
+    app.add_handler(CommandHandler("myspace", myspace_command))
     app.add_handler(CommandHandler("help", help_command))
 
     # News & domain commands
@@ -168,6 +184,8 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("collect", collect_command))
     app.add_handler(CommandHandler("refresh", collect_command))
     app.add_handler(CommandHandler("search", search_command))
+    app.add_handler(CommandHandler("search_ai", search_ai_command))
+    app.add_handler(CommandHandler("websearch", websearch_command))
     app.add_handler(CommandHandler("saved", saved_command))
     app.add_handler(CommandHandler("settings", settings_command))
     app.add_handler(CommandHandler("interests", interests_command))
@@ -203,19 +221,28 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("courses", courses_command))
     app.add_handler(CommandHandler("deadlines", deadlines_command))
     app.add_handler(CommandHandler("studenthub", student_hub_command))
+    app.add_handler(CommandHandler("submit_opportunity", submit_opportunity_command))
+    app.add_handler(CommandHandler("moderation", moderation_command))
+
+    # Dynamic deep-link commands (/scholarship_12, /opp_12, /university_slug, /resource_slug, /ai_sum_12)
+    app.add_handler(MessageHandler(filters.Regex(r"^/(?:scholarship|opp)_(\d+)"), quick_opportunity_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/university_([a-zA-Z0-9_\-]+)"), quick_university_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/resource_([a-zA-Z0-9_\-]+)"), quick_resource_command))
+    app.add_handler(MessageHandler(filters.Regex(r"^/ai_sum_(\d+)"), quick_ai_summary_command))
 
     # Interactive inline callbacks
     app.add_handler(CallbackQueryHandler(student_hub_callback_router, pattern="^hub:.*$"))
+    app.add_handler(CallbackQueryHandler(moderation_callback_router, pattern="^mod:.*$"))
     app.add_handler(
         CallbackQueryHandler(
             main_menu_callback_router,
-            pattern="^(menu:.*|nav:home|search_kw:.*|radar_h:.*|prj_topic:.*)$",
+            pattern="^(menu:.*|nav:home|search_kw:.*|radar_h:.*|prj_topic:.*|prj_gen:.*|prj_diff:.*|prj_rand|learn_lvl:.*|onboard:.*|arxiv_cat:.*)$",
         )
     )
     app.add_handler(
         CallbackQueryHandler(
             settings_callback_router,
-            pattern="^(toggle_notif|toggle_impact|toggle_weekly|pref_cat:.*)$",
+            pattern="^(toggle_notif|toggle_impact|toggle_weekly|toggle_quiet|pref_cat:.*)$",
         )
     )
     app.add_handler(

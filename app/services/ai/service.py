@@ -1,6 +1,7 @@
 """Enterprise Modular AI Intelligence Engine orchestrating LLM adapters, caching, and fallback heuristics."""
 
 import logging
+import re
 from typing import Optional
 
 from app.core.config import settings
@@ -145,7 +146,8 @@ class AIService:
             system_prompt = (
                 "You are an academic peer reviewer and research scientist across STEM disciplines. "
                 "Analyze the research paper abstract and text with strict empirical integrity. "
-                "Do not fabricate findings or overstate claims. Identify concrete limitations."
+                "Do not fabricate findings or overstate claims. Identify concrete limitations. "
+                "Extract code repository or replication links if mentioned in the text."
             )
             prompt = (
                 f"Paper Title: {article.title}\n"
@@ -193,6 +195,12 @@ class AIService:
                 "Demonstrates architectural efficiency and computational scaling advantages.",
             ]
 
+        # Extract code or artifact repository URL if present
+        code_repo = None
+        code_match = re.search(r"https?://(?:www\.)?(?:github\.com|gitlab\.com)/[a-zA-Z0-9_\-\./]+", desc)
+        if code_match:
+            code_repo = code_match.group(0).rstrip(".,;)")
+
         return ResearchPaperAnalysis(
             paper_title=article.title,
             research_problem=problem,
@@ -211,6 +219,7 @@ class AIService:
                 "Can these theoretical bounds be applied to real-time edge devices with tight power constraints?",
             ],
             original_paper_url=article.url,
+            code_repository_url=code_repo,
         )
 
     # ------------------ Capability 3: Technical Concept Explanations ------------------
@@ -891,7 +900,8 @@ class AIService:
             system_prompt = (
                 f"You are a Staff Software Engineer and Technical Recruiter. "
                 f"Design an impactful portfolio project for a {difficulty.upper()} developer in {clean_topic}. "
-                f"Focus on practical problem solving, realistic architecture, tech stack, and hiring impact."
+                f"Focus on practical problem solving, realistic architecture, tech stack, completion timeline, "
+                f"concrete learning outcomes, verification/testing steps, common pitfalls, and hiring impact."
             )
             prompt = f"Topic: {clean_topic}\nDifficulty: {difficulty}\n\nGenerate ProjectRecommendation JSON."
             try:
@@ -907,6 +917,13 @@ class AIService:
 
     def _heuristic_project(self, topic: str, difficulty: ExplanationMode) -> ProjectRecommendation:
         """Deterministic project recommendation fallback."""
+        time_estimates = {
+            "beginner": "3-5 days (~8-12 hours)",
+            "intermediate": "1-2 weeks (~15-25 hours)",
+            "advanced": "3-4 weeks (~40-60 hours)",
+        }
+        est_time = time_estimates.get(difficulty, "1-2 weeks (~15-25 hours)")
+
         t_low = topic.lower()
         if any(k in t_low for k in ["robot", "kinematics", "quadruped", "actuator"]):
             skills = ["Python & C++", "ROS 2 / Gazebo", "Forward & Inverse Kinematics", "PID / State Estimation"]
@@ -916,6 +933,21 @@ class AIService:
                 "Optional: ESP32 Microcontroller & 3x Servo Motors",
             ]
             cost = "$0 using Gazebo simulation ($35 if assembling physical ESP32 prototype)"
+            outcomes = [
+                "Mathematical modeling of forward & inverse kinematics",
+                "Real-time sensor integration and state estimation filtering",
+                "Closed-loop PID actuator control and trajectory planning",
+            ]
+            verifications = [
+                "Verify joint angles in Gazebo against theoretical kinematic equations",
+                "Measure tracking error under simulated external payload disturbance",
+                "Execute automated fail-safe shutdown upon simulated sensor dropout",
+            ]
+            pitfalls = [
+                "Ignoring floating-point rounding errors in trigonometric coordinate transforms",
+                "Unfiltered sensor noise causing aggressive PID derivative kick",
+                "Insufficient power supply causing microcontroller brownouts during motor surge",
+            ]
         elif any(k in t_low for k in ["quantum", "qubit"]):
             skills = ["Linear Algebra", "Qiskit / Cirq SDK", "Quantum Circuit Design", "Error Mitigation"]
             materials = [
@@ -924,14 +956,49 @@ class AIService:
                 "JupyterLab / NumPy / Qiskit Aer Simulator",
             ]
             cost = "$0 (Runs on local Qiskit Aer simulator & free IBM Quantum Cloud credits)"
+            outcomes = [
+                "Quantum state representation and Bloch sphere manipulation",
+                "Circuit synthesis with parameterized unitary operators",
+                "Noise modeling, zero-noise extrapolation, and error mitigation",
+            ]
+            verifications = [
+                "Execute quantum state tomography to verify fidelity against theoretical matrices",
+                "Benchmark circuit depth and gate count across simulator vs quantum hardware backends",
+                "Run assertion checks ensuring unitary matrix operator compliance",
+            ]
+            pitfalls = [
+                "Exceeding qubit coherence times with excessively deep circuits",
+                "Misinterpreting probabilistic measurement collapse as deterministic computation",
+                "Ignoring gate error accumulation on physical NISQ hardware",
+            ]
         elif any(k in t_low for k in ["cyber", "security", "crypto"]):
-            skills = ["Network Protocols (TCP/IP, TLS 1.3)", "Packet Analysis (Scapy)", "Linux Systems", "Cryptography"]
+            skills = [
+                "Network Protocols (TCP/IP, TLS 1.3)",
+                "Packet Analysis (Scapy)",
+                "Linux Systems",
+                "Cryptography",
+            ]
             materials = [
                 "Linux / macOS Workstation",
                 "Wireshark / Scapy / Docker Sandboxing",
                 "Public Vulnerability Feeds (CVE / NVD APIs)",
             ]
             cost = "$0 (Free & open-source security tools in isolated containers)"
+            outcomes = [
+                "Deep packet inspection and protocol header anomaly detection",
+                "Zero-trust architectural design and cryptographic verification",
+                "Automated threat telemetry and incident alerting workflows",
+            ]
+            verifications = [
+                "Simulate packet replay attacks in sandboxed network container",
+                "Benchmark parsing throughput with 100,000 synthetic malformed packets",
+                "Run automated penetration testing checks against TLS configurations",
+            ]
+            pitfalls = [
+                "Blocking event loops with synchronous packet parsing routines",
+                "Hardcoding cryptographic seeds or failing to use secure random generators",
+                "Memory leak or excessive CPU consumption on malformed packets",
+            ]
         else:
             skills = [
                 "Python 3.12+",
@@ -945,6 +1012,21 @@ class AIService:
                 "Public Open-Source Libraries & Free REST/gRPC APIs",
             ]
             cost = "$0 (Uses local developer workstation and open-source software)"
+            outcomes = [
+                "Production asynchronous event-driven system architecture",
+                "End-to-end data serialization and schema validation guarantees",
+                "Automated test harnesses, benchmarking, and telemetry observability",
+            ]
+            verifications = [
+                "Run test suite with pytest enforcing >90% code coverage",
+                "Execute load test with Locust or k6 measuring p99 latency under concurrency",
+                "Verify database connection pool recovery after simulated network partition",
+            ]
+            pitfalls = [
+                "Unbounded in-memory queues leading to Out-Of-Memory under backpressure",
+                "Neglecting database index design resulting in full table scans under load",
+                "Over-engineering microservices before establishing single-process domain boundaries",
+            ]
 
         return ProjectRecommendation(
             topic=topic,
@@ -962,12 +1044,16 @@ class AIService:
             required_skills=skills,
             components_and_materials=materials,
             estimated_cost=cost,
+            estimated_time=est_time,
+            learning_outcomes=outcomes,
             step_by_step_milestones=[
                 "Phase 1: Build the data ingestion client with resilient exponential retry policies",
                 "Phase 2: Implement the core transformation algorithm with unit test coverage >90%",
                 "Phase 3: Connect the database layer with ACID transactions and foreign key validation",
                 "Phase 4: Integrate real-time Prometheus / structured metrics export",
             ],
+            verification_steps=verifications,
+            common_pitfalls=pitfalls,
             stretch_goals=[
                 "Add automated load testing with Locust or k6 simulating 10,000 requests/second",
                 "Implement distributed tracing with OpenTelemetry and Jaeger",
