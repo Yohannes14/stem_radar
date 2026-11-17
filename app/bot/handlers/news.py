@@ -14,7 +14,6 @@ from app.bot.keyboards.inline import (
     get_concept_mode_keyboard,
     get_explanation_keyboard,
     get_paper_analysis_keyboard,
-    get_search_pagination_keyboard,
 )
 from app.bot.keyboards.navigation import get_back_home_keyboard
 from app.bot.ui.formatters import (
@@ -25,13 +24,13 @@ from app.bot.ui.formatters import (
     format_news_summary,
     format_paper_analysis,
     format_related_articles,
-    format_search_results_page,
     format_sources_list,
     format_stem_content,
 )
-from app.bot.ui.menu import safe_edit_or_reply
+from app.bot.ui.menu import get_search_shortcuts_keyboard, safe_edit_or_reply
 from app.services.ai import ai_service
 from app.services.news_service import NewsService
+from app.services.search import search_service
 
 logger = logging.getLogger(__name__)
 news_service = NewsService()
@@ -117,41 +116,43 @@ async def send_article_view(
         )
 
 
-SEARCH_PAGE_SIZE = 5
+SEARCH_PAGE_SIZE = 4
 
 
 async def send_search_view(
     update: Update,
     query: str,
-    page: int = 0,
+    page: int = 1,
+    category: str = "all",
+    sort_by: str = "relevance",
     is_edit: bool = False,
 ) -> None:
-    """Display paginated search results for a keyword query."""
+    """Display paginated multi-domain search results for a keyword query."""
     clean_query = query.strip()
     if not clean_query:
         return
 
-    total_count = await news_service.count_news(query=clean_query)
-    total_pages = max(1, (total_count + SEARCH_PAGE_SIZE - 1) // SEARCH_PAGE_SIZE)
-    safe_page = max(0, min(page, total_pages - 1))
+    user = update.effective_user
+    user_id = user.id if user else None
+    safe_page = max(1, page if page > 0 else 1)
 
-    articles = await news_service.get_recent_news(
-        limit=SEARCH_PAGE_SIZE,
-        offset=safe_page * SEARCH_PAGE_SIZE,
+    response = await search_service.search(
         query=clean_query,
+        category=category,
+        sort_by=sort_by,
+        page=safe_page,
+        page_size=SEARCH_PAGE_SIZE,
+        user_id=user_id,
+        news_service=news_service,
     )
 
-    text = format_search_results_page(
+    text = search_service.format_search_results_page(response)
+    reply_markup = search_service.get_search_results_keyboard(
         query=clean_query,
-        articles=articles,
-        page=safe_page,
-        total_pages=total_pages,
-        total_count=total_count,
-    )
-    reply_markup = get_search_pagination_keyboard(
-        query=clean_query,
-        page=safe_page,
-        total_pages=total_pages,
+        page=response.page,
+        total_pages=response.total_pages,
+        category=response.category,
+        sort_by=response.sort_by,
     )
 
     await safe_edit_or_reply(
@@ -263,17 +264,26 @@ async def collect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 @authorized_only
 async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Search articles by keyword with interactive pagination."""
+    """Unified search across STEM news, research papers, scholarships, and academic resources."""
     if not context.args:
-        if update.effective_message:
-            await update.effective_message.reply_text(
-                "🔍 *Usage:* `/search <keyword>`\nExample: `/search humanoid` or `/search quantum`",
-                parse_mode=ParseMode.MARKDOWN,
-            )
+        text = (
+            "🔍 *STEM RADAR — Unified Search Engine*\n\n"
+            "Search across verified STEM news, arXiv research papers, global scholarships, "
+            "accredited university admissions, and open educational courses.\n\n"
+            "*Usage:* `/search <keyword>`\n\n"
+            "*Examples:*\n"
+            "• `/search quantum` — Quantum computing breakthroughs & papers\n"
+            "• `/search robotics` — Robotics engineering & lab research\n"
+            "• `/search scholarship` — Open funding awards & deadlines\n"
+            "• `/search algorithms` — Free courses & academic materials\n\n"
+            "Or tap a quick search topic below:"
+        )
+        markup = get_search_shortcuts_keyboard()
+        await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
         return
 
     query = " ".join(context.args)
-    await send_search_view(update, query=query, page=0, is_edit=False)
+    await send_search_view(update, query=query, page=1, category="all", sort_by="relevance", is_edit=False)
 
 
 @authorized_only
@@ -604,7 +614,36 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         parts = data.split(":")
         query_kw = parts[1]
         page = int(parts[2]) if len(parts) > 2 else 0
-        await send_search_view(update, query=query_kw, page=page, is_edit=True)
+        await send_search_view(update, query=query_kw, page=page + 1, category="all", is_edit=True)
+        return
+
+    if data.startswith("search:page:"):
+        parts = data.split(":")
+        page = int(parts[2]) if len(parts) > 2 else 1
+        cat = parts[3] if len(parts) > 3 else "all"
+        sort_by = parts[4] if len(parts) > 4 else "relevance"
+        query_kw = parts[5] if len(parts) > 5 else ""
+        await send_search_view(update, query=query_kw, page=page, category=cat, sort_by=sort_by, is_edit=True)
+        return
+
+    if data.startswith("search:cat:"):
+        parts = data.split(":")
+        cat = parts[2] if len(parts) > 2 else "all"
+        sort_by = parts[3] if len(parts) > 3 else "relevance"
+        query_kw = parts[4] if len(parts) > 4 else ""
+        await send_search_view(update, query=query_kw, page=1, category=cat, sort_by=sort_by, is_edit=True)
+        return
+
+    if data.startswith("search:sort:"):
+        parts = data.split(":")
+        cat = parts[2] if len(parts) > 2 else "all"
+        sort_by = parts[3] if len(parts) > 3 else "relevance"
+        query_kw = parts[4] if len(parts) > 4 else ""
+        await send_search_view(update, query=query_kw, page=1, category=cat, sort_by=sort_by, is_edit=True)
+        return
+
+    if data == "search:noop":
+        await query.answer()
         return
 
     if data.startswith("ai_sum:"):

@@ -107,6 +107,10 @@ def get_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📈 Trending Tech", callback_data="menu:trending"),
         ],
         [
+            InlineKeyboardButton("🎓 Student Hub", callback_data="menu:student_hub"),
+            InlineKeyboardButton("🎁 Scholarships", callback_data="menu:scholarships"),
+        ],
+        [
             InlineKeyboardButton("🇪🇹 Ethiopia Radar", callback_data="menu:ethiopia"),
             InlineKeyboardButton("🌍 World & Politics", callback_data="menu:politics"),
         ],

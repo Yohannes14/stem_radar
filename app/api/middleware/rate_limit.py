@@ -46,3 +46,6 @@ class InMemoryRateLimiter:
 
 # Default rate limiter for expensive AI operations (e.g. 20 requests/minute)
 ai_rate_limiter = InMemoryRateLimiter(requests_per_minute=20)
+
+# Sliding window rate limiter for unified search queries (e.g. 60 requests/minute)
+search_rate_limiter = InMemoryRateLimiter(requests_per_minute=60)

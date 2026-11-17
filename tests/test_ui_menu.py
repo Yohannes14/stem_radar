@@ -59,12 +59,14 @@ def mock_menu_update():
 def test_main_menu_keyboard_has_12_sections():
     """Verify that get_main_menu_keyboard contains the flagship interactive sections."""
     keyboard = get_main_menu_keyboard()
-    assert len(keyboard.inline_keyboard) == 7  # 7 rows of 2 buttons each = 14 buttons
+    assert len(keyboard.inline_keyboard) == 8  # 8 rows of 2 buttons each = 16 buttons
 
     all_callbacks = [btn.callback_data for row in keyboard.inline_keyboard for btn in row]
     expected_callbacks = [
         "menu:news",
         "menu:trending",
+        "menu:student_hub",
+        "menu:scholarships",
         "menu:ethiopia",
         "menu:politics",
         "menu:ai",
@@ -185,7 +187,7 @@ async def test_start_command_renders_main_menu(mock_menu_update):
     markup = reply_call[1]["reply_markup"]
 
     assert "Welcome to STEM RADAR, Alan!" in text
-    assert len(markup.inline_keyboard) == 7
+    assert len(markup.inline_keyboard) == 8
 
 
 @pytest.mark.asyncio

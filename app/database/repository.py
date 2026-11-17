@@ -11,12 +11,17 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.database.models import (
+    AcademicResource,
     Article,
     ArticleCategory,
     Category,
     NotificationLog,
+    Opportunity,
+    OpportunityReport,
     SavedArticle,
+    SearchQueryLog,
     Source,
+    UniversityProfile,
     User,
     UserFeedback,
     UserLearningProgress,
@@ -259,8 +264,15 @@ class Repository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def search_articles(self, query: str, limit: int = 10) -> List[Article]:
-        """Search articles by keyword in title or description."""
+    async def search_articles(
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        category_slug: Optional[str] = None,
+        is_paper: Optional[bool] = None,
+    ) -> List[Article]:
+        """Search articles by keyword in title or description with optional category/paper filters."""
         search_pattern = f"%{query.strip()}%"
         stmt = (
             select(Article)
@@ -271,11 +283,41 @@ class Repository:
                 )
             )
             .options(selectinload(Article.source), selectinload(Article.categories))
-            .order_by(desc(Article.collected_at))
-            .limit(limit)
         )
+        if category_slug and category_slug != "all":
+            stmt = stmt.join(Article.categories).where(Category.slug == category_slug).distinct()
+        if is_paper is True:
+            stmt = stmt.join(Article.source).where(Source.source_type == "arxiv")
+        elif is_paper is False:
+            stmt = stmt.join(Article.source).where(Source.source_type != "arxiv")
+
+        stmt = stmt.order_by(desc(Article.collected_at)).offset(offset).limit(limit)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_search_articles(
+        self,
+        query: str,
+        category_slug: Optional[str] = None,
+        is_paper: Optional[bool] = None,
+    ) -> int:
+        """Count total articles matching search keyword and optional filters."""
+        search_pattern = f"%{query.strip()}%"
+        stmt = select(func.count(Article.id.distinct())).where(
+            or_(
+                Article.title.ilike(search_pattern),
+                Article.description.ilike(search_pattern),
+            )
+        )
+        if category_slug and category_slug != "all":
+            stmt = stmt.join(Article.categories).where(Category.slug == category_slug).distinct()
+        if is_paper is True:
+            stmt = stmt.join(Article.source).where(Source.source_type == "arxiv")
+        elif is_paper is False:
+            stmt = stmt.join(Article.source).where(Source.source_type != "arxiv")
+
+        result = await self.session.execute(stmt)
+        return result.scalar_one() or 0
 
     # ------------------ Bookmarks / Saved Articles ------------------
 
@@ -755,3 +797,516 @@ class Repository:
         await self.session.execute(delete(NotificationLog).where(NotificationLog.user_id == telegram_id))
         await self.session.commit()
         return {"status": "deleted", "telegram_id": telegram_id}
+
+    # ------------------ Student Hub & Opportunities ------------------
+
+    async def save_opportunity(
+        self,
+        title: str,
+        slug: str,
+        opportunity_type: str,
+        provider_name: str,
+        official_url: str,
+        country: str,
+        study_level: str,
+        stem_fields: str = "All STEM",
+        funding_type: str = "fully_funded",
+        eligibility_criteria: str = "",
+        provider_type: str = "university",
+        application_url: Optional[str] = None,
+        eligible_nationalities: str = "All",
+        benefits: Optional[str] = None,
+        required_documents: Optional[str] = None,
+        application_opens_at: Optional[datetime] = None,
+        application_deadline: Optional[datetime] = None,
+        is_rolling: bool = False,
+        verification_tier: str = "officially_verified",
+        status: str = "open",
+        source_attribution: str = "",
+        commit: bool = True,
+    ) -> Tuple[Opportunity, bool]:
+        """Save a new academic opportunity with duplicate detection by slug."""
+        stmt = select(Opportunity).where(Opportunity.slug == slug)
+        res = await self.session.execute(stmt)
+        existing = res.scalar_one_or_none()
+        if existing:
+            return existing, False
+
+        opp = Opportunity(
+            title=title.strip(),
+            slug=slug.strip(),
+            opportunity_type=opportunity_type.strip(),
+            provider_name=provider_name.strip(),
+            provider_type=provider_type.strip(),
+            official_url=official_url.strip(),
+            application_url=application_url.strip() if application_url else None,
+            country=country.strip(),
+            eligible_nationalities=eligible_nationalities.strip(),
+            study_level=study_level.strip(),
+            stem_fields=stem_fields.strip(),
+            funding_type=funding_type.strip(),
+            benefits=benefits.strip() if benefits else None,
+            eligibility_criteria=eligibility_criteria.strip(),
+            required_documents=required_documents.strip() if required_documents else None,
+            application_opens_at=application_opens_at,
+            application_deadline=application_deadline,
+            is_rolling=is_rolling,
+            verification_tier=verification_tier.strip(),
+            status=status.strip(),
+            source_attribution=source_attribution.strip() or provider_name.strip(),
+        )
+        self.session.add(opp)
+        if commit:
+            await self.session.commit()
+            await self.session.refresh(opp)
+        return opp, True
+
+    async def get_opportunity_by_id(self, opportunity_id: int) -> Optional[Opportunity]:
+        """Fetch an opportunity by primary key."""
+        stmt = select(Opportunity).where(Opportunity.id == opportunity_id)
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_opportunity_by_slug(self, slug: str) -> Optional[Opportunity]:
+        """Fetch an opportunity by unique slug."""
+        stmt = select(Opportunity).where(Opportunity.slug == slug)
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def get_opportunities(
+        self,
+        opportunity_type: Optional[str] = None,
+        study_level: Optional[str] = None,
+        funding_type: Optional[str] = None,
+        country: Optional[str] = None,
+        stem_field: Optional[str] = None,
+        status: Optional[str] = "open",
+        verification_tier: Optional[str] = None,
+        active_only: bool = True,
+        limit: int = 10,
+        offset: int = 0,
+    ) -> List[Opportunity]:
+        """Query opportunities with multi-faceted filtering."""
+        stmt = select(Opportunity)
+
+        if opportunity_type and opportunity_type != "all":
+            stmt = stmt.where(Opportunity.opportunity_type == opportunity_type)
+        if study_level and study_level != "all":
+            stmt = stmt.where(or_(Opportunity.study_level == study_level, Opportunity.study_level == "all_levels"))
+        if funding_type and funding_type != "all":
+            stmt = stmt.where(Opportunity.funding_type == funding_type)
+        if country and country != "all":
+            stmt = stmt.where(Opportunity.country.ilike(f"%{country}%"))
+        if stem_field and stem_field != "all":
+            stmt = stmt.where(
+                or_(
+                    Opportunity.stem_fields.ilike(f"%{stem_field}%"),
+                    Opportunity.stem_fields == "All STEM",
+                )
+            )
+        if status and status != "all":
+            stmt = stmt.where(Opportunity.status == status)
+        if verification_tier:
+            stmt = stmt.where(Opportunity.verification_tier == verification_tier)
+
+        if active_only:
+            current_time = datetime.now(timezone.utc)
+            stmt = stmt.where(Opportunity.status != "expired")
+            stmt = stmt.where(
+                or_(
+                    Opportunity.application_deadline >= current_time,
+                    Opportunity.is_rolling.is_(True),
+                    Opportunity.application_deadline.is_(None),
+                )
+            )
+
+        stmt = stmt.order_by(
+            Opportunity.application_deadline.asc().nulls_last(),
+            Opportunity.published_at.desc(),
+        )
+        stmt = stmt.limit(limit).offset(offset)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def count_opportunities(
+        self,
+        opportunity_type: Optional[str] = None,
+        study_level: Optional[str] = None,
+        funding_type: Optional[str] = None,
+        country: Optional[str] = None,
+        stem_field: Optional[str] = None,
+        status: Optional[str] = "open",
+        verification_tier: Optional[str] = None,
+        active_only: bool = True,
+    ) -> int:
+        """Count matching opportunities for pagination."""
+        stmt = select(func.count(Opportunity.id))
+
+        if opportunity_type and opportunity_type != "all":
+            stmt = stmt.where(Opportunity.opportunity_type == opportunity_type)
+        if study_level and study_level != "all":
+            stmt = stmt.where(or_(Opportunity.study_level == study_level, Opportunity.study_level == "all_levels"))
+        if funding_type and funding_type != "all":
+            stmt = stmt.where(Opportunity.funding_type == funding_type)
+        if country and country != "all":
+            stmt = stmt.where(Opportunity.country.ilike(f"%{country}%"))
+        if stem_field and stem_field != "all":
+            stmt = stmt.where(
+                or_(
+                    Opportunity.stem_fields.ilike(f"%{stem_field}%"),
+                    Opportunity.stem_fields == "All STEM",
+                )
+            )
+        if status and status != "all":
+            stmt = stmt.where(Opportunity.status == status)
+        if verification_tier:
+            stmt = stmt.where(Opportunity.verification_tier == verification_tier)
+
+        if active_only:
+            current_time = datetime.now(timezone.utc)
+            stmt = stmt.where(Opportunity.status != "expired")
+            stmt = stmt.where(
+                or_(
+                    Opportunity.application_deadline >= current_time,
+                    Opportunity.is_rolling.is_(True),
+                    Opportunity.application_deadline.is_(None),
+                )
+            )
+
+        res = await self.session.execute(stmt)
+        return res.scalar() or 0
+
+    async def expire_lapsed_opportunities(self, now: Optional[datetime] = None) -> int:
+        """Mark opportunities whose application deadline has passed as expired."""
+        check_time = now or datetime.now(timezone.utc)
+        stmt = (
+            select(Opportunity)
+            .where(Opportunity.status == "open")
+            .where(Opportunity.is_rolling.is_(False))
+            .where(Opportunity.application_deadline.is_not(None))
+            .where(Opportunity.application_deadline < check_time)
+        )
+        res = await self.session.execute(stmt)
+        lapsed = list(res.scalars().all())
+        for opp in lapsed:
+            opp.status = "expired"
+        if lapsed:
+            await self.session.commit()
+        return len(lapsed)
+
+    # ------------------ University Profiles ------------------
+
+    async def save_university_profile(
+        self,
+        name: str,
+        slug: str,
+        country: str,
+        official_portal_url: str,
+        admissions_portal_url: str,
+        city: Optional[str] = None,
+        admission_requirements: Optional[str] = None,
+        application_procedures: Optional[str] = None,
+        tuition_and_funding: Optional[str] = None,
+        international_guidelines_url: Optional[str] = None,
+        academic_regulations_url: Optional[str] = None,
+        research_opportunities_url: Optional[str] = None,
+        commit: bool = True,
+    ) -> Tuple[UniversityProfile, bool]:
+        """Save university profile with duplicate detection by slug."""
+        stmt = select(UniversityProfile).where(UniversityProfile.slug == slug)
+        res = await self.session.execute(stmt)
+        existing = res.scalar_one_or_none()
+        if existing:
+            return existing, False
+
+        profile = UniversityProfile(
+            name=name.strip(),
+            slug=slug.strip(),
+            country=country.strip(),
+            city=city.strip() if city else None,
+            official_portal_url=official_portal_url.strip(),
+            admissions_portal_url=admissions_portal_url.strip(),
+            admission_requirements=admission_requirements.strip() if admission_requirements else None,
+            application_procedures=application_procedures.strip() if application_procedures else None,
+            tuition_and_funding=tuition_and_funding.strip() if tuition_and_funding else None,
+            international_guidelines_url=international_guidelines_url.strip() if international_guidelines_url else None,
+            academic_regulations_url=academic_regulations_url.strip() if academic_regulations_url else None,
+            research_opportunities_url=research_opportunities_url.strip() if research_opportunities_url else None,
+        )
+        self.session.add(profile)
+        if commit:
+            await self.session.commit()
+            await self.session.refresh(profile)
+        return profile, True
+
+    async def get_university_profiles(
+        self,
+        country: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[UniversityProfile]:
+        """Fetch verified university profiles with optional country filter."""
+        stmt = select(UniversityProfile)
+        if country and country != "all":
+            stmt = stmt.where(UniversityProfile.country.ilike(f"%{country}%"))
+        stmt = stmt.order_by(UniversityProfile.name.asc()).limit(limit).offset(offset)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_university_by_slug(self, slug: str) -> Optional[UniversityProfile]:
+        """Fetch university profile by slug."""
+        stmt = select(UniversityProfile).where(UniversityProfile.slug == slug)
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def count_university_profiles(self, country: Optional[str] = None) -> int:
+        """Count university profiles for pagination."""
+        stmt = select(func.count(UniversityProfile.id))
+        if country and country != "all":
+            stmt = stmt.where(UniversityProfile.country.ilike(f"%{country}%"))
+        res = await self.session.execute(stmt)
+        return res.scalar() or 0
+
+    # ------------------ Academic Resources ------------------
+
+    async def save_academic_resource(
+        self,
+        title: str,
+        slug: str,
+        resource_type: str,
+        stem_discipline: str,
+        provider_institution: str,
+        official_access_url: str,
+        license_type: str = "Open Access",
+        is_copyright_verified: bool = True,
+        description: Optional[str] = None,
+        commit: bool = True,
+    ) -> Tuple[AcademicResource, bool]:
+        """Save an open educational resource record."""
+        stmt = select(AcademicResource).where(AcademicResource.slug == slug)
+        res = await self.session.execute(stmt)
+        existing = res.scalar_one_or_none()
+        if existing:
+            return existing, False
+
+        resource = AcademicResource(
+            title=title.strip(),
+            slug=slug.strip(),
+            resource_type=resource_type.strip(),
+            stem_discipline=stem_discipline.strip(),
+            provider_institution=provider_institution.strip(),
+            official_access_url=official_access_url.strip(),
+            license_type=license_type.strip(),
+            is_copyright_verified=is_copyright_verified,
+            description=description.strip() if description else None,
+        )
+        self.session.add(resource)
+        if commit:
+            await self.session.commit()
+            await self.session.refresh(resource)
+        return resource, True
+
+    async def get_academic_resources(
+        self,
+        resource_type: Optional[str] = None,
+        stem_discipline: Optional[str] = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[AcademicResource]:
+        """Fetch academic resources filtered by type or discipline."""
+        stmt = select(AcademicResource).where(AcademicResource.is_copyright_verified.is_(True))
+        if resource_type and resource_type != "all":
+            stmt = stmt.where(AcademicResource.resource_type == resource_type)
+        if stem_discipline and stem_discipline != "all":
+            stmt = stmt.where(AcademicResource.stem_discipline.ilike(f"%{stem_discipline}%"))
+        stmt = stmt.order_by(AcademicResource.title.asc()).limit(limit).offset(offset)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def get_academic_resource_by_slug(self, slug: str) -> Optional[AcademicResource]:
+        """Fetch an academic resource by slug."""
+        stmt = select(AcademicResource).where(AcademicResource.slug == slug)
+        res = await self.session.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def count_academic_resources(
+        self,
+        resource_type: Optional[str] = None,
+        stem_discipline: Optional[str] = None,
+    ) -> int:
+        """Count academic resources for pagination."""
+        stmt = select(func.count(AcademicResource.id)).where(AcademicResource.is_copyright_verified.is_(True))
+        if resource_type and resource_type != "all":
+            stmt = stmt.where(AcademicResource.resource_type == resource_type)
+        if stem_discipline and stem_discipline != "all":
+            stmt = stmt.where(AcademicResource.stem_discipline.ilike(f"%{stem_discipline}%"))
+        res = await self.session.execute(stmt)
+        return res.scalar() or 0
+
+    # ------------------ Reports & Trust Moderation ------------------
+
+    async def submit_opportunity_report(
+        self,
+        user_id: int,
+        report_type: str,
+        details: str,
+        opportunity_id: Optional[int] = None,
+    ) -> OpportunityReport:
+        """Submit a community issue report or public submission for admin moderation."""
+        report = OpportunityReport(
+            user_id=user_id,
+            opportunity_id=opportunity_id,
+            report_type=report_type.strip(),
+            details=details.strip(),
+            status="pending_review",
+        )
+        self.session.add(report)
+        if opportunity_id:
+            opp_stmt = select(Opportunity).where(Opportunity.id == opportunity_id)
+            opp_res = await self.session.execute(opp_stmt)
+            opp = opp_res.scalar_one_or_none()
+            if opp:
+                opp.report_count += 1
+        await self.session.commit()
+        await self.session.refresh(report)
+        return report
+
+    async def get_opportunity_reports(
+        self,
+        status: str = "pending_review",
+        limit: int = 20,
+        offset: int = 0,
+    ) -> List[OpportunityReport]:
+        """Fetch community reports for moderation audit."""
+        stmt = select(OpportunityReport)
+        if status != "all":
+            stmt = stmt.where(OpportunityReport.status == status)
+        stmt = stmt.order_by(OpportunityReport.created_at.desc()).limit(limit).offset(offset)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    # ------------------ Unified Search Across Domains ------------------
+
+    async def search_opportunities(
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        opportunity_type: Optional[str] = None,
+        active_only: bool = True,
+    ) -> List[Opportunity]:
+        """Search opportunities by keyword across title, provider, criteria, and stem fields."""
+        pattern = f"%{query.strip()}%"
+        stmt = select(Opportunity).where(
+            or_(
+                Opportunity.title.ilike(pattern),
+                Opportunity.provider_name.ilike(pattern),
+                Opportunity.stem_fields.ilike(pattern),
+                Opportunity.eligibility_criteria.ilike(pattern),
+                Opportunity.country.ilike(pattern),
+            )
+        )
+        if opportunity_type and opportunity_type != "all":
+            stmt = stmt.where(Opportunity.opportunity_type == opportunity_type)
+        if active_only:
+            current_time = datetime.now(timezone.utc)
+            stmt = stmt.where(Opportunity.status != "expired")
+            stmt = stmt.where(
+                or_(
+                    Opportunity.application_deadline >= current_time,
+                    Opportunity.is_rolling.is_(True),
+                    Opportunity.application_deadline.is_(None),
+                )
+            )
+        stmt = stmt.order_by(Opportunity.published_at.desc()).offset(offset).limit(limit)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def search_university_profiles(
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        country: Optional[str] = None,
+    ) -> List[UniversityProfile]:
+        """Search university profiles by keyword in name, country, city, or requirements."""
+        pattern = f"%{query.strip()}%"
+        stmt = select(UniversityProfile).where(
+            or_(
+                UniversityProfile.name.ilike(pattern),
+                UniversityProfile.country.ilike(pattern),
+                UniversityProfile.city.ilike(pattern),
+                UniversityProfile.admission_requirements.ilike(pattern),
+            )
+        )
+        if country and country != "all":
+            stmt = stmt.where(UniversityProfile.country.ilike(f"%{country}%"))
+        stmt = stmt.order_by(UniversityProfile.name.asc()).offset(offset).limit(limit)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def search_academic_resources(
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        resource_type: Optional[str] = None,
+        discipline: Optional[str] = None,
+    ) -> List[AcademicResource]:
+        """Search legal academic resources by keyword in title, discipline, provider, or description."""
+        pattern = f"%{query.strip()}%"
+        stmt = select(AcademicResource).where(
+            AcademicResource.is_copyright_verified.is_(True),
+            or_(
+                AcademicResource.title.ilike(pattern),
+                AcademicResource.stem_discipline.ilike(pattern),
+                AcademicResource.provider_institution.ilike(pattern),
+                AcademicResource.description.ilike(pattern),
+            ),
+        )
+        if resource_type and resource_type != "all":
+            stmt = stmt.where(AcademicResource.resource_type == resource_type)
+        if discipline and discipline != "all":
+            stmt = stmt.where(AcademicResource.stem_discipline.ilike(f"%{discipline}%"))
+        stmt = stmt.order_by(AcademicResource.title.asc()).offset(offset).limit(limit)
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    # ------------------ Consented Search History ------------------
+
+    async def save_search_query_log(
+        self,
+        query: str,
+        user_id: Optional[int] = None,
+        category: Optional[str] = None,
+        results_count: int = 0,
+    ) -> SearchQueryLog:
+        """Record user search query for telemetry and quick retrieval if permitted."""
+        log = SearchQueryLog(
+            user_id=user_id,
+            query=query.strip(),
+            category=category.strip() if category else None,
+            results_count=results_count,
+        )
+        self.session.add(log)
+        await self.session.commit()
+        await self.session.refresh(log)
+        return log
+
+    async def get_user_search_history(self, user_id: int, limit: int = 10) -> List[SearchQueryLog]:
+        """Fetch recent consented search queries for a user."""
+        stmt = (
+            select(SearchQueryLog)
+            .where(SearchQueryLog.user_id == user_id)
+            .order_by(SearchQueryLog.created_at.desc())
+            .limit(limit)
+        )
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
+
+    async def clear_user_search_history(self, user_id: int) -> int:
+        """Clear all search query logs for a user upon request."""
+        stmt = delete(SearchQueryLog).where(SearchQueryLog.user_id == user_id)
+        res = await self.session.execute(stmt)
+        await self.session.commit()
+        return res.rowcount or 0

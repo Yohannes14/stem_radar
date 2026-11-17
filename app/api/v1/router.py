@@ -9,7 +9,11 @@ from app.api.v1.endpoints import (
     news,
     radar,
     research,
+    resources,
+    scholarships,
+    search,
     trending,
+    universities,
     user,
 )
 
@@ -18,6 +22,10 @@ v1_router = APIRouter(prefix="/api/v1")
 # Mount endpoints
 v1_router.include_router(health.router)
 v1_router.include_router(news.router)
+v1_router.include_router(search.router)
+v1_router.include_router(scholarships.router)
+v1_router.include_router(universities.router)
+v1_router.include_router(resources.router)
 v1_router.include_router(trending.router)
 v1_router.include_router(research.router)
 v1_router.include_router(categories.router)

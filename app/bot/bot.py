@@ -56,6 +56,14 @@ from app.bot.handlers.settings import (
     settings_callback_router,
     settings_command,
 )
+from app.bot.handlers.student_hub import (
+    courses_command,
+    deadlines_command,
+    scholarships_command,
+    student_hub_callback_router,
+    student_hub_command,
+    universities_command,
+)
 from app.bot.handlers.user_management import (
     ban_command,
     delete_account_command,
@@ -80,13 +88,18 @@ async def on_startup(application: Application) -> None:
         commands = [
             BotCommand("start", "🏠 Main Menu Dashboard"),
             BotCommand("news", "📰 Latest Technology News"),
+            BotCommand("scholarships", "🎁 Verified STEM Scholarships"),
+            BotCommand("universities", "🏛️ University Admissions & Guides"),
+            BotCommand("courses", "📚 Free STEM Courses & Materials"),
+            BotCommand("deadlines", "⏰ Upcoming Application Deadlines"),
+            BotCommand("studenthub", "🎓 Student Hub & Academic Resources"),
             BotCommand("ethiopia", "🇪🇹 Ethiopia Tech & News"),
             BotCommand("politics", "🌍 World Politics & Affairs"),
             BotCommand("trending", "📈 High-Impact Breakthroughs"),
             BotCommand("radar", "🎯 Technology Radar"),
             BotCommand("ai", "🤖 Artificial Intelligence"),
             BotCommand("research", "📄 Research Papers"),
-            BotCommand("search", "🔍 Search Articles"),
+            BotCommand("search", "🔍 Unified STEM Search"),
             BotCommand("saved", "⭐ Bookmarked Items"),
             BotCommand("interests", "🏷️ Customize Topics"),
             BotCommand("briefing", "🌅 Executive Daily Briefing"),
@@ -184,7 +197,15 @@ def create_bot_app() -> Application:
     app.add_handler(CommandHandler("ban", ban_command))
     app.add_handler(CommandHandler("unban", unban_command))
 
+    # Stage 11 & 12: Student Hub, Scholarship, University & Course Commands
+    app.add_handler(CommandHandler("scholarships", scholarships_command))
+    app.add_handler(CommandHandler("universities", universities_command))
+    app.add_handler(CommandHandler("courses", courses_command))
+    app.add_handler(CommandHandler("deadlines", deadlines_command))
+    app.add_handler(CommandHandler("studenthub", student_hub_command))
+
     # Interactive inline callbacks
+    app.add_handler(CallbackQueryHandler(student_hub_callback_router, pattern="^hub:.*$"))
     app.add_handler(
         CallbackQueryHandler(
             main_menu_callback_router,

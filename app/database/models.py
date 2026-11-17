@@ -147,6 +147,7 @@ class UserPreference(Base):
     quiet_hours_end: Mapped[str] = mapped_column(String(10), default="07:00", nullable=False)
     high_impact_alerts_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     weekly_report_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    search_history_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=lambda: datetime.now(timezone.utc),
@@ -264,3 +265,177 @@ class UserFeedback(Base):
 
     def __repr__(self) -> str:
         return f"<UserFeedback(user_id={self.user_id}, category='{self.category}')>"
+
+
+class Opportunity(Base):
+    """Verified academic opportunities (scholarships, fellowships, internships, research grants, competitions)."""
+
+    __tablename__ = "opportunities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
+    opportunity_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # scholarship, fellowship, internship, research_opp, grant, competition
+    provider_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    provider_type: Mapped[str] = mapped_column(
+        String(50), default="university", nullable=False
+    )  # university, government, foundation, corporate
+    official_url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    application_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    country: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    eligible_nationalities: Mapped[str] = mapped_column(String(500), default="All", nullable=False)
+    study_level: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # undergraduate, masters, phd, postdoctoral, all_levels
+    stem_fields: Mapped[str] = mapped_column(String(500), default="All STEM", nullable=False)
+    funding_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # fully_funded, partially_funded, tuition_waiver, stipend_only, prize
+    benefits: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    eligibility_criteria: Mapped[str] = mapped_column(Text, nullable=False)
+    required_documents: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    application_opens_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    application_deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
+    is_rolling: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    published_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_verified_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    status: Mapped[str] = mapped_column(
+        String(30), default="open", nullable=False, index=True
+    )  # open, upcoming, closed, expired
+    verification_tier: Mapped[str] = mapped_column(
+        String(50), default="officially_verified", nullable=False, index=True
+    )  # officially_verified, secondary_verified, unverified_submission
+    source_attribution: Mapped[str] = mapped_column(String(255), nullable=False)
+    report_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    reports: Mapped[List["OpportunityReport"]] = relationship(
+        "OpportunityReport", back_populates="opportunity", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        Index("idx_opp_deadline_status", "application_deadline", "status"),
+        Index("idx_opp_type_level", "opportunity_type", "study_level"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Opportunity(title='{self.title[:25]}...', type='{self.opportunity_type}')>"
+
+
+class UniversityProfile(Base):
+    """Accredited universities, official admission portals, guidelines, and funding."""
+
+    __tablename__ = "university_profiles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
+    country: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    city: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    official_portal_url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    admissions_portal_url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    admission_requirements: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    application_procedures: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    tuition_and_funding: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    international_guidelines_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    academic_regulations_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    research_opportunities_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    last_verified_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<UniversityProfile(name='{self.name}', country='{self.country}')>"
+
+
+class AcademicResource(Base):
+    """Open educational resources, official university lecture materials, textbooks, and tutorials."""
+
+    __tablename__ = "academic_resources"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    slug: Mapped[str] = mapped_column(String(200), unique=True, nullable=False, index=True)
+    resource_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # free_course, lecture_materials, research_repository, programming_tutorial, open_textbook
+    stem_discipline: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    provider_institution: Mapped[str] = mapped_column(String(255), nullable=False)
+    official_access_url: Mapped[str] = mapped_column(String(1000), nullable=False)
+    license_type: Mapped[str] = mapped_column(
+        String(100), default="Open Access", nullable=False
+    )  # Creative Commons, MIT, Open Access, Public Domain
+    is_copyright_verified: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    last_verified_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<AcademicResource(title='{self.title[:30]}...', type='{self.resource_type}')>"
+
+
+class OpportunityReport(Base):
+    """Community reports for incorrect, expired, broken, or fraudulent listings and submissions."""
+
+    __tablename__ = "opportunity_reports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    opportunity_id: Mapped[Optional[int]] = mapped_column(
+        Integer, ForeignKey("opportunities.id", ondelete="CASCADE"), nullable=True
+    )
+    report_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # expired, broken_link, inaccurate, fraudulent, submission
+    details: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(30), default="pending_review", nullable=False, index=True
+    )  # pending_review, verified_resolved, dismissed
+    reviewed_by_admin_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    opportunity: Mapped[Optional["Opportunity"]] = relationship("Opportunity", back_populates="reports")
+
+    def __repr__(self) -> str:
+        return f"<OpportunityReport(id={self.id}, type='{self.report_type}', status='{self.status}')>"
+
+
+class SearchQueryLog(Base):
+    """User search history where users consent to telemetry and repeat retrieval."""
+
+    __tablename__ = "search_query_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    query: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    results_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<SearchQueryLog(query='{self.query}', count={self.results_count})>"

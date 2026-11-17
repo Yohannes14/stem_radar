@@ -7,8 +7,9 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from app.bot.filters.auth import authorized_only
-from app.bot.handlers.news import send_article_view
+from app.bot.handlers.news import send_article_view, send_search_view
 from app.bot.handlers.settings import settings_command
+from app.bot.handlers.student_hub import scholarships_command, student_hub_command
 from app.bot.keyboards.inline import (
     get_projects_hub_keyboard,
     get_quiz_keyboard,
@@ -20,7 +21,6 @@ from app.bot.ui.formatters import (
     format_news_summary,
     format_project_recommendation,
     format_quiz_question,
-    format_search_results,
     format_stem_content,
     format_tech_radar,
     format_trending_feed,
@@ -174,6 +174,15 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     # 2. Latest News
     if data == "menu:news":
         await send_article_view(update, category_slug="all", offset=0, is_edit=True)
+        return
+
+    # Student Hub & Scholarships
+    if data == "menu:student_hub":
+        await student_hub_command(update, context)
+        return
+
+    if data == "menu:scholarships":
+        await scholarships_command(update, context)
         return
 
     # Ethiopia Radar
@@ -519,18 +528,7 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     # --- Search Shortcut Callbacks (search_kw:<keyword>) ---
     if data.startswith("search_kw:"):
         keyword = data.split(":", 1)[1]
-        session_factory = get_session_factory()
-        async with session_factory() as session:
-            repo = Repository(session)
-            found = await repo.search_articles(query=keyword, limit=5)
-
-        text = format_search_results(query=keyword, articles=found)
-        await safe_edit_or_reply(
-            update,
-            text,
-            reply_markup=get_back_home_keyboard(back_target="menu:search", home_target="menu:home"),
-            parse_mode=ParseMode.MARKDOWN,
-        )
+        await send_search_view(update, query=keyword, page=1, category="all", is_edit=True)
         return
 
 
