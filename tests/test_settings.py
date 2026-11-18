@@ -106,10 +106,10 @@ def test_myspace_keyboard_and_intro():
     }
     intro = format_myspace_intro(user_name="Jordan", stats=stats)
     assert "Jordan" in intro
-    assert "`7` articles & papers bookmarked" in intro
-    assert "`3` tracked technology keywords" in intro
-    assert "`5` quizzes completed" in intro
-    assert "`12` briefings & notifications received" in intro
+    assert "Saved items: 7" in intro
+    assert "Watchlist keywords: 3" in intro
+    assert "Quizzes completed: 5" in intro
+    assert "Notifications delivered: 12" in intro
 
 
 @pytest.mark.asyncio

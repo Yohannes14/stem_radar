@@ -123,7 +123,7 @@ class GitHubCollector(BaseCollector):
 
                 # Build structured description
                 desc_lines = [
-                    f"Language: {lang} | Stars: ⭐ {stars:,} | Forks: 🍴 {forks:,}",
+                    f"Language: {lang} | Stars: {stars:,} | Forks: {forks:,}",
                 ]
                 if repo_topics:
                     desc_lines.append(f"Topics: {', '.join(repo_topics[:5])}")

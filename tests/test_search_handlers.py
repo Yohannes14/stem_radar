@@ -63,7 +63,7 @@ async def test_search_command_without_args_shows_intro(mock_search_update):
 
     mock_search_update.callback_query.message.edit_text.assert_called_once()
     text = mock_search_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Unified Search Engine" in text
+    assert "*Search*" in text
     assert "/search <keyword>" in text
 
 
@@ -116,7 +116,7 @@ async def test_search_command_with_query_renders_unified_results(mock_search_upd
 
     mock_search_update.effective_message.reply_text.assert_called_once()
     reply_text = mock_search_update.effective_message.reply_text.call_args[1]["text"]
-    assert 'Search Results for "astronomy"' in reply_text
+    assert 'Search Results — "astronomy"' in reply_text
     assert "James Webb Space Telescope" in reply_text
     assert "Astrophysics Doctoral Research Fellowship" in reply_text
 
@@ -185,8 +185,8 @@ async def test_websearch_command_without_args_shows_intro(mock_search_update):
     mock_search_update.callback_query.message.edit_text.assert_called_once()
     call_kwargs = mock_search_update.callback_query.message.edit_text.call_args[1]
     text = call_kwargs["text"]
-    assert "Live Web Discovery" in text
-    assert "/websearch <topic or query>" in text
+    assert "Live Web Search" in text
+    assert "/websearch <query>" in text
     assert call_kwargs["reply_markup"] is not None
 
 
@@ -246,8 +246,8 @@ async def test_search_ai_command_without_args_shows_intro(mock_search_update):
     mock_search_update.callback_query.message.edit_text.assert_called_once()
     call_kwargs = mock_search_update.callback_query.message.edit_text.call_args[1]
     text = call_kwargs["text"]
-    assert "AI Search Assistant" in text
-    assert "/search_ai <topic or query>" in text
+    assert "Cited Search Summary" in text
+    assert "/search_ai <topic>" in text
     assert call_kwargs["reply_markup"] is not None
 
 
@@ -285,7 +285,7 @@ async def test_search_ai_command_with_query_renders_summary(mock_search_update):
 
     mock_search_update.effective_message.reply_text.assert_called_once()
     text = mock_search_update.effective_message.reply_text.call_args[1]["text"]
-    assert 'AI Search Synthesis: "metamaterials cloaking"' in text
+    assert 'Search Summary — "metamaterials cloaking"' in text
     assert "Negative refractive index achieved" in text
     assert "Optics Express" in text
 
@@ -322,7 +322,7 @@ async def test_search_ai_sum_callback(mock_search_update):
 
     mock_search_update.callback_query.message.edit_text.assert_called_once()
     text = mock_search_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert 'AI Search Synthesis: "superconductivity"' in text
+    assert 'Search Summary — "superconductivity"' in text
     assert "Cuprate Superconductors" in text
 
 

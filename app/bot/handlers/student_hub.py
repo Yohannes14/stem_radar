@@ -258,7 +258,7 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
         page = int(parts[2]) if len(parts) > 2 else 0
         funding = parts[4] if len(parts) > 4 else "all"
         country = parts[5] if len(parts) > 5 else "all"
-        text = "🎯 *Select Academic Degree Level Filter:*\n\nChoose the target degree level to refine available awards:"
+        text = "*Filter by Study Level*\n\nSelect a degree level:"
         markup = get_study_level_keyboard(page=page, current_funding=funding, current_country=country)
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
         return
@@ -269,7 +269,7 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
         page = int(parts[2]) if len(parts) > 2 else 0
         level = parts[3] if len(parts) > 3 else "all"
         country = parts[5] if len(parts) > 5 else "all"
-        text = "💰 *Select Financial Coverage Filter:*\n\nChoose the funding package to filter scholarship results:"
+        text = "*Filter by Funding*\n\nSelect a funding type:"
         markup = get_funding_filter_keyboard(page=page, current_level=level, current_country=country)
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
         return
@@ -280,7 +280,7 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
         page = int(parts[2]) if len(parts) > 2 else 0
         level = parts[3] if len(parts) > 3 else "all"
         funding = parts[4] if len(parts) > 4 else "all"
-        text = "🌍 *Select Destination Host Country:*\n\nFilter opportunities by study or research destination:"
+        text = "*Filter by Country*\n\nSelect a host country:"
         markup = get_country_filter_keyboard(page=page, current_level=level, current_funding=funding)
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
         return
@@ -292,7 +292,7 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
         if not opp:
             await safe_edit_or_reply(
                 update,
-                "⚠️ *Opportunity Not Found*\n\nThis listing may have expired or been archived.",
+                "*Opportunity Not Found*\n\nThis listing may have expired or been archived.",
                 parse_mode=ParseMode.MARKDOWN,
             )
             return
@@ -305,11 +305,7 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
     # 8. Report start: hub:report:<id>
     if data.startswith("hub:report:"):
         opp_id = int(data.split(":")[2])
-        text = (
-            "🚩 *Community Trust & Listing Issue Report*\n\n"
-            "Help maintain 100% verified accuracy across STEM RADAR listings.\n"
-            "Select the issue you observed with this opportunity:"
-        )
+        text = "*Report Listing Issue*\n\nSelect the issue you noticed with this opportunity:"
         markup = get_report_options_keyboard(opportunity_id=opp_id)
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
         return
@@ -326,8 +322,8 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
             details=f"Community flag: {rep_type}",
         )
         confirm_text = (
-            "✅ *Thank You for Your Report*\n\n"
-            "Our moderators will inspect the official provider source and update or archive the listing promptly.\n\n"
+            "*Report Submitted*\n\n"
+            "Moderators will review the official provider source and update or archive this listing.\n\n"
             f"_{msg}_"
         )
         markup = InlineKeyboardMarkup([nav_back_home_row(back_target="hub:scholarships", home_target="menu:home")])
@@ -352,7 +348,7 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
         if not uni:
             await safe_edit_or_reply(
                 update,
-                "⚠️ *University Profile Not Found*\n\nThis institution profile is unavailable.",
+                "*University Profile Not Found*\n\nThis institution profile is unavailable.",
                 parse_mode=ParseMode.MARKDOWN,
             )
             return
@@ -390,7 +386,7 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
         if not res:
             await safe_edit_or_reply(
                 update,
-                "⚠️ *Academic Resource Not Found*\n\nThis material record is unavailable.",
+                "*Academic Resource Not Found*\n\nThis material record is unavailable.",
                 parse_mode=ParseMode.MARKDOWN,
             )
             return
@@ -420,16 +416,14 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
 
     if data == "hub:report_start":
         text = (
-            "🚩 *Report Listing Issue or Outdated Information*\n\n"
-            "Help maintain the highest verification standards on STEM RADAR.\n\n"
-            "• *To report a specific listing:* Open that opportunity, university, or course card "
-            "and tap *🚩 Report Issue* directly.\n"
-            "• *For general feedback or corrections:* Use `/feedback <your message>`.\n\n"
-            "Our moderation team reviews every report against official institutional sources."
+            "*Report an Issue or Outdated Listing*\n\n"
+            "- Specific listing: Open the opportunity card and select *Report Issue*.\n"
+            "- General feedback: Run `/feedback <your message>`.\n\n"
+            "Moderators verify every report against official institutional sources."
         )
         markup = InlineKeyboardMarkup(
             [
-                [InlineKeyboardButton("🎁 Browse Opportunities", callback_data="hub:scholarships")],
+                [InlineKeyboardButton("Browse Scholarships", callback_data="hub:scholarships")],
                 nav_back_home_row(back_target="hub:student_hub", home_target="menu:home"),
             ]
         )
@@ -438,14 +432,14 @@ async def student_hub_callback_router(update: Update, context: ContextTypes.DEFA
 
     if data in ("hub:submit_start", "hub:submit_guide", "hub:submit_template"):
         text = (
-            "➕ *Submit an Academic Opportunity for Verification*\n\n"
-            "Contribute verified scholarships, fellowships, or research positions to the STEM RADAR community.\n\n"
-            "All submissions are audited by moderators against official institutional sources before publication.\n\n"
-            "📝 *Command Format:*\n"
+            "*Submit an Academic Opportunity*\n\n"
+            "Submissions are verified by moderators against official institutional sources before publication.\n\n"
+            "Command format:\n"
             "`/submit_opportunity Title | Provider | Official URL | Country | Level | Funding`\n\n"
-            "*Example:*\n"
+            "Example:\n"
             "`/submit_opportunity CERN Fellowship | CERN | https://cern.ch | Switzerland | masters | fully_funded`\n\n"
-            "*(Levels: undergraduate, masters, phd, postdoctoral | Funding: fully_funded, partially_funded)*"
+            "Levels: undergraduate, masters, phd, postdoctoral\n"
+            "Funding: fully_funded, partially_funded"
         )
         markup = get_submission_guide_keyboard()
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
@@ -466,14 +460,14 @@ async def submit_opportunity_command(update: Update, context: ContextTypes.DEFAU
     raw_text = " ".join(context.args) if context.args else ""
     if not raw_text or "|" not in raw_text:
         text = (
-            "➕ *Submit an Academic Opportunity for Verification*\n\n"
-            "Contribute verified scholarships, fellowships, or research positions to the STEM RADAR community. "
-            "Submissions are audited against official university/institutional sources before publication.\n\n"
-            "📝 *Format:*\n"
+            "*Submit an Academic Opportunity*\n\n"
+            "Submissions are verified by moderators against official institutional sources before publication.\n\n"
+            "Format:\n"
             "`/submit_opportunity Title | Provider | Official URL | Country | Level | Funding`\n\n"
-            "*Example:*\n"
+            "Example:\n"
             "`/submit_opportunity CERN Fellowship | CERN | https://cern.ch | Switzerland | masters | fully_funded`\n\n"
-            "*(Levels: undergraduate, masters, phd, postdoctoral | Funding: fully_funded, partially_funded)*"
+            "Levels: undergraduate, masters, phd, postdoctoral\n"
+            "Funding: fully_funded, partially_funded"
         )
         markup = get_submission_guide_keyboard()
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
@@ -482,8 +476,8 @@ async def submit_opportunity_command(update: Update, context: ContextTypes.DEFAU
     parts = [p.strip() for p in raw_text.split("|")]
     if len(parts) < 6:
         text = (
-            "⚠️ *Incomplete Submission Format*\n\n"
-            "Please provide all required fields separated by vertical bars (`|`):\n"
+            "*Incomplete Submission Format*\n\n"
+            "Provide all 6 fields separated by vertical bars (`|`):\n"
             "`Title | Provider | Official URL | Country | Level | Funding`"
         )
         await safe_edit_or_reply(update, text, parse_mode=ParseMode.MARKDOWN)
@@ -501,15 +495,15 @@ async def submit_opportunity_command(update: Update, context: ContextTypes.DEFAU
     )
     if success and opp:
         text = (
-            f"✅ *Submission Received for Review (ID #{opp.id})*\n\n"
+            f"*Submission Received (ID #{opp.id})*\n\n"
             f"*{opp.title}*\n"
-            f"🏛️ Provider: {opp.provider_name} ({opp.country})\n"
-            f"🎯 Level: `{opp.study_level}` | 💰 Funding: `{opp.funding_type}`\n"
-            f"🔗 Link: [Official Announcement]({opp.official_url})\n\n"
+            f"Provider: {opp.provider_name} ({opp.country})\n"
+            f"Level: {opp.study_level.capitalize()} · Funding: {opp.funding_type}\n"
+            f"[Official Announcement]({opp.official_url})\n\n"
             f"_{msg}_"
         )
     else:
-        text = f"❌ *Submission Error:*\n{msg}"
+        text = f"*Submission Error*\n\n{msg}"
     await safe_edit_or_reply(update, text, parse_mode=ParseMode.MARKDOWN)
 
 
@@ -524,14 +518,13 @@ async def render_moderation_dashboard(update: Update, is_edit: bool = False) -> 
     pending_subs = await student_hub_service.count_pending_submissions()
     pending_reps = await student_hub_service.count_moderation_reports(status="pending_review")
     text = (
-        "🛡️ *STEM RADAR — Administrative Moderation Center*\n\n"
-        "Audit public submissions, review community error flags, and verify source authenticity.\n\n"
-        f"📋 *Pending Submissions:* `{pending_subs}`\n"
-        f"🚩 *Open Community Reports:* `{pending_reps}`\n\n"
-        "🛡️ *Verification Standards:*\n"
-        "• All live listings must link to official institutional sources\n"
-        "• Expired deadlines must be transitioned out of open view\n"
-        "• Fraudulent or unaccredited listings must be rejected"
+        "*Moderation Center*\n\n"
+        f"Pending submissions: {pending_subs}\n"
+        f"Open community reports: {pending_reps}\n\n"
+        "*Verification Standards*\n"
+        "- Live listings must link to official institutional sources.\n"
+        "- Expired deadlines must be moved out of active listings.\n"
+        "- Unverified or fraudulent listings must be rejected."
     )
     markup = get_moderation_dashboard_keyboard(pending_subs, pending_reps)
     await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
@@ -546,26 +539,23 @@ async def render_pending_submissions_view(update: Update, page: int = 0, is_edit
 
     subs = await student_hub_service.get_pending_submissions(limit=limit, offset=safe_page)
     if not subs:
-        text = (
-            "🛡️ *Admin Moderation Queue — Pending Submissions*\n\n"
-            "✅ *All caught up!* There are currently no unverified opportunity submissions waiting for review."
-        )
-        markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Moderation Hub", callback_data="mod:dash")]])
+        text = "*Pending Submissions*\n\nNo unverified opportunity submissions are waiting for review."
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton("Moderation Hub", callback_data="mod:dash")]])
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
         return
 
     opp = subs[0]
-    dl_str = opp.application_deadline.strftime("%b %d, %Y") if opp.application_deadline else "Rolling"
+    dl_str = opp.application_deadline.strftime("%d %b %Y") if opp.application_deadline else "Rolling"
     text = (
-        f"🛡️ *Moderation Review: Submission #{opp.id}* (Item `{safe_page + 1}` of `{total_pages}`)\n\n"
+        f"*Submission Review #{opp.id}* ({safe_page + 1} of {total_pages})\n\n"
         f"*{opp.title}*\n"
-        f"🏛️ *Provider / Institution:* {opp.provider_name} ({opp.country})\n"
-        f"🎯 *Level:* `{opp.study_level.upper()}` | 💰 *Funding:* `{opp.funding_type}`\n"
-        f"🔬 *Fields:* `{opp.stem_fields}`\n"
-        f"⏰ *Deadline:* `{dl_str}`\n"
-        f"🔗 *Official Announcement:* [View Announcement]({opp.official_url})\n\n"
-        f"Attribution: _{opp.source_attribution}_\n\n"
-        f"Choose an audit action below:"
+        f"Provider: {opp.provider_name} ({opp.country})\n"
+        f"Level: {opp.study_level.capitalize()} · Funding: {opp.funding_type}\n"
+        f"Fields: {opp.stem_fields}\n"
+        f"Deadline: {dl_str}\n"
+        f"Link: [Official Announcement]({opp.official_url})\n"
+        f"Source: {opp.source_attribution}\n\n"
+        "Select a moderation action:"
     )
     markup = get_moderation_submission_keyboard(opp.id, page=safe_page, total_pages=total_pages)
     await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
@@ -580,24 +570,21 @@ async def render_moderation_reports_view(update: Update, page: int = 0, is_edit:
 
     reports = await student_hub_service.get_moderation_reports(status="pending_review", limit=limit, offset=safe_page)
     if not reports:
-        text = (
-            "🚩 *Admin Moderation Queue — Community Issue Reports*\n\n"
-            "✅ *All clean!* There are no unresolved community issue reports pending review."
-        )
-        markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Moderation Hub", callback_data="mod:dash")]])
+        text = "*Community Issue Reports*\n\nNo unresolved community issue reports are pending review."
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton("Moderation Hub", callback_data="mod:dash")]])
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
         return
 
     rep = reports[0]
-    opp_ref = f"Opportunity ID #{rep.opportunity_id}" if rep.opportunity_id else "General Submission"
+    opp_ref = f"Opportunity #{rep.opportunity_id}" if rep.opportunity_id else "General submission"
     text = (
-        f"🚩 *Community Report #{rep.id}* (Item `{safe_page + 1}` of `{total_pages}`)\n\n"
-        f"🏷️ *Report Type:* `{rep.report_type.upper()}`\n"
-        f"🎯 *Target Opportunity:* `{opp_ref}`\n"
-        f"👤 *Reporter User ID:* `{rep.user_id}`\n"
-        f"📅 *Timestamp:* `{rep.created_at.strftime('%b %d, %Y %H:%M UTC')}`\n\n"
-        f"📝 *Details Reported by User:*\n_{rep.details}_\n\n"
-        f"Choose a resolution action below:"
+        f"*Community Report #{rep.id}* ({safe_page + 1} of {total_pages})\n\n"
+        f"Type: {rep.report_type.upper()}\n"
+        f"Target: {opp_ref}\n"
+        f"Reporter ID: `{rep.user_id}`\n"
+        f"Reported: {rep.created_at.strftime('%d %b %Y, %H:%M UTC')}\n\n"
+        f"*Details*\n{rep.details}\n\n"
+        "Select a resolution action:"
     )
     markup = get_moderation_report_keyboard(
         rep.id, opportunity_id=rep.opportunity_id, page=safe_page, total_pages=total_pages
@@ -711,11 +698,11 @@ async def moderation_callback_router(update: Update, context: ContextTypes.DEFAU
     if data == "mod:sweep":
         count = await student_hub_service.expire_lapsed_opportunities()
         text = (
-            f"⏰ *Automated Expiry Sweep Complete*\n\n"
-            f"Successfully scanned database and transitioned `{count}` lapsed opportunities to 'expired'.\n\n"
-            "Expired opportunities have been excluded from active student listings."
+            "*Expiry Sweep Complete*\n\n"
+            f"Transitioned {count} lapsed opportunities to expired.\n\n"
+            "Expired listings have been excluded from active views."
         )
-        markup = InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Moderation Hub", callback_data="mod:dash")]])
+        markup = InlineKeyboardMarkup([[InlineKeyboardButton("Moderation Hub", callback_data="mod:dash")]])
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
         return
 
@@ -739,7 +726,7 @@ async def quick_opportunity_command(update: Update, context: ContextTypes.DEFAUL
     opp = await student_hub_service.get_opportunity_by_id(opp_id)
     if not opp:
         await message.reply_text(
-            "⚠️ *Opportunity Not Found*\n\nThis listing may have expired or been archived.",
+            "*Opportunity Not Found*\n\nThis listing may have expired or been archived.",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
@@ -765,7 +752,7 @@ async def quick_university_command(update: Update, context: ContextTypes.DEFAULT
     uni = await student_hub_service.get_university_by_slug(slug)
     if not uni:
         await message.reply_text(
-            "⚠️ *University Profile Not Found*\n\nThis institution profile is unavailable.",
+            "*University Profile Not Found*\n\nThis institution profile is unavailable.",
             parse_mode=ParseMode.MARKDOWN,
         )
         return
@@ -791,7 +778,7 @@ async def quick_resource_command(update: Update, context: ContextTypes.DEFAULT_T
     res = await student_hub_service.get_academic_resource_by_slug(slug)
     if not res:
         await message.reply_text(
-            "⚠️ *Academic Resource Not Found*\n\nThis material record is unavailable.",
+            "*Academic Resource Not Found*\n\nThis material record is unavailable.",
             parse_mode=ParseMode.MARKDOWN,
         )
         return

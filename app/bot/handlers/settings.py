@@ -30,6 +30,17 @@ def get_settings_keyboard(
     )
 
 
+def _format_interests_text(active_slugs: list) -> str:
+    """Render shared domain subscriptions panel message."""
+    active_display = ", ".join(f"#{s}" for s in active_slugs) if active_slugs else "All domains"
+    safe_display = active_display.replace("_", "-")
+    return (
+        "*Domain Subscriptions*\n\n"
+        "Select the disciplines to prioritize in your daily briefings and feeds.\n\n"
+        f"Active: {safe_display}"
+    )
+
+
 @authorized_only
 async def interests_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Display interactive multi-category domain subscriptions panel."""
@@ -42,15 +53,7 @@ async def interests_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         repo = Repository(session)
         active_slugs = await repo.get_user_preferred_categories(user.id)
 
-    active_display = ", ".join([f"#{s}" for s in active_slugs]) if active_slugs else "All STEM Domains"
-    safe_display = active_display.replace("_", "-")
-    text = (
-        "🏷 *My STEM Domain Subscriptions*\n\n"
-        "Select the disciplines you want prioritized in your daily briefings, digests, and intelligence feeds.\n\n"
-        f"Active Subscriptions: `{safe_display}`\n\n"
-        "Tap below to toggle active subscriptions on or off:"
-    )
-
+    text = _format_interests_text(active_slugs)
     markup = get_interests_keyboard(active_slugs=active_slugs)
     if update.effective_message:
         try:
@@ -74,25 +77,23 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         repo = Repository(session)
         pref = await repo.get_or_create_preference(user.id)
 
-    status_str = "Enabled 🟢" if pref.notifications_enabled else "Disabled 🔴"
-    impact_str = "Enabled 🟢" if pref.high_impact_alerts_enabled else "Disabled 🔴"
-    weekly_str = "Enabled 🟢" if pref.weekly_report_enabled else "Disabled 🔴"
+    status_str = "Enabled" if pref.notifications_enabled else "Disabled"
+    impact_str = "Enabled" if pref.high_impact_alerts_enabled else "Disabled"
+    weekly_str = "Enabled" if pref.weekly_report_enabled else "Disabled"
     quiet_hours_on = pref.quiet_hours_start != pref.quiet_hours_end
-    quiet_status = (
-        f"`{pref.quiet_hours_start}` to `{pref.quiet_hours_end}` UTC (Active 🌙)" if quiet_hours_on else "Disabled ☀️"
-    )
-    cats_str = pref.preferred_categories or "All Categories"
+    quiet_status = f"{pref.quiet_hours_start} to {pref.quiet_hours_end} UTC (Active)" if quiet_hours_on else "Disabled"
+    cats_str = pref.preferred_categories or "All categories"
 
     text = (
-        f"⚙️ *STEM RADAR User Settings*\n\n"
-        f"👤 *User ID:* `{user.id}`\n"
-        f"🔔 *Daily Digest & Alerts:* {status_str}\n"
-        f"⚡ *High-Impact Alerts:* {impact_str}\n"
-        f"🌐 *Weekly Intelligence Report:* {weekly_str}\n"
-        f"⏰ *Scheduled Digest Time:* `{pref.digest_time}` UTC\n"
-        f"🌙 *Quiet Hours:* {quiet_status}\n"
-        f"🗂️ *Active Subscribed Domain:* `{cats_str}`\n\n"
-        "Tap the buttons below to toggle your notification & domain subscriptions:"
+        f"*User Settings*\n\n"
+        f"User ID: `{user.id}`\n"
+        f"Daily Digest & Alerts: {status_str}\n"
+        f"High-Impact Alerts: {impact_str}\n"
+        f"Weekly Report: {weekly_str}\n"
+        f"Digest Time: {pref.digest_time} UTC\n"
+        f"Quiet Hours: {quiet_status}\n"
+        f"Subscribed Domains: {cats_str}\n\n"
+        "Select an option below to update your preferences:"
     )
 
     if update.effective_message:
@@ -133,7 +134,7 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             weekly_state = pref.weekly_report_enabled
             quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
 
-        status_text = "Notifications turned ON 🔔" if notif_state else "Notifications turned OFF 🔕"
+        status_text = "Notifications enabled." if notif_state else "Notifications disabled."
         await query.answer(status_text)
         if query.message:
             await query.message.edit_reply_markup(
@@ -152,7 +153,7 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             weekly_state = pref.weekly_report_enabled
             quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
 
-        status_text = "High-impact alerts ON ⚡" if impact_state else "High-impact alerts OFF"
+        status_text = "High-impact alerts enabled." if impact_state else "High-impact alerts disabled."
         await query.answer(status_text)
         if query.message:
             await query.message.edit_reply_markup(
@@ -171,7 +172,7 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             weekly_state = pref.weekly_report_enabled
             quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
 
-        status_text = "Weekly report ON 🌐" if weekly_state else "Weekly report OFF"
+        status_text = "Weekly report enabled." if weekly_state else "Weekly report disabled."
         await query.answer(status_text)
         if query.message:
             await query.message.edit_reply_markup(
@@ -196,7 +197,7 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             weekly_state = pref.weekly_report_enabled
             quiet_state = pref.quiet_hours_start != pref.quiet_hours_end
 
-        status_text = "Quiet hours enabled (22:00–07:00 UTC) 🌙" if quiet_state else "Quiet hours disabled ☀️"
+        status_text = "Quiet hours enabled (22:00-07:00 UTC)." if quiet_state else "Quiet hours disabled."
         await query.answer(status_text)
         if query.message:
             await query.message.edit_reply_markup(
@@ -211,15 +212,14 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
             active_slugs, is_added = await repo.toggle_user_interest_category(user.id, cat)
 
         if cat == "all":
-            status_text = "Reset subscriptions to All STEM Domains 🌐"
+            status_text = "Subscriptions reset to all domains."
         elif is_added:
-            status_text = f"Subscribed to #{cat} ✅"
+            status_text = f"Subscribed to #{cat}."
         else:
-            status_text = f"Unsubscribed from #{cat} ❌"
+            status_text = f"Unsubscribed from #{cat}."
 
         await query.answer(status_text)
 
-        # Check if the message is the settings panel or the dedicated interests keyboard
         is_settings_panel = False
         if query.message and query.message.reply_markup:
             for row in query.message.reply_markup.inline_keyboard:
@@ -242,15 +242,7 @@ async def settings_callback_router(update: Update, context: ContextTypes.DEFAULT
                     reply_markup=get_settings_keyboard(notif_state, impact_state, weekly_state, quiet_state)
                 )
         else:
-            active_display = ", ".join([f"#{s}" for s in active_slugs]) if active_slugs else "All Domains"
-            safe_display = active_display.replace("_", "-")
-            text = (
-                "🏷 *My STEM Domain Subscriptions*\n\n"
-                "Select the disciplines you want prioritized in your daily briefings, "
-                "digests, and intelligence feeds.\n\n"
-                f"Active Subscriptions: `{safe_display}`\n\n"
-                "Tap below to toggle active subscriptions on or off:"
-            )
+            text = _format_interests_text(active_slugs)
             markup = get_interests_keyboard(active_slugs=active_slugs)
             await safe_edit_or_reply(update, text, reply_markup=markup)
         return

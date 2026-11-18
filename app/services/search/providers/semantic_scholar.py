@@ -114,7 +114,7 @@ class SemanticScholarProvider(BaseSearchProvider):
 
                     authors = [a.get("name") for a in p.get("authors", []) if a.get("name")]
                     author_str = f"By {', '.join(authors[:2])}" if authors else ""
-                    citation_str = f" • 📑 {citations} citations" if citations > 0 else ""
+                    citation_str = f" · {citations} citations" if citations > 0 else ""
                     snippet_prefix = f"[{venue}{citation_str}] {author_str}".strip()
                     full_snippet = f"{snippet_prefix}\n{abstract}" if abstract else snippet_prefix
 

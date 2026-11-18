@@ -383,8 +383,8 @@ async def test_github_collector_parses_repositories():
     repo = articles[0]
     assert "[Repo] robotics-lab/open-robotics-core (Python)" == repo.title
     assert repo.url == "https://github.com/robotics-lab/open-robotics-core"
-    assert "Stars: ⭐ 3,420" in repo.description
-    assert "Forks: 🍴 512" in repo.description
+    assert "Stars: 3,420" in repo.description
+    assert "Forks: 512" in repo.description
     assert "robotics" in repo.description
     assert repo.raw_data["stars"] == 3420
     assert repo.raw_data["language"] == "Python"

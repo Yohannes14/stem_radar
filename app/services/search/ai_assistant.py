@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
+from app.bot.ui.design_system import AI_EDITORIAL_STYLE_INSTRUCTION, sanitize_markdown
 from app.services.ai.cache import ai_cache
 from app.services.ai.service import ai_service
 from app.services.search.models import (
@@ -82,7 +83,8 @@ class SearchAIAssistant:
                 "3. ZERO HALLUCINATION: Never invent URLs, dates, authors, institutions, or findings "
                 "not present in the sources.\n"
                 "4. DISCOVERY: Suggest 3-4 insightful related questions and 2-3 actionable "
-                "research/practical recommendations."
+                "research/practical recommendations.\n"
+                f"5. STYLE: {AI_EDITORIAL_STYLE_INSTRUCTION}"
             )
 
             sources_text = "\n\n".join(
@@ -268,40 +270,43 @@ class SearchAIAssistant:
     # ------------------ Telegram UI Presentation Helpers ------------------
 
     def format_search_ai_summary(self, summary: SearchAISummary) -> str:
-        """Render markdown summary with cited facts, analytical implications, and links."""
-        clean_q = summary.query
+        """Render clean editorial summary with cited facts, analysis, and source links."""
+        clean_q = sanitize_markdown(summary.query)
         lines = [
-            f'🧠 *AI Search Synthesis: "{clean_q}"*\n',
-            f"_{summary.executive_summary}_\n",
+            f'*Search Summary — "{clean_q}"*\n',
+            f"{sanitize_markdown(summary.executive_summary)}\n",
         ]
 
         if summary.sourced_facts:
-            lines.append("📌 *Key Sourced Facts:*")
+            lines.append("*Key Sourced Facts*")
             for fact in summary.sourced_facts:
-                lines.append(f"• {fact}")
+                lines.append(f"- {sanitize_markdown(fact)}")
             lines.append("")
 
         if summary.analytical_implications:
-            lines.append("🔬 *Analytical Implications:*")
+            lines.append("*Analytical Implications*")
             for imp in summary.analytical_implications:
-                lines.append(f"• {imp}")
+                lines.append(f"- {sanitize_markdown(imp)}")
             lines.append("")
 
         if summary.source_citations:
-            lines.append("📚 *Cited Sources:*")
+            lines.append("*Sources*")
             for cit in summary.source_citations:
                 date_str = cit.published_at.strftime("%b %Y") if cit.published_at else "Recent"
-                verified = " 🟢" if cit.is_verified else ""
-                lines.append(f"[{cit.index}] [{cit.title}]({cit.url}){verified} — _{cit.source_name}_ ({date_str})")
+                verified = " · Verified" if cit.is_verified else ""
+                lines.append(
+                    f"[{cit.index}] [{sanitize_markdown(cit.title)}]({cit.url}) — "
+                    f"{sanitize_markdown(cit.source_name)} ({date_str}){verified}"
+                )
             lines.append("")
 
         if summary.research_recommendations:
-            lines.append("🚀 *Research & Practical Avenues:*")
+            lines.append("*Next Steps*")
             for rec in summary.research_recommendations:
-                lines.append(f"• {rec}")
+                lines.append(f"- {sanitize_markdown(rec)}")
             lines.append("")
 
-        lines.append(f"⚖️ _{summary.disclaimer}_")
+        lines.append(f"_{sanitize_markdown(summary.disclaimer)}_")
         return "\n".join(lines)
 
     def get_search_ai_summary_keyboard(
@@ -310,48 +315,46 @@ class SearchAIAssistant:
         category: str = "all",
         source: str = "all",
     ) -> InlineKeyboardMarkup:
-        """Build interactive keyboard with related questions chips and back navigation."""
+        """Build interactive keyboard with related questions and back navigation."""
         buttons: List[List[InlineKeyboardButton]] = []
         clean_q = summary.query[:20]
 
-        # Row 1-2: Related Questions Chips (tap to search directly)
         for _idx, q_text in enumerate(summary.related_questions[:2], start=1):
-            short_q = q_text[:30]
-            buttons.append([InlineKeyboardButton(f"❓ {short_q}...", callback_data=f"search:rel_q:{q_text[:40]}")])
+            short_q = q_text[:34]
+            buttons.append([InlineKeyboardButton(f"{short_q}...", callback_data=f"search:rel_q:{q_text[:40]}")])
 
-        # Row 3: Back to Search Results + Home
         buttons.append(
             [
                 InlineKeyboardButton(
-                    "🔙 Back to Results",
+                    "Back to Results",
                     callback_data=f"search:back:{category}:{source}:{clean_q}",
                 ),
-                InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                InlineKeyboardButton("Home", callback_data="menu:home"),
             ]
         )
         return InlineKeyboardMarkup(buttons)
 
     def format_source_comparison(self, comparison: SourceComparison) -> str:
-        """Render markdown comparison between two sources."""
-        src_a_str = f"📄 *Source A:* [{comparison.source_a.title}]({comparison.source_a.url})"
-        src_b_str = f"📄 *Source B:* [{comparison.source_b.title}]({comparison.source_b.url})"
+        """Render clean comparison between two sources."""
+        src_a_str = f"Source A: [{sanitize_markdown(comparison.source_a.title)}]({comparison.source_a.url})"
+        src_b_str = f"Source B: [{sanitize_markdown(comparison.source_b.title)}]({comparison.source_b.url})"
         lines = [
-            f"⚖️ *AI Source Comparison*\n*Topic:* `{comparison.topic}`\n",
-            f"{src_a_str} (_{comparison.source_a.source_name}_)",
-            f"{src_b_str} (_{comparison.source_b.source_name}_)\n",
-            "🤝 *Common Ground & Consensus:*",
+            f"*Source Comparison — {sanitize_markdown(comparison.topic)}*\n",
+            f"{src_a_str} ({sanitize_markdown(comparison.source_a.source_name)})",
+            f"{src_b_str} ({sanitize_markdown(comparison.source_b.source_name)})\n",
+            "*Common Ground*",
         ]
         for cg in comparison.common_ground:
-            lines.append(f"• {cg}")
+            lines.append(f"- {sanitize_markdown(cg)}")
         lines.append("")
 
-        lines.append("⚡ *Divergent Perspectives & Scope:*")
+        lines.append("*Key Differences*")
         for dp in comparison.divergent_points:
-            lines.append(f"• {dp}")
+            lines.append(f"- {sanitize_markdown(dp)}")
         lines.append("")
 
-        lines.append(f"🧠 *Synthesis:*\n_{comparison.synthesis}_\n")
-        lines.append(f"🎯 *Recommended Context:*\n{comparison.recommended_context}")
+        lines.append(f"*Synthesis*\n{sanitize_markdown(comparison.synthesis)}\n")
+        lines.append(f"*Recommended Reading*\n{sanitize_markdown(comparison.recommended_context)}")
         return "\n".join(lines)
 
 

@@ -10,17 +10,17 @@ def nav_back_home_row(
     home_target: str = "menu:home",
     refresh_target: Optional[str] = None,
 ) -> List[InlineKeyboardButton]:
-    """Build a standardized bottom navigation row: [ ⬅️ Back ] [ 🔄 Refresh (optional) ] [ 🏠 Main Menu ]."""
+    """Build a standardized bottom navigation row: [ Back ] [ Refresh (optional) ] [ Home ]."""
     row: List[InlineKeyboardButton] = []
 
     if back_target:
-        row.append(InlineKeyboardButton("⬅️ Back", callback_data=back_target))
+        row.append(InlineKeyboardButton("Back", callback_data=back_target))
 
     if refresh_target:
-        row.append(InlineKeyboardButton("🔄 Refresh", callback_data=refresh_target))
+        row.append(InlineKeyboardButton("Refresh", callback_data=refresh_target))
 
     if home_target and (home_target != back_target or len(row) == 0):
-        row.append(InlineKeyboardButton("🏠 Main Menu", callback_data=home_target))
+        row.append(InlineKeyboardButton("Home", callback_data=home_target))
 
     return row
 
@@ -31,18 +31,18 @@ def nav_pagination_row(
     prefix: str,
     show_counter: bool = True,
 ) -> List[InlineKeyboardButton]:
-    """Build a standardized pagination row: [ ⬅️ Prev ] [ 1/10 ] [ Next ➡️ ]."""
+    """Build a standardized pagination row: [ Previous ] [ 1 / 10 ] [ Next ]."""
     row: List[InlineKeyboardButton] = []
 
     if offset > 0:
-        row.append(InlineKeyboardButton("⬅️ Prev", callback_data=f"{prefix}:{offset - 1}"))
+        row.append(InlineKeyboardButton("Previous", callback_data=f"{prefix}:{offset - 1}"))
 
     if show_counter:
         current_display = min(offset + 1, total) if total > 0 else 0
-        row.append(InlineKeyboardButton(f"{current_display}/{total}", callback_data="noop"))
+        row.append(InlineKeyboardButton(f"{current_display} / {total}", callback_data="noop"))
 
     if offset + 1 < total:
-        row.append(InlineKeyboardButton("Next ➡️", callback_data=f"{prefix}:{offset + 1}"))
+        row.append(InlineKeyboardButton("Next", callback_data=f"{prefix}:{offset + 1}"))
 
     return row
 
@@ -70,7 +70,7 @@ def get_back_home_keyboard(
     home_target: str = "menu:home",
     refresh_target: Optional[str] = None,
 ) -> InlineKeyboardMarkup:
-    """Standalone keyboard with only Back / Refresh / Main Menu."""
+    """Standalone keyboard with only Back / Refresh / Home."""
     row = nav_back_home_row(
         back_target=back_target,
         home_target=home_target,

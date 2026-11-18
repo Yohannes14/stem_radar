@@ -31,6 +31,7 @@ from app.bot.keyboards.inline import (
     get_tech_radar_keyboard,
 )
 from app.bot.keyboards.navigation import get_back_home_keyboard
+from app.bot.ui.design_system import format_error_state, sanitize_markdown
 from app.bot.ui.formatters import (
     chunk_message,
     format_impact_analysis,
@@ -225,71 +226,40 @@ async def myspace_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 @authorized_only
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Display comprehensive command catalog with persistent main menu navigation."""
+    """Display command reference with Home navigation."""
     help_text = (
-        "📚 *STEM RADAR Command Catalog*\n\n"
-        "*Flagship Intelligence Hubs:*\n"
-        "• `/menu` — Flagship 8-Hub interactive dashboard\n"
-        "• `/discover` — Real-time pulse, briefings & velocity\n"
-        "• `/stem` — 12 foundational STEM disciplines\n"
-        "• `/research` — arXiv papers, breakthroughs & paper explainer\n"
-        "• `/student` — Scholarships, universities & free courses\n"
-        "• `/learn` — STEM Academy, roadmaps & quizzes\n"
-        "• `/search` — Multi-domain database & live web search\n"
-        "• `/myspace` — Bookmarks, subscriptions & privacy\n\n"
-        "*Core Platform & Intelligence:*\n"
-        "• `/start` — Welcome & interactive Main Menu dashboard\n"
-        "• `/news` — Latest tech articles across all sources\n"
-        "• `/trending` — High-impact trending developments\n"
-        "• `/sources` — Configured information feeds & live status\n"
-        "• `/collect` — Force instant multi-source collection\n\n"
-        "*Student Hub & Academic Resources:*\n"
-        "• `/studenthub` — Interactive Student Hub dashboard\n"
-        "• `/scholarships` — Verified STEM scholarships & filter awards\n"
-        "• `/deadlines` — Upcoming scholarship application deadlines\n"
-        "• `/universities` — Accredited university admissions & guidelines\n"
-        "• `/courses` — Free STEM online courses & study materials\n"
-        "• `/submit_opportunity` — Submit new academic opportunity\n\n"
-        "*Search & Live Web Discovery:*\n"
-        "• `/search <keyword>` — Multi-domain unified database search\n"
-        "• `/search_ai <topic>` — Grounded multi-source AI synthesis with citations\n"
-        "• `/websearch <query>` — Live web & academic discovery (arXiv, Semantic Scholar)\n"
-        "• `/radar` — Interactive STEM Technology Radar\n"
-        "• `/briefing` — Executive daily STEM intelligence briefing\n"
-        "• `/watchlist` — Keyword & technology real-time alerts\n"
-        "• `/trends` — SOTA breakthrough scoring & impact ranking\n"
-        "• `/stats` — Platform telemetry & intelligence metrics\n"
-        "• `/saved` — View bookmarked articles\n"
-        "• `/settings` — Notification preferences & quiet hours\n"
-        "• `/interests` — Customize STEM domain subscriptions\n\n"
-        "*STEM Learning Academy:*\n"
-        "• `/learn <topic>` — Interactive multi-tier STEM lesson\n"
-        "• `/roadmap <topic>` — 4-phase structured curriculum\n"
-        "• `/quiz <topic>` — Interactive comprehension test\n"
-        "• `/compare <A> vs <B>` — Architectural concept comparison\n"
-        "• `/project <topic>` — Practical engineering portfolio project\n"
-        "• `/vocabulary <topic>` — Technical terminology glossary\n"
-        "• `/progress` — Track lessons completed and quiz mastery\n\n"
-        "*AI Features:*\n"
-        "• `/explain <concept>` — Multi-tier concept breakdown\n"
-        "• `/impact` — Strategic technology assessment\n"
-        "• `/ideas` — Transform news into STEM content opportunities\n"
-        "• `/digest` — Daily intelligence summary\n\n"
-        "*Domain Commands:*\n"
-        "• `/ai` — Artificial Intelligence & LLMs\n"
-        "• `/robotics` — Robotics & Autonomous Systems\n"
-        "• `/ethiopia` — Ethiopia Tech, Innovation & Current Affairs\n"
-        "• `/politics` — Worldwide Politics & Geopolitics\n"
-        "• `/science` — Physics, Chemistry & Biotechnology\n"
-        "• `/engineering` — Electronics & Embedded Systems\n"
-        "• `/programming` — Software Engineering & CS\n"
-        "• `/github` — Trending GitHub repositories\n\n"
-        "*User & Privacy:*\n"
-        "• `/feedback <text>` — Submit suggestions or report issues\n"
-        "• `/privacy` — View privacy policy & data rights\n"
-        "• `/export` — Export a copy of your stored personal data\n"
-        "• `/delete_account` — Permanently purge your stored profile data\n"
-        "• `/moderation` — Moderator review dashboard (Admin only)"
+        "*STEM RADAR — Command Reference*\n\n"
+        "*Main Sections*\n"
+        "- `/menu` — Open main menu\n"
+        "- `/discover` — Daily briefing, trending, radar, and velocity\n"
+        "- `/stem` — Browse 12 STEM disciplines\n"
+        "- `/research` — arXiv papers and paper summaries\n"
+        "- `/student` — Scholarships, universities, and courses\n"
+        "- `/learn` — Lessons, roadmaps, and quizzes\n"
+        "- `/search` — Search database and live web\n"
+        "- `/myspace` — Saved items, watchlist, and settings\n\n"
+        "*News & Research*\n"
+        "- `/news`, `/ai`, `/robotics`, `/science`, `/engineering`, `/programming`, `/github`\n"
+        "- `/ethiopia`, `/politics` — Regional and policy coverage\n"
+        "- `/trending`, `/briefing`, `/radar`, `/velocity`, `/sources`, `/collect`\n\n"
+        "*Student Hub*\n"
+        "- `/scholarships` — Verified STEM scholarships\n"
+        "- `/deadlines` — Upcoming application deadlines\n"
+        "- `/universities` — University admission profiles\n"
+        "- `/courses` — Free courses and study materials\n"
+        "- `/submit_opportunity` — Submit an opportunity for review\n\n"
+        "*Search & Analysis*\n"
+        "- `/search <query>` — Search indexed records\n"
+        "- `/websearch <query>` — Search live web and academic sources\n"
+        "- `/search_ai <topic>` — Cited multi-source summary\n"
+        "- `/explain <concept>` — Beginner, intermediate, or advanced explanation\n"
+        "- `/impact`, `/ideas`, `/digest`\n\n"
+        "*Learning & Projects*\n"
+        "- `/learn <topic>`, `/roadmap <topic>`, `/quiz <topic>`\n"
+        "- `/compare <A> vs <B>`, `/project <topic>`, `/vocabulary <topic>`, `/progress`\n\n"
+        "*Personal & Privacy*\n"
+        "- `/saved`, `/interests`, `/watchlist`, `/settings`, `/stats`\n"
+        "- `/feedback <text>`, `/privacy`, `/export`, `/delete_account`"
     )
 
     markup = get_back_home_keyboard(back_target="menu:home", home_target="menu:home")
@@ -319,7 +289,7 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
 
     # Debounce rapid clicks
     if is_duplicate_callback(user_id, data):
-        await query.answer("⏳ Processing, please wait...", show_alert=False)
+        await query.answer("Please wait a moment.", show_alert=False)
         return
 
     await query.answer()
@@ -392,7 +362,7 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
             context.user_data["onboarded"] = True
             context.user_data["track"] = track
             context.user_data.pop("is_new_registration", None)
-        await query.answer(f"🎉 Track set to {track.title()}!", show_alert=False)
+        await query.answer(f"Focus set to {track.title()}.", show_alert=False)
         stats = None
         try:
             session_factory = get_session_factory()
@@ -550,10 +520,7 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     if data == "menu:trending":
         scored = await automation_service.get_trending_developments(limit=5)
         if not scored:
-            text = (
-                "📈 *High-Impact Trending STEM Breakthroughs*\n\n"
-                "No ranked articles available yet. Run `/collect` to fetch and analyze fresh developments!"
-            )
+            text = "*Trending*\n\nNo ranked articles are available yet. Run `/collect` to fetch recent articles."
         else:
             text = format_trending_feed(scored)
         await safe_edit_or_reply(
@@ -631,89 +598,80 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
         level = data.split(":", 1)[1]
         if level == "beginner":
             intro = (
-                "🐣 *Beginner Engineering Labs*\n\n"
-                "Designed for foundational learning, clean architecture, zero hardware cost, "
-                "and immediate hands-on execution:\n\n"
-                "Select a lab below or type `/project beginner <topic>`:"
+                "*Beginner Projects*\n\n"
+                "Foundational engineering projects with clear architecture and no paid hardware required.\n\n"
+                "Select a project below, or run `/project beginner <topic>`:"
             )
             buttons = [
                 [
                     InlineKeyboardButton(
-                        "🤖 Image Classifier (FastAPI)", callback_data="prj_gen:Vision Classifier:beginner"
+                        "Image Classifier (FastAPI)", callback_data="prj_gen:Vision Classifier:beginner"
                     ),
+                    InlineKeyboardButton("2-DOF Arm Simulator", callback_data="prj_gen:2-DOF Robotic Arm:beginner"),
+                ],
+                [
+                    InlineKeyboardButton("ESP32 Telemetry Hub", callback_data="prj_gen:ESP32 Telemetry Hub:beginner"),
                     InlineKeyboardButton(
-                        "🦾 2-DOF Arm Simulator (Pygame)", callback_data="prj_gen:2-DOF Robotic Arm:beginner"
+                        "Async Key-Value Cache", callback_data="prj_gen:In-Memory Key-Value Store:beginner"
                     ),
                 ],
                 [
-                    InlineKeyboardButton(
-                        "⚡ ESP32 Sensor Telemetry Hub", callback_data="prj_gen:ESP32 Telemetry Hub:beginner"
-                    ),
-                    InlineKeyboardButton(
-                        "💻 Async Key-Value Cache", callback_data="prj_gen:In-Memory Key-Value Store:beginner"
-                    ),
-                ],
-                [
-                    InlineKeyboardButton("⬅️ Back to Labs", callback_data="menu:projects"),
-                    InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                    InlineKeyboardButton("Back", callback_data="menu:projects"),
+                    InlineKeyboardButton("Home", callback_data="menu:home"),
                 ],
             ]
         elif level == "advanced":
             intro = (
-                "🔬 *Advanced Research & Engineering Labs*\n\n"
-                "Demanding distributed consensus, physical simulation, real-time control, "
-                "and high-concurrency systems:\n\n"
-                "Select a lab below or type `/project advanced <topic>`:"
+                "*Advanced Projects*\n\n"
+                "Systems focusing on distributed consensus, simulation, real-time control, "
+                "and high-concurrency engineering.\n\n"
+                "Select a project below, or run `/project advanced <topic>`:"
             )
             buttons = [
                 [
                     InlineKeyboardButton(
-                        "⚛️ Quantum Error Mitigation Engine",
+                        "Quantum Error Mitigation",
                         callback_data="prj_gen:Quantum Circuit Error Mitigation:advanced",
                     ),
                     InlineKeyboardButton(
-                        "🦾 Quadruped MPC Gait Controller", callback_data="prj_gen:Quadruped MPC Controller:advanced"
+                        "Quadruped MPC Controller", callback_data="prj_gen:Quadruped MPC Controller:advanced"
                     ),
                 ],
                 [
                     InlineKeyboardButton(
-                        "💻 Distributed Raft Consensus", callback_data="prj_gen:Raft Distributed Consensus:advanced"
+                        "Distributed Raft Consensus", callback_data="prj_gen:Raft Distributed Consensus:advanced"
                     ),
-                    InlineKeyboardButton(
-                        "🛡️ Zero-Knowledge Proof Verifier", callback_data="prj_gen:ZK Proof Verifier:advanced"
-                    ),
+                    InlineKeyboardButton("ZK Proof Verifier", callback_data="prj_gen:ZK Proof Verifier:advanced"),
                 ],
                 [
-                    InlineKeyboardButton("⬅️ Back to Labs", callback_data="menu:projects"),
-                    InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                    InlineKeyboardButton("Back", callback_data="menu:projects"),
+                    InlineKeyboardButton("Home", callback_data="menu:home"),
                 ],
             ]
         else:
             intro = (
-                "🧑‍💻 *Intermediate Engineering Labs*\n\n"
-                "Production-grade architectures, async pipelines, and real-world system integrations:\n\n"
-                "Select a lab below or type `/project intermediate <topic>`:"
+                "*Intermediate Projects*\n\n"
+                "Practical architectures, asynchronous pipelines, and real-world system integrations.\n\n"
+                "Select a project below, or run `/project intermediate <topic>`:"
             )
             buttons = [
                 [
+                    InlineKeyboardButton("Hybrid RAG Engine", callback_data="prj_gen:Hybrid RAG Engine:intermediate"),
                     InlineKeyboardButton(
-                        "🤖 RAG Knowledge Engine (Hybrid)", callback_data="prj_gen:Hybrid RAG Engine:intermediate"
-                    ),
-                    InlineKeyboardButton(
-                        "🦾 ROS 2 Autonomous Nav Robot", callback_data="prj_gen:ROS 2 Nav Robot:intermediate"
+                        "ROS 2 Navigation Robot", callback_data="prj_gen:ROS 2 Nav Robot:intermediate"
                     ),
                 ],
                 [
                     InlineKeyboardButton(
-                        "🛡️ Network Intrusion Detector", callback_data="prj_gen:Intrusion Detection System:intermediate"
+                        "Network Intrusion Detector", callback_data="prj_gen:Intrusion Detection System:intermediate"
                     ),
                     InlineKeyboardButton(
-                        "⚡ CAN Bus Telemetry Logger", callback_data="prj_gen:CAN Bus Logger:intermediate"
+                        "CAN Bus Telemetry Logger", callback_data="prj_gen:CAN Bus Logger:intermediate"
                     ),
                 ],
                 [
-                    InlineKeyboardButton("⬅️ Back to Labs", callback_data="menu:projects"),
-                    InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                    InlineKeyboardButton("Back", callback_data="menu:projects"),
+                    InlineKeyboardButton("Home", callback_data="menu:home"),
                 ],
             ]
         await safe_edit_or_reply(
@@ -752,26 +710,24 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     # Portfolio Strategy Guide
     if data == "menu:portfolio_tips":
         text = (
-            "💼 *Engineering Portfolio Strategy & Recruiter Impact*\n\n"
-            "How to turn engineering projects into high-impact job offers and research grants:\n\n"
-            "1. **Proof of Depth over Toy Projects:**\n"
-            "   Avoid tutorial clones (basic to-do apps). Build systems with explicit architectural "
-            "trade-offs, load benchmarks, and resilient failure recovery.\n\n"
-            "2. **Observable Systems Design:**\n"
-            "   Include system architecture diagrams, automated test suites (>85% coverage), "
-            "structured telemetry logging, and benchmark metrics (p95 latency, throughput, memory).\n\n"
-            "3. **Production Packaging:**\n"
-            "   Containerize with Docker, provide 1-command local execution (`docker compose up`), "
-            "and automate CI pipelines with GitHub Actions.\n\n"
-            "4. **Interview Talking Points:**\n"
-            "   Document *why* you chose specific libraries, the catastrophic failure modes you mitigated, "
-            "and what you would redesign under 100x scale."
+            "*Engineering Portfolio Guide*\n\n"
+            "How to turn technical projects into strong engineering credentials:\n\n"
+            "1. *Depth over tutorial clones*\n"
+            "Build systems with explicit architectural trade-offs, benchmarks, and clear failure handling.\n\n"
+            "2. *Observable systems*\n"
+            "Include architecture diagrams, automated tests, structured logging, "
+            "and measured metrics (latency, throughput, memory).\n\n"
+            "3. *Reproducible setup*\n"
+            "Provide clear setup instructions, pinned dependencies, and automated CI checks.\n\n"
+            "4. *Documented trade-offs*\n"
+            "Explain why you chose specific tools, what failure modes exist, "
+            "and what you would change at higher scale."
         )
         action_keyboard = InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("🚀 Generate a Lab Now", callback_data="menu:projects"),
-                    InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                    InlineKeyboardButton("Browse Projects", callback_data="menu:projects"),
+                    InlineKeyboardButton("Home", callback_data="menu:home"),
                 ]
             ]
         )
@@ -788,67 +744,62 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
         level = data.split(":", 1)[1]
         if level == "beginner":
             intro = (
-                "🐣 *Beginner STEM Learning Track*\n\n"
-                "Step-by-step foundational lessons designed with intuitive analogies, "
-                "visual mental models, and zero jargon prerequisites.\n\n"
-                "Choose a domain below to begin:"
+                "*Beginner Learning Path*\n\n"
+                "Foundational lessons with clear mental models and minimal prerequisites.\n\n"
+                "Select a topic:"
             )
             buttons = [
                 [
-                    InlineKeyboardButton("🤖 AI Foundations", callback_data="ed_learn:Artificial Intelligence"),
-                    InlineKeyboardButton("🦾 Intro to Robotics", callback_data="ed_learn:Robotics"),
+                    InlineKeyboardButton("AI Foundations", callback_data="ed_learn:Artificial Intelligence"),
+                    InlineKeyboardButton("Intro to Robotics", callback_data="ed_learn:Robotics"),
                 ],
                 [
-                    InlineKeyboardButton("💻 Computer Systems 101", callback_data="ed_learn:Computer Systems"),
-                    InlineKeyboardButton("⚡ Circuits & Electronics", callback_data="ed_learn:Embedded Systems"),
+                    InlineKeyboardButton("Computer Systems 101", callback_data="ed_learn:Computer Systems"),
+                    InlineKeyboardButton("Circuits & Electronics", callback_data="ed_learn:Embedded Systems"),
                 ],
                 [
-                    InlineKeyboardButton("⬅️ Back to Academy", callback_data="menu:learn"),
-                    InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                    InlineKeyboardButton("Back", callback_data="menu:learn"),
+                    InlineKeyboardButton("Home", callback_data="menu:home"),
                 ],
             ]
         elif level == "advanced":
             intro = (
-                "🔬 *Advanced STEM Research & Engineering Track*\n\n"
-                "Frontier formulations, hardware synthesis, non-linear control, and distributed algorithms.\n\n"
-                "Choose a domain below to begin:"
+                "*Advanced Learning Path*\n\n"
+                "Research-level topics covering control theory, hardware synthesis, and distributed algorithms.\n\n"
+                "Select a topic:"
             )
             buttons = [
                 [
-                    InlineKeyboardButton(
-                        "🤖 Diffusion & State Space", callback_data="ed_learn:Artificial Intelligence"
-                    ),
-                    InlineKeyboardButton("🦾 Non-Linear Control & MPC", callback_data="ed_learn:Robotics"),
+                    InlineKeyboardButton("Diffusion & State Space", callback_data="ed_learn:Artificial Intelligence"),
+                    InlineKeyboardButton("Non-Linear Control & MPC", callback_data="ed_learn:Robotics"),
                 ],
                 [
-                    InlineKeyboardButton("⚛️ Quantum Circuit Synthesis", callback_data="ed_learn:Quantum Computing"),
-                    InlineKeyboardButton("💻 Distributed Kernels", callback_data="ed_learn:Software Architecture"),
+                    InlineKeyboardButton("Quantum Circuit Synthesis", callback_data="ed_learn:Quantum Computing"),
+                    InlineKeyboardButton("Distributed Systems", callback_data="ed_learn:Software Architecture"),
                 ],
                 [
-                    InlineKeyboardButton("⬅️ Back to Academy", callback_data="menu:learn"),
-                    InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                    InlineKeyboardButton("Back", callback_data="menu:learn"),
+                    InlineKeyboardButton("Home", callback_data="menu:home"),
                 ],
             ]
         else:
             intro = (
-                "🧑‍💻 *Intermediate STEM Learning Track*\n\n"
-                "Deepen your architectural, mathematical, and algorithmic fluency with concrete code examples.\n\n"
-                "Choose a domain below to begin:"
+                "*Intermediate Learning Path*\n\n"
+                "Deepen architectural, mathematical, and algorithmic understanding with practical examples.\n\n"
+                "Select a topic:"
             )
             buttons = [
                 [
-                    InlineKeyboardButton(
-                        "🤖 Transformer Architectures", callback_data="ed_learn:Artificial Intelligence"
-                    ),
-                    InlineKeyboardButton("🦾 Kinematics & ROS 2", callback_data="ed_learn:Robotics"),
+                    InlineKeyboardButton("Transformer Architectures", callback_data="ed_learn:Artificial Intelligence"),
+                    InlineKeyboardButton("Kinematics & ROS 2", callback_data="ed_learn:Robotics"),
                 ],
                 [
-                    InlineKeyboardButton("💻 Distributed Systems", callback_data="ed_learn:Software Architecture"),
-                    InlineKeyboardButton("🛡️ Cryptography & Security", callback_data="ed_learn:Cybersecurity"),
+                    InlineKeyboardButton("Distributed Systems", callback_data="ed_learn:Software Architecture"),
+                    InlineKeyboardButton("Cryptography & Security", callback_data="ed_learn:Cybersecurity"),
                 ],
                 [
-                    InlineKeyboardButton("⬅️ Back to Academy", callback_data="menu:learn"),
-                    InlineKeyboardButton("🏠 Main Menu", callback_data="menu:home"),
+                    InlineKeyboardButton("Back", callback_data="menu:learn"),
+                    InlineKeyboardButton("Home", callback_data="menu:home"),
                 ],
             ]
         await safe_edit_or_reply(
@@ -907,15 +858,16 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
 
         if not saved:
             text = (
-                "⭐ *Your Saved Articles & Research*\n\n"
-                "You haven't bookmarked any articles yet.\n\n"
-                "Tap the *⭐ Bookmark* button on any article card to save it here for later!"
+                "*Saved Items*\n\n"
+                "You have not saved any articles or papers yet.\n\n"
+                "Select Save on any article card to keep it here."
             )
         else:
-            lines = ["⭐ *Your Saved Articles & Research Papers:*\n"]
+            lines = ["*Saved Items*\n"]
             for idx, art in enumerate(saved, 1):
-                source_name = art.source.name if art.source else "Tech"
-                lines.append(f"{idx}. [{art.title}]({art.url})\n   Source: _{source_name}_\n")
+                source_name = sanitize_markdown(art.source.name if art.source else "Source")
+                clean_title = sanitize_markdown(art.title)
+                lines.append(f"{idx}. [{clean_title}]({art.url})\n   Source: {source_name}\n")
             text = "\n".join(lines)
 
         await safe_edit_or_reply(
@@ -934,12 +886,11 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
             pref = await repo.get_or_create_preference(user_id)
             active_slugs = [s.strip() for s in (pref.preferred_categories or "").split(",") if s.strip()]
 
-        safe_subs = (pref.preferred_categories or "All Domains").replace("_", "-")
+        safe_subs = (pref.preferred_categories or "All domains").replace("_", "-")
         text = (
-            "🏷 *My STEM Domain Subscriptions*\n\n"
-            "Select the disciplines you want prioritized in your briefings, digests, and recommendations.\n\n"
-            f"Active Subscriptions: `{safe_subs}`\n\n"
-            "Tap below to toggle active subscriptions:"
+            "*Domain Subscriptions*\n\n"
+            "Select the disciplines to prioritize in your briefings and feeds.\n\n"
+            f"Active: {safe_subs}"
         )
         await safe_edit_or_reply(
             update,
@@ -963,7 +914,7 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     if data == "menu:ai_summarize":
         articles = await news_service.get_recent_news(limit=1)
         if not articles:
-            text = "No articles found to summarize. Run `/collect` first!"
+            text = "No articles are available to summarize yet. Run `/collect` to fetch recent updates."
         else:
             summary = await ai_service.summarize_news(articles[0], mode="intermediate")
             text = format_news_summary(summary)
@@ -977,14 +928,13 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
 
     if data == "menu:ai_explain":
         text = (
-            "💡 *STEM AI Concept Explainer*\n\n"
-            "To break down any scientific, engineering, or mathematical concept:\n\n"
-            "Type: `/explain <concept>`\n\n"
-            "*Examples:*\n"
-            "• `/explain Transformer Architecture`\n"
-            "• `/explain Quantum Entanglement`\n"
-            "• `/explain Zero Knowledge Proofs`\n"
-            "• `/explain Kalman Filters`"
+            "*Concept Explainer*\n\n"
+            "Use `/explain <concept>` to get a structured explanation.\n\n"
+            "Examples:\n"
+            "- `/explain Transformer Architecture`\n"
+            "- `/explain Quantum Entanglement`\n"
+            "- `/explain Zero Knowledge Proofs`\n"
+            "- `/explain Kalman Filters`"
         )
         await safe_edit_or_reply(
             update,
@@ -997,7 +947,7 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     if data == "menu:ai_impact":
         articles = await news_service.get_recent_news(limit=1)
         if not articles:
-            text = "No articles found to analyze impact. Run `/collect` first!"
+            text = "No articles are available to assess yet. Run `/collect` to fetch recent updates."
         else:
             impact = await ai_service.analyze_impact(articles[0])
             text = format_impact_analysis(impact)
@@ -1012,7 +962,7 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     if data == "menu:ai_content":
         articles = await news_service.get_recent_news(limit=1)
         if not articles:
-            text = "No articles found. Run `/collect` first!"
+            text = "No articles are available yet. Run `/collect` to fetch recent updates."
         else:
             pkg = await ai_service.generate_stem_content(articles[0])
             text = format_stem_content(pkg)[:4000]
@@ -1027,13 +977,13 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
     # --- Sub-views for Learn Hub ---
     if data == "menu:roadmaps":
         text = (
-            "🗺️ *STEM Engineering Roadmaps*\n\n"
-            "Structured curricula taking you from fundamental theory to production implementations.\n\n"
-            "Type `/roadmap <topic>` to generate a 4-phase curriculum:\n\n"
-            "• `/roadmap Robotics`\n"
-            "• `/roadmap Artificial Intelligence`\n"
-            "• `/roadmap Quantum Computing`\n"
-            "• `/roadmap Cybersecurity`"
+            "*Learning Roadmaps*\n\n"
+            "Generate a 4-phase study roadmap with `/roadmap <topic>`.\n\n"
+            "Examples:\n"
+            "- `/roadmap Robotics`\n"
+            "- `/roadmap Artificial Intelligence`\n"
+            "- `/roadmap Quantum Computing`\n"
+            "- `/roadmap Cybersecurity`"
         )
         await safe_edit_or_reply(
             update,
@@ -1058,14 +1008,14 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
 
     if data == "menu:learn_compare":
         text = (
-            "⚖️ *STEM Architectural Concept Comparison*\n\n"
-            "Compare two competing frameworks, architectures, or protocols side-by-side.\n\n"
-            "Use the `/compare` command with any two technologies:\n\n"
-            "• `/compare PyTorch vs JAX`\n"
-            "• `/compare REST vs gRPC`\n"
-            "• `/compare Monolith vs Microservices`\n"
-            "• `/compare Transformer vs Mamba`\n"
-            "• `/compare Kafka vs RabbitMQ`"
+            "*Concept Comparison*\n\n"
+            "Compare two technologies, frameworks, or protocols side by side using `/compare`.\n\n"
+            "Examples:\n"
+            "- `/compare PyTorch vs JAX`\n"
+            "- `/compare REST vs gRPC`\n"
+            "- `/compare Monolith vs Microservices`\n"
+            "- `/compare Transformer vs Mamba`\n"
+            "- `/compare Kafka vs RabbitMQ`"
         )
         await safe_edit_or_reply(
             update,
@@ -1083,17 +1033,17 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
 
         if not history:
             text = (
-                "🏆 *Your Learning Progress*\n\n"
-                "You haven't completed any lessons or quizzes yet.\n\n"
-                "Explore the Academy via `/learn` or `/quiz` to begin tracking your mastery!"
+                "*Learning Progress*\n\n"
+                "You have not completed any lessons or quizzes yet.\n\n"
+                "Use `/learn` or `/quiz` to start tracking progress."
             )
         else:
-            lines = ["🏆 *Your STEM Mastery Track:*\n"]
+            lines = ["*Learning Progress*\n"]
             for item in history:
                 pct = int((item.quiz_score_total / item.quiz_score_max * 100)) if item.quiz_score_max > 0 else 0
                 lines.append(
-                    f"• *{item.topic.title()}* (`{item.level.capitalize()}`)\n"
-                    f"  Lessons: `{item.lessons_completed}` | Quizzes: `{item.quizzes_taken}` (Score: `{pct}%`)\n"
+                    f"- *{sanitize_markdown(item.topic.title())}* ({item.level.capitalize()})\n"
+                    f"  Lessons: {item.lessons_completed} | Quizzes: {item.quizzes_taken} ({pct}%)\n"
                 )
             text = "\n".join(lines)
 
@@ -1113,5 +1063,19 @@ async def main_menu_callback_router(update: Update, context: ContextTypes.DEFAUL
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Log exceptions encountered during update handling."""
+    """Log exceptions and present a calm recovery message to the user."""
     logger.error("Exception while handling Telegram update: %s", context.error, exc_info=context.error)
+    if isinstance(update, Update):
+        try:
+            err_text = format_error_state(
+                message="Something went wrong while loading this content. Please try again.",
+                action_hint="You can return to the main menu below.",
+            )
+            await safe_edit_or_reply(
+                update,
+                err_text,
+                reply_markup=get_back_home_keyboard(back_target="", home_target="menu:home"),
+                parse_mode=ParseMode.MARKDOWN,
+            )
+        except Exception:
+            logger.debug("Unable to send fallback error message to user.")

@@ -111,11 +111,11 @@ async def test_ai_service_recommends_project():
     assert len(proj.common_pitfalls) >= 1
 
     formatted = format_project_recommendation(proj)
-    assert "Portfolio Project:" in formatted
-    assert "Estimated Time:" in formatted
-    assert "Core Learning Outcomes:" in formatted
-    assert "Verification & Testing Steps:" in formatted
-    assert "Common Pitfalls to Avoid:" in formatted
+    assert "Project:" in formatted
+    assert "Estimated time:" in formatted
+    assert "Learning outcomes" in formatted
+    assert "Verification and testing" in formatted
+    assert "Common pitfalls" in formatted
 
 
 @pytest.mark.asyncio
@@ -171,7 +171,7 @@ async def test_learn_command_shows_domain_menu_when_no_args(mock_update):
 
     mock_update.effective_message.reply_text.assert_called_once()
     reply_text = mock_update.effective_message.reply_text.call_args[0][0]
-    assert "Learning Academy" in reply_text
+    assert "Learn STEM" in reply_text
 
 
 @pytest.mark.asyncio
@@ -267,7 +267,7 @@ async def test_progress_command_renders_history(mock_update, test_session_factor
 
     mock_update.effective_message.reply_text.assert_called_once()
     reply_text = mock_update.effective_message.reply_text.call_args[0][0]
-    assert "ROBOTICS" in reply_text
+    assert "Robotics" in reply_text
     assert "100%" in reply_text
 
 
@@ -288,8 +288,8 @@ async def test_education_callback_router_handles_quiz_answer(mock_update, test_s
 
     mock_update.callback_query.message.reply_text.assert_called_once()
     reply_text = mock_update.callback_query.message.reply_text.call_args[0][0]
-    assert "Correct!" in reply_text or "Incorrect" in reply_text
-    assert "Explanation:" in reply_text
+    assert "Correct" in reply_text or "Incorrect" in reply_text
+    assert "Explanation" in reply_text
 
 
 def test_project_card_keyboard():
@@ -318,13 +318,13 @@ def test_learn_hub_keyboard_and_intros():
     assert "menu:home" in flattened
 
     learn_intro = format_learn_hub_intro()
-    assert "STEM Learning Academy" in learn_intro
-    assert "Structured Paths:" in learn_intro
+    assert "Learn STEM" in learn_intro
+    assert "Structured lessons" in learn_intro
 
     prj_intro = format_projects_hub_intro()
-    assert "Portfolio Project Generator" in prj_intro
-    assert "Portfolio-Ready Specs:" in prj_intro
-    assert "Testing & Benchmarking:" in prj_intro
+    assert "STEM Projects" in prj_intro
+    assert "architecture" in prj_intro.lower()
+    assert "verification tests" in prj_intro.lower()
 
 
 @pytest.mark.asyncio
@@ -343,8 +343,8 @@ async def test_main_menu_callback_routes_project_and_learn_tracks(mock_update):
         mock_update.callback_query.message.edit_text.assert_called_once()
         text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
         markup = mock_update.callback_query.message.edit_text.call_args[1]["reply_markup"]
-        assert "Portfolio Project:" in text
-        assert "Estimated Time:" in text
+        assert "Project:" in text
+        assert "Estimated time:" in text
         assert any("prj_gen:Robotics:advanced" == btn.callback_data for row in markup.inline_keyboard for btn in row)
 
         # 2. prj_gen:Robotics:advanced
@@ -353,7 +353,7 @@ async def test_main_menu_callback_routes_project_and_learn_tracks(mock_update):
         await main_menu_callback_router(mock_update, MagicMock())
         mock_update.callback_query.message.edit_text.assert_called_once()
         text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
-        assert "ADVANCED" in text
+        assert "Advanced" in text
 
         # 3. prj_diff:beginner
         mock_update.callback_query.message.edit_text.reset_mock()
@@ -361,7 +361,7 @@ async def test_main_menu_callback_routes_project_and_learn_tracks(mock_update):
         await main_menu_callback_router(mock_update, MagicMock())
         mock_update.callback_query.message.edit_text.assert_called_once()
         text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
-        assert "Beginner Engineering Labs" in text
+        assert "Beginner Projects" in text
 
         # 4. prj_rand
         mock_update.callback_query.message.edit_text.reset_mock()
@@ -369,7 +369,7 @@ async def test_main_menu_callback_routes_project_and_learn_tracks(mock_update):
         await main_menu_callback_router(mock_update, MagicMock())
         mock_update.callback_query.message.edit_text.assert_called_once()
         text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
-        assert "Portfolio Project:" in text
+        assert "Project:" in text
 
         # 5. menu:portfolio_tips
         mock_update.callback_query.message.edit_text.reset_mock()
@@ -377,7 +377,7 @@ async def test_main_menu_callback_routes_project_and_learn_tracks(mock_update):
         await main_menu_callback_router(mock_update, MagicMock())
         mock_update.callback_query.message.edit_text.assert_called_once()
         text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
-        assert "Engineering Portfolio Strategy" in text
+        assert "Engineering Portfolio Guide" in text
 
         # 6. learn_lvl:beginner
         mock_update.callback_query.message.edit_text.reset_mock()
@@ -385,7 +385,7 @@ async def test_main_menu_callback_routes_project_and_learn_tracks(mock_update):
         await main_menu_callback_router(mock_update, MagicMock())
         mock_update.callback_query.message.edit_text.assert_called_once()
         text = mock_update.callback_query.message.edit_text.call_args[1]["text"]
-        assert "Beginner STEM Learning Track" in text
+        assert "Beginner Learning Path" in text
 
 
 @pytest.mark.asyncio
@@ -402,6 +402,6 @@ async def test_education_callback_router_ed_prj(mock_update):
 
     mock_update.callback_query.message.reply_text.assert_called_once()
     reply_args = mock_update.callback_query.message.reply_text.call_args
-    assert "Portfolio Project:" in reply_args[0][0]
+    assert "Project:" in reply_args[0][0]
     markup = reply_args[1]["reply_markup"]
     assert any("prj_gen:Robotics:beginner" == btn.callback_data for row in markup.inline_keyboard for btn in row)

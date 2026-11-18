@@ -204,73 +204,60 @@ class SearchService:
     # ------------------ Telegram UI & Markdown Presentation ------------------
 
     def format_search_results_page(self, response: UnifiedSearchResponse) -> str:
-        """Render markdown search response with badges, snippets, and action links."""
+        """Render clean editorial search response with metadata, snippets, and links."""
         clean_query = response.query
         if not response.items:
-            scope_str = "Live Web & Database" if response.source == "all" else response.source.title()
-            cat_upper = response.category.upper()
+            scope_str = "Database & Web" if response.source == "all" else response.source.title()
+            cat_label = response.category.capitalize()
             return (
-                f'🔍 *Search Results for "{clean_query}"*\n\n'
-                f'No results found matching *"{clean_query}"* in `{scope_str}` (Category: `{cat_upper}`).\n\n'
-                "💡 *Tips:*\n"
-                "• Check your spelling or try broader keywords (e.g., `ai`, `scholarship`, `python`, `quantum`)\n"
-                "• Switch Scope to *🌐 All Sources* or *📡 Live Web* using the source selector below\n"
-                "• Run `/collect` to ingest fresh intelligence from external sources"
+                f'*Search Results — "{clean_query}"*\n\n'
+                f'No results found matching "{clean_query}" in {scope_str} (Category: {cat_label}).\n\n'
+                "Suggestions:\n"
+                "- Try broader keywords (e.g., `ai`, `scholarship`, `python`, `quantum`).\n"
+                "- Switch scope to All Sources or Web below.\n"
+                "- Run `/collect` to index recent feeds."
             )
 
-        cat_badge = response.category.upper()
-        sort_badge = "RELEVANCE" if response.sort_by == "relevance" else "RECENT DATE"
-        scope_badge = "ALL SOURCES" if response.source == "all" else f"SCOPE: {response.source.upper()}"
+        cat_label = response.category.capitalize()
+        sort_label = "Relevance" if response.sort_by == "relevance" else "Newest"
+        scope_label = "All Sources" if response.source == "all" else response.source.capitalize()
         header_stats = (
-            f"📄 Page `{response.page}` of `{response.total_pages}` | "
-            f"{scope_badge} | Cat: `{cat_badge}` | Sort: `{sort_badge}`\n"
+            f"Page {response.page} of {response.total_pages} · {scope_label} · {cat_label} · Sort: {sort_label}\n"
         )
         lines = [
-            f'🔍 *Search Results for "{clean_query}"*',
+            f'*Search Results — "{clean_query}"*',
             header_stats,
         ]
 
         start_num = (response.page - 1) * response.page_size + 1
         for idx, item in enumerate(response.items, start=start_num):
-            cat_emoji = {
-                "STEM News": "📰",
-                "Research Papers": "📄",
-                "Scholarships": "🎓",
-                "Universities": "🏛️",
-                "Courses & Materials": "📚",
-                "Web Discovery": "🌐",
-                "Reference & Concept": "📖",
-            }.get(item.category, "🏷️")
+            verified_tag = " · Verified" if item.is_verified else ""
+            date_str = item.published_at.strftime("%d %b %Y").lstrip("0") if item.published_at else "Recent"
 
-            verified_tag = " | 🟢 Verified" if item.is_verified else ""
-            date_str = item.published_at.strftime("%b %d, %Y") if item.published_at else "Recently"
-
-            # Quick action command hint & direct link
             action_hint = ""
             if item.item_type == "scholarship" and item.original_id:
-                action_hint = f"👉 /scholarship_{item.original_id} • 🔗 [Official Portal]({item.url})"
+                action_hint = f"/scholarship_{item.original_id} · [Official Portal]({item.url})"
             elif item.item_type == "university" and item.slug:
-                action_hint = f"👉 /university_{item.slug} • 🔗 [Admissions Portal]({item.url})"
+                action_hint = f"/university_{item.slug} · [Admissions Portal]({item.url})"
             elif item.item_type == "course" and item.slug:
-                action_hint = f"👉 /resource_{item.slug} • 🔗 [Access Materials]({item.url})"
+                action_hint = f"/resource_{item.slug} · [Open Material]({item.url})"
             elif item.item_type in ("news", "paper") and item.original_id:
-                action_hint = f"👉 /ai_sum_{item.original_id} • 🔗 [Read Original]({item.url})"
+                action_hint = f"/ai_sum_{item.original_id} · [Read Original]({item.url})"
             elif item.item_type == "external":
-                display_source = item.source_name if item.source_name and item.source_name != "Web" else "Web Source"
-                action_hint = f"🔗 [Open on {display_source}]({item.url})"
+                display_source = item.source_name if item.source_name and item.source_name != "Web" else "Web"
+                action_hint = f"[Open on {display_source}]({item.url})"
 
             clean_title = re.sub(r"[*_`]", "", item.title or "Untitled").strip()
             clean_snippet = re.sub(r"[*_`]", "", item.snippet or "").strip()
-            snippet_txt = f"\n_{clean_snippet}_" if clean_snippet else ""
+            snippet_txt = f"\n{clean_snippet}" if clean_snippet else ""
 
             lines.append(
                 f"*{idx}. [{clean_title}]({item.url})*\n"
-                f"{cat_emoji} `{item.category}`{verified_tag} • _{item.source_name}_ ({date_str})"
+                f"{item.category}{verified_tag} · {item.source_name} ({date_str})"
                 f"{snippet_txt}\n"
                 f"{action_hint}\n"
             )
 
-        lines.append("💡 *Actions:* Use the source selector, category chips, and sort toggles below to refine.")
         return "\n".join(lines)
 
     def get_search_results_keyboard(
@@ -282,101 +269,95 @@ class SearchService:
         sort_by: str = "relevance",
         source: str = "all",
     ) -> InlineKeyboardMarkup:
-        """Build interactive keyboard with source selector, category chips, sort toggle, and pagination."""
+        """Build clean interactive keyboard with source, category, sort, and pagination controls."""
         buttons: List[List[InlineKeyboardButton]] = []
         clean_q = query[:25]
         src = source if source in ("all", "internal", "external") else "all"
 
-        # Row 1: Source Selector (Unified / Local DB / Live Web Discovery)
-        s_all = "● " if src == "all" else ""
-        s_int = "● " if src == "internal" else ""
-        s_ext = "● " if src == "external" else ""
+        # Row 1: Source Selector
+        s_all = "• " if src == "all" else ""
+        s_int = "• " if src == "internal" else ""
+        s_ext = "• " if src == "external" else ""
         buttons.append(
             [
                 InlineKeyboardButton(
-                    f"{s_all}🌐 Unified", callback_data=f"search:src:all:{category}:{sort_by}:{clean_q}"
+                    f"{s_all}All Sources", callback_data=f"search:src:all:{category}:{sort_by}:{clean_q}"
                 ),
                 InlineKeyboardButton(
-                    f"{s_int}🏠 Local DB", callback_data=f"search:src:internal:{category}:{sort_by}:{clean_q}"
+                    f"{s_int}Database", callback_data=f"search:src:internal:{category}:{sort_by}:{clean_q}"
                 ),
                 InlineKeyboardButton(
-                    f"{s_ext}📡 Live Web", callback_data=f"search:src:external:{category}:{sort_by}:{clean_q}"
+                    f"{s_ext}Web", callback_data=f"search:src:external:{category}:{sort_by}:{clean_q}"
                 ),
             ]
         )
 
-        # Row 2: Primary Category Filter Chips
-        c_all = "● " if category == "all" else ""
-        c_news = "● " if category == "news" else ""
-        c_paper = "● " if category == "research" else ""
+        # Row 2: Primary Category Filters
+        c_all = "• " if category == "all" else ""
+        c_news = "• " if category == "news" else ""
+        c_paper = "• " if category == "research" else ""
         buttons.append(
             [
-                InlineKeyboardButton(f"{c_all}🌐 All", callback_data=f"search:cat:all:{sort_by}:{src}:{clean_q}"),
-                InlineKeyboardButton(f"{c_news}📰 News", callback_data=f"search:cat:news:{sort_by}:{src}:{clean_q}"),
+                InlineKeyboardButton(f"{c_all}All", callback_data=f"search:cat:all:{sort_by}:{src}:{clean_q}"),
+                InlineKeyboardButton(f"{c_news}News", callback_data=f"search:cat:news:{sort_by}:{src}:{clean_q}"),
                 InlineKeyboardButton(
-                    f"{c_paper}📄 Papers", callback_data=f"search:cat:research:{sort_by}:{src}:{clean_q}"
+                    f"{c_paper}Papers", callback_data=f"search:cat:research:{sort_by}:{src}:{clean_q}"
                 ),
             ]
         )
 
-        # Row 3: Secondary Category Filter Chips
-        c_sch = "● " if category == "scholarships" else ""
-        c_uni = "● " if category == "universities" else ""
-        c_crs = "● " if category in ("courses", "study_materials") else ""
+        # Row 3: Secondary Category Filters
+        c_sch = "• " if category == "scholarships" else ""
+        c_uni = "• " if category == "universities" else ""
+        c_crs = "• " if category in ("courses", "study_materials") else ""
         buttons.append(
             [
                 InlineKeyboardButton(
-                    f"{c_sch}🎓 Awards", callback_data=f"search:cat:scholarships:{sort_by}:{src}:{clean_q}"
+                    f"{c_sch}Scholarships", callback_data=f"search:cat:scholarships:{sort_by}:{src}:{clean_q}"
                 ),
                 InlineKeyboardButton(
-                    f"{c_uni}🏛️ Unis", callback_data=f"search:cat:universities:{sort_by}:{src}:{clean_q}"
+                    f"{c_uni}Universities", callback_data=f"search:cat:universities:{sort_by}:{src}:{clean_q}"
                 ),
-                InlineKeyboardButton(
-                    f"{c_crs}📚 Courses", callback_data=f"search:cat:courses:{sort_by}:{src}:{clean_q}"
-                ),
+                InlineKeyboardButton(f"{c_crs}Courses", callback_data=f"search:cat:courses:{sort_by}:{src}:{clean_q}"),
             ]
         )
 
-        # Row 4: Sort Toggle
-        rel_label = "🎯 Rank: Relevance" if sort_by == "relevance" else "🎯 Sort by Relevance"
-        date_label = "📅 Rank: Newest" if sort_by == "date" else "📅 Sort by Date"
-        buttons.append(
-            [
-                InlineKeyboardButton(rel_label, callback_data=f"search:sort:{category}:relevance:{src}:{clean_q}"),
-                InlineKeyboardButton(date_label, callback_data=f"search:sort:{category}:date:{src}:{clean_q}"),
-            ]
-        )
-
-        # Row 5: AI Search Synthesis Action (Stage 15)
+        # Row 4: Sort & Synthesis
+        rel_mark = "• " if sort_by == "relevance" else ""
+        date_mark = "• " if sort_by == "date" else ""
         buttons.append(
             [
                 InlineKeyboardButton(
-                    "🧠 AI Synthesis & Insights",
+                    f"{rel_mark}Relevance", callback_data=f"search:sort:{category}:relevance:{src}:{clean_q}"
+                ),
+                InlineKeyboardButton(
+                    f"{date_mark}Newest", callback_data=f"search:sort:{category}:date:{src}:{clean_q}"
+                ),
+                InlineKeyboardButton(
+                    "Summarize",
                     callback_data=f"search:ai_sum:{category}:{src}:{clean_q}",
-                )
+                ),
             ]
         )
 
-        # Row 6: Pagination Navigation
+        # Row 5: Pagination
         pag_row: List[InlineKeyboardButton] = []
         if page > 1:
             prev_p = page - 1
             pag_row.append(
                 InlineKeyboardButton(
-                    "⬅️ Prev", callback_data=f"search:page:{prev_p}:{category}:{sort_by}:{src}:{clean_q}"
+                    "Previous", callback_data=f"search:page:{prev_p}:{category}:{sort_by}:{src}:{clean_q}"
                 )
             )
-        pag_row.append(InlineKeyboardButton(f"📄 {page}/{max(1, total_pages)}", callback_data="search:noop"))
+        pag_row.append(InlineKeyboardButton(f"{page} / {max(1, total_pages)}", callback_data="search:noop"))
         if page < total_pages:
             next_p = page + 1
             pag_row.append(
-                InlineKeyboardButton(
-                    "Next ➡️", callback_data=f"search:page:{next_p}:{category}:{sort_by}:{src}:{clean_q}"
-                )
+                InlineKeyboardButton("Next", callback_data=f"search:page:{next_p}:{category}:{sort_by}:{src}:{clean_q}")
             )
         buttons.append(pag_row)
 
-        # Row 6: Navigation Back / Home
+        # Row 6: Navigation
         buttons.append(nav_back_home_row(back_target="menu:search", home_target="menu:home"))
         return InlineKeyboardMarkup(buttons)
 

@@ -203,7 +203,7 @@ To prevent misinformation, all opportunities adhere to strict academic integrity
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### 1. Virtual Environment & Dependencies
 ```bash

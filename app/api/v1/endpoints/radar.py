@@ -176,7 +176,7 @@ async def get_domain_velocity(
                 count=d.get("count", 0),
                 paper_count=d.get("paper_count", 0),
                 avg_score=d.get("avg_score", 0.0),
-                momentum=d.get("momentum", "⚖️ Stable"),
+                momentum=d.get("momentum", "Stable"),
                 top_headline=d.get("top_headline", ""),
             )
         )

@@ -204,7 +204,7 @@ def test_markdown_formatting_and_keyboards(sample_search_items):
     )
 
     text = search_ai_assistant.format_search_ai_summary(summary)
-    assert 'AI Search Synthesis: "robotics vision"' in text
+    assert 'Search Summary — "robotics vision"' in text
     assert "Stereo vision improves spatial localization [1]" in text
     assert "[1] [Stereo Depth Estimation" in text
     assert "IEEE Robotics & Automation" in text
@@ -212,6 +212,6 @@ def test_markdown_formatting_and_keyboards(sample_search_items):
     keyboard = search_ai_assistant.get_search_ai_summary_keyboard(summary, category="all", source="all")
     buttons = keyboard.inline_keyboard
     # Has related question buttons
-    assert any(any("❓" in b.text for b in row) for row in buttons)
+    assert any(any(b.callback_data.startswith("search:rel_q:") for b in row) for row in buttons)
     # Has back button
-    assert any(any("🔙 Back to Results" in b.text for b in row) for row in buttons)
+    assert any(any(b.text == "Back to Results" for b in row) for row in buttons)

@@ -91,8 +91,8 @@ async def test_student_hub_command_renders_intro(mock_hub_update):
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     call_args = mock_hub_update.callback_query.message.edit_text.call_args[1]
     text = call_args["text"]
-    assert "STEM RADAR — Student Hub" in text
-    assert "Verified Scholarships" in text
+    assert "*Student Hub*" in text
+    assert "Scholarships" in text
 
 
 @pytest.mark.asyncio
@@ -116,7 +116,7 @@ async def test_deadlines_command_renders_tracker(mock_hub_update):
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Upcoming STEM Application Deadlines" in text
+    assert "Upcoming Application Deadlines" in text
 
 
 @pytest.mark.asyncio
@@ -152,9 +152,7 @@ async def test_student_hub_callback_router_interactions(mock_hub_update):
         await student_hub_callback_router(mock_hub_update, MagicMock())
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
-    assert (
-        "Select Academic Degree Level Filter" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    )
+    assert "Filter by Study Level" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
 
     # 2. Funding filter picker
     _RECENT_CALLBACKS.clear()
@@ -164,7 +162,7 @@ async def test_student_hub_callback_router_interactions(mock_hub_update):
         await student_hub_callback_router(mock_hub_update, MagicMock())
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
-    assert "Select Financial Coverage Filter" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
+    assert "Filter by Funding" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
 
     # 2b. Country filter picker
     _RECENT_CALLBACKS.clear()
@@ -174,7 +172,7 @@ async def test_student_hub_callback_router_interactions(mock_hub_update):
         await student_hub_callback_router(mock_hub_update, MagicMock())
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
-    assert "Select Destination Host Country" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
+    assert "Filter by Country" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
 
     # 3. View detail card
     _RECENT_CALLBACKS.clear()
@@ -190,7 +188,7 @@ async def test_student_hub_callback_router_interactions(mock_hub_update):
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     card_text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
     assert "DAAD Helmut-Schmidt Scholarship" in card_text
-    assert "Official Trust Disclaimer" in card_text
+    assert "STEM RADAR does not guarantee selection" in card_text
 
     # 4. Report picker
     _RECENT_CALLBACKS.clear()
@@ -200,10 +198,7 @@ async def test_student_hub_callback_router_interactions(mock_hub_update):
         await student_hub_callback_router(mock_hub_update, MagicMock())
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
-    assert (
-        "Community Trust & Listing Issue Report"
-        in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    )
+    assert "Report Listing Issue" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
 
     # 5. Confirm report execution
     _RECENT_CALLBACKS.clear()
@@ -217,7 +212,7 @@ async def test_student_hub_callback_router_interactions(mock_hub_update):
             await student_hub_callback_router(mock_hub_update, MagicMock())
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
-    assert "Thank You for Your Report" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
+    assert "Report Submitted" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
 
 
 @pytest.mark.asyncio
@@ -232,7 +227,7 @@ async def test_main_menu_routes_student_hub_and_scholarships(mock_hub_update):
         await main_menu_callback_router(mock_hub_update, MagicMock())
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
-    assert "STEM RADAR — Student Hub" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
+    assert "*Student Hub*" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
 
     # 2. menu:scholarships
     _RECENT_CALLBACKS.clear()
@@ -255,7 +250,7 @@ async def test_universities_command_renders_list(mock_hub_update):
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "University Admissions & Academic Guidelines" in text
+    assert "*University Admissions*" in text
 
 
 @pytest.mark.asyncio
@@ -267,7 +262,7 @@ async def test_courses_command_renders_list(mock_hub_update):
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Free STEM Courses & Study Materials" in text
+    assert "*Free Courses & Study Materials*" in text
 
 
 @pytest.mark.asyncio
@@ -307,10 +302,7 @@ async def test_student_hub_callback_router_universities_and_resources(mock_hub_u
         await student_hub_callback_router(mock_hub_update, MagicMock())
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
-    assert (
-        "University Admissions & Academic Guidelines"
-        in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    )
+    assert "*University Admissions*" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
 
     # 2. hub:uni_view:aau-test
     _RECENT_CALLBACKS.clear()
@@ -326,7 +318,7 @@ async def test_student_hub_callback_router_universities_and_resources(mock_hub_u
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     uni_text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
     assert "Addis Ababa University Test" in uni_text
-    assert "Official Trust Disclaimer" in uni_text
+    assert "official portal" in uni_text
 
     # 3. hub:courses
     _RECENT_CALLBACKS.clear()
@@ -336,9 +328,7 @@ async def test_student_hub_callback_router_universities_and_resources(mock_hub_u
         await student_hub_callback_router(mock_hub_update, MagicMock())
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
-    assert (
-        "Free STEM Courses & Study Materials" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    )
+    assert "*Free Courses & Study Materials*" in mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
 
     # 4. hub:res_view:mit-6006-test
     _RECENT_CALLBACKS.clear()
@@ -354,7 +344,7 @@ async def test_student_hub_callback_router_universities_and_resources(mock_hub_u
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     res_text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
     assert "MIT 6.006 Introduction to Algorithms" in res_text
-    assert "Copyright Policy" in res_text
+    assert "open educational resources" in res_text
 
 
 @pytest.mark.asyncio
@@ -389,7 +379,7 @@ async def test_student_hub_opportunity_type_routing(mock_hub_update):
         await student_hub_callback_router(mock_hub_update, MagicMock())
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     rep_text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Report Listing Issue or Outdated Information" in rep_text
+    assert "Report an Issue or Outdated Listing" in rep_text
 
 
 @pytest.mark.asyncio
@@ -434,7 +424,7 @@ async def test_submit_opportunity_command_flow(mock_hub_update, sample_opportuni
 
     mock_hub_update.effective_message.reply_text.assert_called_once()
     confirm_text = mock_hub_update.effective_message.reply_text.call_args[1]["text"]
-    assert "Submission Received for Review" in confirm_text
+    assert "Submission Received" in confirm_text
     assert "Erasmus Mundus" in confirm_text
 
 
@@ -454,8 +444,8 @@ async def test_admin_moderation_command_and_callback_router(mock_hub_update, sam
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     dash_text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Administrative Moderation Center" in dash_text
-    assert "Pending Submissions:* `2`" in dash_text
+    assert "Moderation Center" in dash_text
+    assert "Pending submissions: 2" in dash_text
 
     # 2. Callback mod:subs:0
     _RECENT_CALLBACKS.clear()
@@ -474,7 +464,7 @@ async def test_admin_moderation_command_and_callback_router(mock_hub_update, sam
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     sub_text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Moderation Review: Submission" in sub_text
+    assert "Submission Review" in sub_text
 
     # 3. Callback mod:appr_v:42:0
     _RECENT_CALLBACKS.clear()
@@ -512,8 +502,8 @@ async def test_admin_moderation_command_and_callback_router(mock_hub_update, sam
 
     mock_hub_update.callback_query.message.edit_text.assert_called_once()
     sweep_text = mock_hub_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Automated Expiry Sweep Complete" in sweep_text
-    assert "transitioned `3` lapsed opportunities to 'expired'" in sweep_text
+    assert "Expiry Sweep Complete" in sweep_text
+    assert "Transitioned 3 lapsed opportunities to expired" in sweep_text
 
 
 @pytest.mark.asyncio
@@ -533,7 +523,7 @@ async def test_quick_deep_link_commands(mock_hub_update, sample_opportunity):
     mock_hub_update.effective_message.reply_text.assert_called_once()
     text = mock_hub_update.effective_message.reply_text.call_args[0][0]
     assert sample_opportunity.title in text
-    assert "Officially Verified Source" in text
+    assert "Officially verified" in text
 
     # 2. /university_addis-ababa-university
     mock_hub_update.effective_message.text = "/university_addis-ababa-university"

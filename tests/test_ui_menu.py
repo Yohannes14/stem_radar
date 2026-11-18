@@ -174,9 +174,9 @@ def test_onboarding_keyboards():
     assert "onboard:goals" in int_callbacks
     assert "onboard:skip" in int_callbacks
 
-    # Verify checkmark is added on selected slug
+    # Verify active selection marker is added on selected slug
     ai_btn = next(btn for row in int_kb.inline_keyboard for btn in row if btn.callback_data == "onboard:toggle:ai")
-    assert "✅" in ai_btn.text
+    assert "• " in ai_btn.text
 
     goals_kb = get_onboarding_goals_keyboard()
     goals_callbacks = [btn.callback_data for row in goals_kb.inline_keyboard for btn in row]
@@ -197,15 +197,15 @@ def test_navigation_helpers():
 
     # 2. Pagination row at start
     p_start = nav_pagination_row(offset=0, total=5, prefix="nav:all")
-    assert len(p_start) == 2  # counter + next
-    assert p_start[0].text == "1/5"
+    assert len(p_start) == 2
+    assert p_start[0].text == "1 / 5"
     assert p_start[1].callback_data == "nav:all:1"
 
     # 3. Pagination row in middle
     p_mid = nav_pagination_row(offset=2, total=5, prefix="nav:all")
-    assert len(p_mid) == 3  # prev + counter + next
+    assert len(p_mid) == 3
     assert p_mid[0].callback_data == "nav:all:1"
-    assert p_mid[1].text == "3/5"
+    assert p_mid[1].text == "3 / 5"
     assert p_mid[2].callback_data == "nav:all:3"
 
     # 4. Standalone and compound nav keyboards
@@ -219,19 +219,20 @@ def test_navigation_helpers():
 def test_menu_formatters():
     """Verify text presentation formatters."""
     main_text = format_main_menu("Ada", {"total_articles": 42, "active_sources": 8, "user_saved_articles": 3})
-    assert "Welcome to STEM RADAR, Ada!" in main_text
-    assert "`42` research records" in main_text
-    assert "`8` verified feeds" in main_text
-    assert "`3` articles saved" in main_text
+    assert "STEM RADAR" in main_text
+    assert "Ada" in main_text
+    assert "Indexed records: 42" in main_text
+    assert "Active sources: 8" in main_text
+    assert "Saved items: 3" in main_text
 
     ai_text = format_ai_hub_intro()
-    assert "AI Intelligence Hub" in ai_text
+    assert "AI Analysis Tools" in ai_text
 
     learn_text = format_learn_hub_intro()
-    assert "STEM Learning Academy" in learn_text
+    assert "Learn STEM" in learn_text
 
     search_text = format_search_intro()
-    assert "/search <keyword>" in search_text
+    assert "/search <query>" in search_text
 
     empty_text = format_empty_state("No Articles", "Check back soon.")
     assert "No Articles" in empty_text
@@ -289,7 +290,8 @@ async def test_start_command_renders_main_menu(mock_menu_update):
     text = reply_call[0][0]
     markup = reply_call[1]["reply_markup"]
 
-    assert "Welcome to STEM RADAR, Alan!" in text
+    assert "STEM RADAR" in text
+    assert "Alan" in text
     assert len(markup.inline_keyboard) == 4
 
 
@@ -325,7 +327,8 @@ async def test_menu_command_renders_dashboard(mock_menu_update):
     text = call_args[0][0]
     markup = call_args[1]["reply_markup"]
 
-    assert "Welcome to STEM RADAR, Alan!" in text
+    assert "STEM RADAR" in text
+    assert "Alan" in text
     assert len(markup.inline_keyboard) == 4
 
 
@@ -339,12 +342,12 @@ async def test_discover_command(mock_menu_update):
     mock_menu_update.effective_message.reply_text.assert_called_once()
     call_args = mock_menu_update.effective_message.reply_text.call_args
     text = call_args[0][0]
-    assert "Daily Discovery & Pulse" in text
+    assert "*Discover*" in text
 
 
 @pytest.mark.asyncio
 async def test_stem_command(mock_menu_update):
-    """Verify /stem renders the STEM & Technology Disciplines Hub."""
+    """Verify /stem renders the STEM & Technology Hub."""
     mock_menu_update.callback_query = None
     with patch.object(settings, "allowed_user_ids", [112233]):
         await stem_command(mock_menu_update, MagicMock())
@@ -352,7 +355,7 @@ async def test_stem_command(mock_menu_update):
     mock_menu_update.effective_message.reply_text.assert_called_once()
     call_args = mock_menu_update.effective_message.reply_text.call_args
     text = call_args[0][0]
-    assert "STEM & Technology Disciplines" in text
+    assert "*STEM & Technology*" in text
 
 
 @pytest.mark.asyncio
@@ -365,7 +368,8 @@ async def test_myspace_command(mock_menu_update):
     mock_menu_update.effective_message.reply_text.assert_called_once()
     call_args = mock_menu_update.effective_message.reply_text.call_args
     text = call_args[0][0]
-    assert "My Space — Personal Hub, Alan" in text
+    assert "*My Space*" in text
+    assert "Alan" in text
 
 
 @pytest.mark.asyncio
@@ -378,7 +382,7 @@ async def test_main_menu_callback_routes_discover_and_research_and_myspace(mock_
         await main_menu_callback_router(mock_menu_update, MagicMock())
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Daily Discovery & Pulse" in text
+    assert "*Discover*" in text
 
     # STEM Tech Hub
     _RECENT_CALLBACKS.clear()
@@ -388,7 +392,7 @@ async def test_main_menu_callback_routes_discover_and_research_and_myspace(mock_
         await main_menu_callback_router(mock_menu_update, MagicMock())
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "STEM & Technology Disciplines" in text
+    assert "*STEM & Technology*" in text
 
     # Research Hub
     _RECENT_CALLBACKS.clear()
@@ -398,7 +402,7 @@ async def test_main_menu_callback_routes_discover_and_research_and_myspace(mock_
         await main_menu_callback_router(mock_menu_update, MagicMock())
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Research & Innovation Hub" in text
+    assert "*Research & Innovation*" in text
 
     # My Space Hub
     _RECENT_CALLBACKS.clear()
@@ -443,7 +447,8 @@ async def test_onboarding_callbacks_routing(mock_menu_update):
         await main_menu_callback_router(mock_menu_update, mock_context)
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Welcome to STEM RADAR, Alan!" in text
+    assert "STEM RADAR" in text
+    assert "Alan" in text
     assert mock_context.user_data.get("onboarded") is True
 
 
@@ -459,12 +464,13 @@ async def test_main_menu_callback_routes_home(mock_menu_update):
     mock_menu_update.callback_query.answer.assert_called_once()
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "Welcome to STEM RADAR, Alan!" in text
+    assert "STEM RADAR" in text
+    assert "Alan" in text
 
 
 @pytest.mark.asyncio
 async def test_main_menu_callback_routes_ai_hub(mock_menu_update):
-    """Verify clicking menu:ai opens the AI Intelligence Hub."""
+    """Verify clicking menu:ai opens the AI Analysis Tools view."""
     mock_menu_update.callback_query.data = "menu:ai"
     _RECENT_CALLBACKS.clear()
 
@@ -473,12 +479,12 @@ async def test_main_menu_callback_routes_ai_hub(mock_menu_update):
 
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "AI Intelligence Hub" in text
+    assert "AI Analysis Tools" in text
 
 
 @pytest.mark.asyncio
 async def test_main_menu_callback_routes_learn_hub(mock_menu_update):
-    """Verify clicking menu:learn opens the STEM Learning Academy."""
+    """Verify clicking menu:learn opens Learn STEM."""
     mock_menu_update.callback_query.data = "menu:learn"
     _RECENT_CALLBACKS.clear()
 
@@ -487,7 +493,7 @@ async def test_main_menu_callback_routes_learn_hub(mock_menu_update):
 
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "STEM Learning Academy" in text
+    assert "Learn STEM" in text
 
 
 @pytest.mark.asyncio
@@ -515,7 +521,7 @@ async def test_main_menu_callback_routes_search(mock_menu_update):
 
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "/search <keyword>" in text
+    assert "/search <query>" in text
 
 
 @pytest.mark.asyncio
@@ -529,7 +535,7 @@ async def test_main_menu_callback_routes_interests(mock_menu_update):
 
     mock_menu_update.callback_query.message.edit_text.assert_called_once()
     text = mock_menu_update.callback_query.message.edit_text.call_args[1]["text"]
-    assert "My STEM Domain Subscriptions" in text
+    assert "Domain Subscriptions" in text
 
 
 @pytest.mark.asyncio
@@ -650,5 +656,5 @@ def test_empty_state_formatter_accessibility():
     )
     assert "No Results Found" in card
     assert "No research papers matched your search filter." in card
-    assert "Next Step:" in card
+    assert "Next step:" in card
     assert "Try broader keywords or browse /research." in card

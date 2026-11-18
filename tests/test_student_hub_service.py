@@ -110,8 +110,8 @@ async def test_student_hub_service_formatters(test_session_factory):
 
     # 1. Intro formatter
     intro = service.format_student_hub_intro()
-    assert "STEM RADAR — Student Hub" in intro
-    assert "Verified Scholarships" in intro
+    assert "*Student Hub*" in intro
+    assert "Scholarships" in intro
 
     # 2. Card formatter with disclaimer
     async with test_session_factory() as session:
@@ -132,20 +132,19 @@ async def test_student_hub_service_formatters(test_session_factory):
 
     card = service.format_scholarship_card(opp)
     assert "Fulbright STEM Fellowship" in card
-    assert "Officially Verified Source" in card
+    assert "Officially verified" in card
     assert "U.S. Department of State" in card
-    assert "Official Trust Disclaimer" in card
     assert "STEM RADAR does not guarantee selection" in card
 
     # 3. List formatter
     opp_list = service.format_scholarships_list([opp], page=0, total_pages=1, level_filter="masters")
     assert "Verified STEM Scholarships" in opp_list
     assert "Fulbright STEM Fellowship" in opp_list
-    assert "Level: `MASTERS`" in opp_list
+    assert "Level: Masters" in opp_list
 
     # 4. Deadline tracker
     dl_text = service.format_deadline_tracker([opp])
-    assert "Upcoming STEM Application Deadlines" in dl_text
+    assert "Upcoming Application Deadlines" in dl_text
     assert "Fulbright STEM Fellowship" in dl_text
     assert "In 19 days" in dl_text or "In 20 days" in dl_text
 

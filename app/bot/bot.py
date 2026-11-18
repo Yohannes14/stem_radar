@@ -106,16 +106,16 @@ async def on_startup(application: Application) -> None:
     # Register flagship commands with Telegram Bot API so they appear cleanly in the [ / ] Menu button
     try:
         commands = [
-            BotCommand("start", "🚀 Welcome & Dashboard"),
-            BotCommand("menu", "🧭 Flagship 8-Hub Main Menu"),
-            BotCommand("discover", "🌅 Daily Pulse & Intelligence Briefing"),
-            BotCommand("stem", "🔬 12 Foundational STEM Disciplines"),
-            BotCommand("research", "📄 arXiv Papers & AI Explanations"),
-            BotCommand("student", "🎓 Scholarships & Academic Hub"),
-            BotCommand("learn", "🧠 STEM Academy & Interactive Lessons"),
-            BotCommand("search", "🔍 Unified AI & Live Web Search"),
-            BotCommand("myspace", "👤 Bookmarks, Subscriptions & Settings"),
-            BotCommand("help", "📚 Complete Command Catalog"),
+            BotCommand("start", "Welcome and main menu"),
+            BotCommand("menu", "Open main menu"),
+            BotCommand("discover", "Daily briefing, trending, and radar"),
+            BotCommand("stem", "Browse 12 STEM disciplines"),
+            BotCommand("research", "arXiv papers and paper summaries"),
+            BotCommand("student", "Scholarships, universities, and courses"),
+            BotCommand("learn", "Lessons, roadmaps, and quizzes"),
+            BotCommand("search", "Search database and live web"),
+            BotCommand("myspace", "Saved items, watchlist, and settings"),
+            BotCommand("help", "Command reference"),
         ]
         await application.bot.set_my_commands(commands)
         logger.info("Registered Telegram bot menu commands successfully.")

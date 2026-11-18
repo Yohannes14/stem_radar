@@ -4,6 +4,7 @@ import logging
 import re
 from typing import Optional
 
+from app.bot.ui.design_system import AI_EDITORIAL_STYLE_INSTRUCTION
 from app.core.config import settings
 from app.database.models import Article
 from app.services.ai.adapters.openai_adapter import OpenAIAdapter
@@ -84,7 +85,8 @@ class AIService:
                 f"For political, regional, or policy topics, maintain strict journalistic neutrality, "
                 f"avoid editorial bias, and attribute claims clearly to the source. "
                 f"Never invent facts, benchmarks, casualties, or quotes. "
-                f"Clearly distinguish source facts from implications."
+                f"Clearly distinguish source facts from implications. "
+                f"{AI_EDITORIAL_STYLE_INSTRUCTION}"
             )
             prompt = (
                 f"Headline/Title: {article.title}\n"
@@ -500,19 +502,19 @@ class AIService:
             headline=f"Engineering Breakdown: {title}",
             target_audience=f"Software engineers, technical architects, and students interested in {cat}.",
             linkedin_post=(
-                f"🚀 Major development in {cat}:\n\n"
-                f"*{title}*\n\n"
-                f"💡 The Core Innovation:\n{desc}...\n\n"
-                f"🔍 Key Takeaway:\n"
+                f"Development in {cat}:\n\n"
+                f"{title}\n\n"
+                f"Summary:\n{desc}...\n\n"
+                f"Key takeaway:\n"
                 f"Demonstrates how architectural optimization directly reduces latency and compute constraints.\n\n"
                 f"Source: {source} ({article.url})\n\n"
                 f"#STEM #Technology #{cat.replace(' ', '')} #Engineering"
             ),
             carousel_slides=slides,
             video_script=VideoScript(
-                hook=f"Did you hear what just happened in {cat}?",
-                body=f"Engineers announced {title}. Here is how it works: {desc}... This changes how we build systems.",
-                call_to_action=f"Check the full paper on {source} and follow STEM RADAR for daily breakthroughs!",
+                hook=f"Key technical update in {cat}.",
+                body=f"Engineers announced {title}. Overview: {desc}...",
+                call_to_action=f"Read the full publication on {source}.",
             ),
             technical_vocabulary=[
                 VocabularyTerm(term=cat, definition=f"Core engineering discipline focused on {cat}."),

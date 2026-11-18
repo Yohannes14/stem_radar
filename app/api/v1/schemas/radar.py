@@ -40,7 +40,7 @@ class DomainVelocityItem(BaseModel):
     count: int = Field(..., description="Total articles collected")
     paper_count: int = Field(..., description="Scientific research papers collected")
     avg_score: float = Field(..., description="Average composite impact score")
-    momentum: str = Field(..., description="Momentum indicator: 🔥 Surging, 📈 Rising, ⚖️ Stable")
+    momentum: str = Field(..., description="Momentum indicator: Surging, Rising, Stable")
     top_headline: str = Field(..., description="Highest-scoring development headline")
 
 

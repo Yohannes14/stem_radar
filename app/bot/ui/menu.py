@@ -1,4 +1,4 @@
-"""Unified 12-section interactive Main Menu, sub-menus, and layout formatters for STEM RADAR."""
+"""Unified 8-Hub Main Menu dashboard, sub-menus, onboarding flows, and debounce controls."""
 
 import logging
 import re
@@ -9,13 +9,14 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 
 from app.bot.keyboards.navigation import nav_back_home_row
+from app.bot.ui.design_system import format_empty_state as _ds_empty_state
 from app.core.taxonomy import taxonomy
 
 logger = logging.getLogger(__name__)
 
-# Debounce tracking for rapid callback clicks
+# In-memory callback deduplication cache: {f"{user_id}:{callback_data}": timestamp}
 _RECENT_CALLBACKS: Dict[str, float] = {}
-DEBOUNCE_WINDOW_SECONDS = 0.6
+DEBOUNCE_WINDOW_SECONDS = 1.0
 
 
 def is_duplicate_callback(user_id: int, callback_data: str) -> bool:
@@ -24,7 +25,6 @@ def is_duplicate_callback(user_id: int, callback_data: str) -> bool:
     key = f"{user_id}:{callback_data}"
     last_time = _RECENT_CALLBACKS.get(key, 0.0)
 
-    # Periodic cleanup
     if len(_RECENT_CALLBACKS) > 1000:
         expired = [k for k, t in _RECENT_CALLBACKS.items() if now - t > 10.0]
         for k in expired:
@@ -58,9 +58,8 @@ async def safe_edit_or_reply(
         except Exception as exc:
             err_str = str(exc).lower()
             if "message is not modified" in err_str or "query is too old" in err_str:
-                return  # Safe idempotent update
+                return
             if "can't parse entities" in err_str and parse_mode is not None:
-                # Markdown entity syntax error: retry immediately as plain text
                 try:
                     await query.message.edit_text(
                         text=text,
@@ -86,7 +85,6 @@ async def safe_edit_or_reply(
             if "message is not modified" in err_str:
                 return
             if "can't parse entities" in err_str and parse_mode is not None:
-                # Fallback to plain text delivery
                 try:
                     await update.effective_message.reply_text(
                         text=text,
@@ -101,23 +99,23 @@ async def safe_edit_or_reply(
 
 
 def get_main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Generate the flagship 8-Hub interactive main menu dashboard."""
+    """Generate the 8-Hub interactive main menu dashboard."""
     buttons = [
         [
-            InlineKeyboardButton("🧭 Discover", callback_data="menu:discover"),
-            InlineKeyboardButton("🔬 STEM & Tech", callback_data="menu:stem_tech"),
+            InlineKeyboardButton("Discover", callback_data="menu:discover"),
+            InlineKeyboardButton("STEM & Tech", callback_data="menu:stem_tech"),
         ],
         [
-            InlineKeyboardButton("📄 Research", callback_data="menu:research"),
-            InlineKeyboardButton("🎓 Student Hub", callback_data="menu:student_hub"),
+            InlineKeyboardButton("Research", callback_data="menu:research"),
+            InlineKeyboardButton("Student Hub", callback_data="menu:student_hub"),
         ],
         [
-            InlineKeyboardButton("🧠 Learn STEM", callback_data="menu:learn"),
-            InlineKeyboardButton("💡 Projects & Labs", callback_data="menu:projects"),
+            InlineKeyboardButton("Learn", callback_data="menu:learn"),
+            InlineKeyboardButton("Projects", callback_data="menu:projects"),
         ],
         [
-            InlineKeyboardButton("🔍 Search & Web", callback_data="menu:search"),
-            InlineKeyboardButton("👤 My Space", callback_data="menu:myspace"),
+            InlineKeyboardButton("Search", callback_data="menu:search"),
+            InlineKeyboardButton("My Space", callback_data="menu:myspace"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
@@ -127,51 +125,51 @@ def get_legacy_main_menu_keyboard() -> InlineKeyboardMarkup:
     """Legacy 16-button menu keyboard retained for backward-compatibility tests."""
     buttons = [
         [
-            InlineKeyboardButton("📰 Latest News", callback_data="menu:news"),
-            InlineKeyboardButton("📈 Trending Tech", callback_data="menu:trending"),
+            InlineKeyboardButton("Latest News", callback_data="menu:news"),
+            InlineKeyboardButton("Trending", callback_data="menu:trending"),
         ],
         [
-            InlineKeyboardButton("🎓 Student Hub", callback_data="menu:student_hub"),
-            InlineKeyboardButton("🎁 Scholarships", callback_data="menu:scholarships"),
+            InlineKeyboardButton("Student Hub", callback_data="menu:student_hub"),
+            InlineKeyboardButton("Scholarships", callback_data="menu:scholarships"),
         ],
         [
-            InlineKeyboardButton("🇪🇹 Ethiopia Radar", callback_data="menu:ethiopia"),
-            InlineKeyboardButton("🌍 World & Politics", callback_data="menu:politics"),
+            InlineKeyboardButton("Ethiopia Tech", callback_data="menu:ethiopia"),
+            InlineKeyboardButton("Global & Policy", callback_data="menu:politics"),
         ],
         [
-            InlineKeyboardButton("🧠 AI Intelligence", callback_data="menu:ai"),
-            InlineKeyboardButton("📄 Research Papers", callback_data="menu:research"),
+            InlineKeyboardButton("AI Tools", callback_data="menu:ai"),
+            InlineKeyboardButton("Research Papers", callback_data="menu:research"),
         ],
         [
-            InlineKeyboardButton("🎓 Learn STEM", callback_data="menu:learn"),
-            InlineKeyboardButton("💡 Project Ideas", callback_data="menu:projects"),
+            InlineKeyboardButton("Learn STEM", callback_data="menu:learn"),
+            InlineKeyboardButton("Projects", callback_data="menu:projects"),
         ],
         [
-            InlineKeyboardButton("🎯 Tech Radar", callback_data="menu:radar"),
-            InlineKeyboardButton("🔍 Search Articles", callback_data="menu:search"),
+            InlineKeyboardButton("Tech Radar", callback_data="menu:radar"),
+            InlineKeyboardButton("Search", callback_data="menu:search"),
         ],
         [
-            InlineKeyboardButton("⭐ Saved Items", callback_data="menu:saved"),
-            InlineKeyboardButton("🏷️ My Interests", callback_data="menu:interests"),
+            InlineKeyboardButton("Saved Items", callback_data="menu:saved"),
+            InlineKeyboardButton("Subscriptions", callback_data="menu:interests"),
         ],
         [
-            InlineKeyboardButton("⚙️ Settings", callback_data="menu:settings"),
-            InlineKeyboardButton("❓ Help & Guide", callback_data="menu:help"),
+            InlineKeyboardButton("Settings", callback_data="menu:settings"),
+            InlineKeyboardButton("Help", callback_data="menu:help"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
 
 
 def get_discover_hub_keyboard() -> InlineKeyboardMarkup:
-    """Sub-menu keyboard for the Discover Hub (Briefing, Trends, Radar, Velocity)."""
+    """Sub-menu keyboard for the Discover Hub."""
     buttons = [
         [
-            InlineKeyboardButton("🌅 Executive Briefing", callback_data="menu:briefing"),
-            InlineKeyboardButton("🔥 Trending Breakthroughs", callback_data="menu:trending"),
+            InlineKeyboardButton("Daily Briefing", callback_data="menu:briefing"),
+            InlineKeyboardButton("Trending", callback_data="menu:trending"),
         ],
         [
-            InlineKeyboardButton("🎯 Technology Radar", callback_data="menu:radar"),
-            InlineKeyboardButton("⚡ Domain Velocity", callback_data="menu:velocity"),
+            InlineKeyboardButton("Technology Radar", callback_data="menu:radar"),
+            InlineKeyboardButton("Domain Velocity", callback_data="menu:velocity"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]
@@ -179,38 +177,38 @@ def get_discover_hub_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_stem_tech_hub_keyboard() -> InlineKeyboardMarkup:
-    """Sub-menu keyboard for exploring the 12 primary STEM disciplines and regional tags."""
+    """Sub-menu keyboard for exploring the 12 primary STEM disciplines and regional domains."""
     buttons = [
         [
-            InlineKeyboardButton("🤖 AI & Data", callback_data="cat:ai"),
-            InlineKeyboardButton("💻 Computer Science", callback_data="cat:computer-science"),
+            InlineKeyboardButton("AI & Data", callback_data="cat:ai"),
+            InlineKeyboardButton("Computer Science", callback_data="cat:computer-science"),
         ],
         [
-            InlineKeyboardButton("⚙️ Software Systems", callback_data="cat:software-engineering"),
-            InlineKeyboardButton("🛡️ Cybersecurity", callback_data="cat:cybersecurity"),
+            InlineKeyboardButton("Software Engineering", callback_data="cat:software-engineering"),
+            InlineKeyboardButton("Cybersecurity", callback_data="cat:cybersecurity"),
         ],
         [
-            InlineKeyboardButton("🦾 Robotics", callback_data="cat:robotics"),
-            InlineKeyboardButton("⚡ Electronics & IoT", callback_data="cat:electronics"),
+            InlineKeyboardButton("Robotics", callback_data="cat:robotics"),
+            InlineKeyboardButton("Electronics & IoT", callback_data="cat:electronics"),
         ],
         [
-            InlineKeyboardButton("🏗️ Applied Engineering", callback_data="cat:mechanical-engineering"),
-            InlineKeyboardButton("🔬 Natural Sciences", callback_data="cat:physics"),
+            InlineKeyboardButton("Engineering", callback_data="cat:mechanical-engineering"),
+            InlineKeyboardButton("Natural Sciences", callback_data="cat:physics"),
         ],
         [
-            InlineKeyboardButton("🚀 Space Tech", callback_data="cat:space-technology"),
-            InlineKeyboardButton("🌱 Energy & Climate", callback_data="cat:renewable-energy"),
+            InlineKeyboardButton("Space & Aerospace", callback_data="cat:space-technology"),
+            InlineKeyboardButton("Energy & Climate", callback_data="cat:renewable-energy"),
         ],
         [
-            InlineKeyboardButton("🧬 Biotechnology", callback_data="cat:biotechnology"),
-            InlineKeyboardButton("✨ Frontier Tech", callback_data="cat:emerging-tech"),
+            InlineKeyboardButton("Biotechnology", callback_data="cat:biotechnology"),
+            InlineKeyboardButton("Emerging Tech", callback_data="cat:emerging-tech"),
         ],
         [
-            InlineKeyboardButton("🇪🇹 Ethiopia Tech", callback_data="cat:ethiopia-tech"),
-            InlineKeyboardButton("🌍 Global & Policy", callback_data="cat:global-politics"),
+            InlineKeyboardButton("Ethiopia Tech", callback_data="cat:ethiopia-tech"),
+            InlineKeyboardButton("Global & Policy", callback_data="cat:global-politics"),
         ],
         [
-            InlineKeyboardButton("🌐 All Recent News", callback_data="cat:all"),
+            InlineKeyboardButton("All Recent News", callback_data="cat:all"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]
@@ -218,23 +216,23 @@ def get_stem_tech_hub_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_research_hub_keyboard() -> InlineKeyboardMarkup:
-    """Sub-menu keyboard for Research & Innovation (arXiv, Radar, Paper Explainer, Impact)."""
+    """Sub-menu keyboard for Research & Innovation."""
     buttons = [
         [
-            InlineKeyboardButton("📄 All arXiv Literature", callback_data="menu:arxiv_papers"),
-            InlineKeyboardButton("🎯 Technology Radar", callback_data="menu:radar"),
+            InlineKeyboardButton("All arXiv Papers", callback_data="menu:arxiv_papers"),
+            InlineKeyboardButton("Technology Radar", callback_data="menu:radar"),
         ],
         [
-            InlineKeyboardButton("🤖 AI & ML (cs.AI)", callback_data="arxiv_cat:ai"),
-            InlineKeyboardButton("🦾 Robotics (cs.RO)", callback_data="arxiv_cat:robotics"),
+            InlineKeyboardButton("AI & ML (cs.AI)", callback_data="arxiv_cat:ai"),
+            InlineKeyboardButton("Robotics (cs.RO)", callback_data="arxiv_cat:robotics"),
         ],
         [
-            InlineKeyboardButton("💻 Systems & SE (cs.SE)", callback_data="arxiv_cat:computer-science"),
-            InlineKeyboardButton("💡 Explain Paper/Concept", callback_data="menu:ai_explain"),
+            InlineKeyboardButton("Systems (cs.SE)", callback_data="arxiv_cat:computer-science"),
+            InlineKeyboardButton("Explain Concept", callback_data="menu:ai_explain"),
         ],
         [
-            InlineKeyboardButton("📊 Tech Impact Assessment", callback_data="menu:ai_impact"),
-            InlineKeyboardButton("🎨 STEM Content Package", callback_data="menu:ai_content"),
+            InlineKeyboardButton("Impact Assessment", callback_data="menu:ai_impact"),
+            InlineKeyboardButton("Content Package", callback_data="menu:ai_content"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]
@@ -242,26 +240,26 @@ def get_research_hub_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_myspace_keyboard() -> InlineKeyboardMarkup:
-    """Sub-menu keyboard for My Space (Bookmarks, Topics, Watchlists, Settings)."""
+    """Sub-menu keyboard for My Space."""
     buttons = [
         [
-            InlineKeyboardButton("⭐ Saved Bookmarks", callback_data="menu:saved"),
-            InlineKeyboardButton("🏷️ Subscribed Domains", callback_data="menu:interests"),
+            InlineKeyboardButton("Saved Items", callback_data="menu:saved"),
+            InlineKeyboardButton("Subscriptions", callback_data="menu:interests"),
         ],
         [
-            InlineKeyboardButton("👁️ Technology Watchlist", callback_data="menu:watchlist"),
-            InlineKeyboardButton("🏆 Learning Progress", callback_data="menu:progress"),
+            InlineKeyboardButton("Watchlist", callback_data="menu:watchlist"),
+            InlineKeyboardButton("Learning Progress", callback_data="menu:progress"),
         ],
         [
-            InlineKeyboardButton("⚙️ Settings & Alerts", callback_data="menu:settings"),
-            InlineKeyboardButton("💬 Send Feedback", callback_data="menu:feedback"),
+            InlineKeyboardButton("Settings", callback_data="menu:settings"),
+            InlineKeyboardButton("Feedback", callback_data="menu:feedback"),
         ],
         [
-            InlineKeyboardButton("📦 Export My Data", callback_data="menu:export"),
-            InlineKeyboardButton("🔒 Privacy & Rights", callback_data="menu:privacy"),
+            InlineKeyboardButton("Export Data", callback_data="menu:export"),
+            InlineKeyboardButton("Privacy", callback_data="menu:privacy"),
         ],
         [
-            InlineKeyboardButton("❓ Help & Commands", callback_data="menu:help"),
+            InlineKeyboardButton("Help & Commands", callback_data="menu:help"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]
@@ -272,10 +270,10 @@ def get_onboarding_welcome_keyboard() -> InlineKeyboardMarkup:
     """Entry keyboard for first-time user onboarding."""
     buttons = [
         [
-            InlineKeyboardButton("🎯 Personalize My Feed (30s)", callback_data="onboard:interests"),
+            InlineKeyboardButton("Personalize Feed", callback_data="onboard:interests"),
         ],
         [
-            InlineKeyboardButton("🚀 Skip & Open Main Menu", callback_data="onboard:skip"),
+            InlineKeyboardButton("Skip to Home", callback_data="onboard:skip"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
@@ -289,10 +287,10 @@ def get_onboarding_interests_keyboard(selected_slugs: Optional[List[str]] = None
     rows: List[List[InlineKeyboardButton]] = []
     current_row: List[InlineKeyboardButton] = []
 
-    for name, slug, emoji in domains:
-        mark = "✅ " if slug in selected else ""
-        short_name = name.split("&")[0].strip()[:18]
-        btn_text = f"{mark}{emoji} {short_name}"
+    for name, slug, _emoji in domains:
+        mark = "• " if slug in selected else ""
+        short_name = name.split("&")[0].strip()[:20]
+        btn_text = f"{mark}{short_name}"
         current_row.append(InlineKeyboardButton(btn_text, callback_data=f"onboard:toggle:{slug}"))
         if len(current_row) == 2:
             rows.append(current_row)
@@ -303,8 +301,8 @@ def get_onboarding_interests_keyboard(selected_slugs: Optional[List[str]] = None
 
     rows.append(
         [
-            InlineKeyboardButton("Continue to Goals ➡️", callback_data="onboard:goals"),
-            InlineKeyboardButton("Skip ➡️", callback_data="onboard:skip"),
+            InlineKeyboardButton("Continue", callback_data="onboard:goals"),
+            InlineKeyboardButton("Skip", callback_data="onboard:skip"),
         ]
     )
     return InlineKeyboardMarkup(rows)
@@ -314,34 +312,34 @@ def get_onboarding_goals_keyboard() -> InlineKeyboardMarkup:
     """Goal/role selection keyboard for onboarding."""
     buttons = [
         [
-            InlineKeyboardButton("🎓 Student (Scholarships & Academics)", callback_data="onboard:track:student"),
+            InlineKeyboardButton("Student (Scholarships & Courses)", callback_data="onboard:track:student"),
         ],
         [
-            InlineKeyboardButton("🔬 Academic Researcher / Scientist", callback_data="onboard:track:researcher"),
+            InlineKeyboardButton("Researcher (Papers & Science)", callback_data="onboard:track:researcher"),
         ],
         [
-            InlineKeyboardButton("💻 Software & Systems Engineer", callback_data="onboard:track:engineer"),
+            InlineKeyboardButton("Engineer (Systems & Dev Tools)", callback_data="onboard:track:engineer"),
         ],
         [
-            InlineKeyboardButton("📚 Curious Technical Learner", callback_data="onboard:track:learner"),
+            InlineKeyboardButton("Self-Learner (Lessons & Quizzes)", callback_data="onboard:track:learner"),
         ],
         [
-            InlineKeyboardButton("🚀 Complete Onboarding", callback_data="onboard:skip"),
+            InlineKeyboardButton("Finish Setup", callback_data="onboard:skip"),
         ],
     ]
     return InlineKeyboardMarkup(buttons)
 
 
 def get_ai_hub_keyboard() -> InlineKeyboardMarkup:
-    """Sub-menu keyboard for AI Intelligence features."""
+    """Sub-menu keyboard for AI tools."""
     buttons = [
         [
-            InlineKeyboardButton("📝 Summarize Latest", callback_data="menu:ai_summarize"),
-            InlineKeyboardButton("💡 Explain Concept", callback_data="menu:ai_explain"),
+            InlineKeyboardButton("Summarize Latest", callback_data="menu:ai_summarize"),
+            InlineKeyboardButton("Explain Concept", callback_data="menu:ai_explain"),
         ],
         [
-            InlineKeyboardButton("📊 Technology Impact", callback_data="menu:ai_impact"),
-            InlineKeyboardButton("🎨 STEM Content Kit", callback_data="menu:ai_content"),
+            InlineKeyboardButton("Impact Assessment", callback_data="menu:ai_impact"),
+            InlineKeyboardButton("Content Package", callback_data="menu:ai_content"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]
@@ -349,32 +347,32 @@ def get_ai_hub_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_learn_hub_keyboard() -> InlineKeyboardMarkup:
-    """Sub-menu keyboard for the STEM Learning Academy."""
+    """Sub-menu keyboard for Learn STEM."""
     buttons = [
         [
-            InlineKeyboardButton("🐣 Beginner Path", callback_data="learn_lvl:beginner"),
-            InlineKeyboardButton("🧑‍💻 Intermediate", callback_data="learn_lvl:intermediate"),
-            InlineKeyboardButton("🔬 Advanced Track", callback_data="learn_lvl:advanced"),
+            InlineKeyboardButton("Beginner", callback_data="learn_lvl:beginner"),
+            InlineKeyboardButton("Intermediate", callback_data="learn_lvl:intermediate"),
+            InlineKeyboardButton("Advanced", callback_data="learn_lvl:advanced"),
         ],
         [
-            InlineKeyboardButton("🤖 AI & LLMs", callback_data="ed_learn:Artificial Intelligence"),
-            InlineKeyboardButton("🦾 Robotics", callback_data="ed_learn:Robotics"),
+            InlineKeyboardButton("AI & LLMs", callback_data="ed_learn:Artificial Intelligence"),
+            InlineKeyboardButton("Robotics", callback_data="ed_learn:Robotics"),
         ],
         [
-            InlineKeyboardButton("⚛️ Quantum Computing", callback_data="ed_learn:Quantum Computing"),
-            InlineKeyboardButton("🛡️ Cybersecurity", callback_data="ed_learn:Cybersecurity"),
+            InlineKeyboardButton("Quantum Computing", callback_data="ed_learn:Quantum Computing"),
+            InlineKeyboardButton("Cybersecurity", callback_data="ed_learn:Cybersecurity"),
         ],
         [
-            InlineKeyboardButton("⚡ Embedded Systems", callback_data="ed_learn:Embedded Systems"),
-            InlineKeyboardButton("💻 Software Systems", callback_data="ed_learn:Software Architecture"),
+            InlineKeyboardButton("Embedded Systems", callback_data="ed_learn:Embedded Systems"),
+            InlineKeyboardButton("Software Architecture", callback_data="ed_learn:Software Architecture"),
         ],
         [
-            InlineKeyboardButton("📝 Interactive Quiz", callback_data="menu:learn_quiz"),
-            InlineKeyboardButton("⚖️ Compare Concepts", callback_data="menu:learn_compare"),
+            InlineKeyboardButton("Quiz", callback_data="menu:learn_quiz"),
+            InlineKeyboardButton("Compare Concepts", callback_data="menu:learn_compare"),
         ],
         [
-            InlineKeyboardButton("🗺️ Curated Roadmaps", callback_data="menu:roadmaps"),
-            InlineKeyboardButton("🏆 Learning Progress", callback_data="menu:progress"),
+            InlineKeyboardButton("Roadmaps", callback_data="menu:roadmaps"),
+            InlineKeyboardButton("Progress", callback_data="menu:progress"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]
@@ -382,28 +380,28 @@ def get_learn_hub_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_projects_hub_keyboard() -> InlineKeyboardMarkup:
-    """Sub-menu keyboard for generating practical engineering portfolio projects."""
+    """Sub-menu keyboard for engineering project recommendations."""
     buttons = [
         [
-            InlineKeyboardButton("🐣 Beginner Labs", callback_data="prj_diff:beginner"),
-            InlineKeyboardButton("🧑‍💻 Intermediate Labs", callback_data="prj_diff:intermediate"),
-            InlineKeyboardButton("🔬 Advanced Labs", callback_data="prj_diff:advanced"),
+            InlineKeyboardButton("Beginner", callback_data="prj_diff:beginner"),
+            InlineKeyboardButton("Intermediate", callback_data="prj_diff:intermediate"),
+            InlineKeyboardButton("Advanced", callback_data="prj_diff:advanced"),
         ],
         [
-            InlineKeyboardButton("🤖 AI & LLMs", callback_data="prj_topic:Artificial Intelligence"),
-            InlineKeyboardButton("🦾 Robotics", callback_data="prj_topic:Robotics"),
+            InlineKeyboardButton("AI & LLMs", callback_data="prj_topic:Artificial Intelligence"),
+            InlineKeyboardButton("Robotics", callback_data="prj_topic:Robotics"),
         ],
         [
-            InlineKeyboardButton("🛡️ Cybersecurity", callback_data="prj_topic:Cybersecurity"),
-            InlineKeyboardButton("⚡ Embedded Systems", callback_data="prj_topic:Embedded Systems"),
+            InlineKeyboardButton("Cybersecurity", callback_data="prj_topic:Cybersecurity"),
+            InlineKeyboardButton("Embedded Systems", callback_data="prj_topic:Embedded Systems"),
         ],
         [
-            InlineKeyboardButton("💻 Software Systems", callback_data="prj_topic:Software Architecture"),
-            InlineKeyboardButton("⚛️ Quantum Computing", callback_data="prj_topic:Quantum Computing"),
+            InlineKeyboardButton("Software Architecture", callback_data="prj_topic:Software Architecture"),
+            InlineKeyboardButton("Quantum Computing", callback_data="prj_topic:Quantum Computing"),
         ],
         [
-            InlineKeyboardButton("🎲 Random Lab Idea", callback_data="prj_rand"),
-            InlineKeyboardButton("💼 Portfolio Strategy", callback_data="menu:portfolio_tips"),
+            InlineKeyboardButton("Random Project", callback_data="prj_rand"),
+            InlineKeyboardButton("Portfolio Guide", callback_data="menu:portfolio_tips"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]
@@ -414,14 +412,14 @@ def get_search_shortcuts_keyboard() -> InlineKeyboardMarkup:
     """Quick search shortcuts and navigation."""
     buttons = [
         [
-            InlineKeyboardButton("🤖 #AI", callback_data="search_kw:ai"),
-            InlineKeyboardButton("🦾 #Robotics", callback_data="search_kw:robotics"),
-            InlineKeyboardButton("⚛️ #Quantum", callback_data="search_kw:quantum"),
+            InlineKeyboardButton("AI", callback_data="search_kw:ai"),
+            InlineKeyboardButton("Robotics", callback_data="search_kw:robotics"),
+            InlineKeyboardButton("Quantum", callback_data="search_kw:quantum"),
         ],
         [
-            InlineKeyboardButton("🧬 #Biotech", callback_data="search_kw:biotech"),
-            InlineKeyboardButton("🛡️ #Security", callback_data="search_kw:cybersecurity"),
-            InlineKeyboardButton("🚀 #Space", callback_data="search_kw:space"),
+            InlineKeyboardButton("Biotech", callback_data="search_kw:biotech"),
+            InlineKeyboardButton("Cybersecurity", callback_data="search_kw:cybersecurity"),
+            InlineKeyboardButton("Space", callback_data="search_kw:space"),
         ],
         nav_back_home_row(back_target="menu:home", home_target="menu:home"),
     ]
@@ -429,7 +427,7 @@ def get_search_shortcuts_keyboard() -> InlineKeyboardMarkup:
 
 
 def get_interests_keyboard(active_slugs: Optional[List[str]] = None) -> InlineKeyboardMarkup:
-    """Interactive multi-category selector keyboard with active checkmarks."""
+    """Interactive multi-category selector keyboard with active indicators."""
     selected = set(active_slugs or [])
     categories = [
         ("AI & LLMs", "ai"),
@@ -441,17 +439,17 @@ def get_interests_keyboard(active_slugs: Optional[List[str]] = None) -> InlineKe
         ("Physics", "physics"),
         ("Space Tech", "space-technology"),
         ("Clean Energy", "renewable-energy"),
-        ("🇪🇹 Ethiopia Tech", "ethiopia-tech"),
-        ("🇪🇹 Ethiopian Affairs", "ethiopia-affairs"),
-        ("🌍 Global Politics", "global-politics"),
-        ("⚖️ Tech Policy", "tech-policy"),
+        ("Ethiopia Tech", "ethiopia-tech"),
+        ("Ethiopian Affairs", "ethiopia-affairs"),
+        ("Global Politics", "global-politics"),
+        ("Tech Policy", "tech-policy"),
     ]
 
     rows: List[List[InlineKeyboardButton]] = []
     current_row: List[InlineKeyboardButton] = []
 
     for name, slug in categories:
-        mark = "✅ " if slug in selected else ""
+        mark = "• " if slug in selected else ""
         btn_text = f"{mark}{name}"
         current_row.append(InlineKeyboardButton(btn_text, callback_data=f"pref_cat:{slug}"))
         if len(current_row) == 2:
@@ -461,7 +459,7 @@ def get_interests_keyboard(active_slugs: Optional[List[str]] = None) -> InlineKe
     if current_row:
         rows.append(current_row)
 
-    rows.append([InlineKeyboardButton("🌐 Reset to All Domains", callback_data="pref_cat:all")])
+    rows.append([InlineKeyboardButton("Reset to All Domains", callback_data="pref_cat:all")])
     rows.append(nav_back_home_row(back_target="menu:home", home_target="menu:home"))
     return InlineKeyboardMarkup(rows)
 
@@ -470,7 +468,7 @@ def get_interests_keyboard(active_slugs: Optional[List[str]] = None) -> InlineKe
 
 
 def format_main_menu(user_name: str = "Researcher", stats: Optional[Dict[str, int]] = None) -> str:
-    """Format the flagship welcome & dashboard text."""
+    """Format the main menu dashboard text."""
     total_articles = stats.get("total_articles", 0) if stats else 0
     active_sources = stats.get("active_sources", 0) if stats else 0
     user_saved = stats.get("user_saved_articles", 0) if stats else 0
@@ -478,122 +476,105 @@ def format_main_menu(user_name: str = "Researcher", stats: Optional[Dict[str, in
     safe_user_name = re.sub(r"[*_`]", "", user_name or "Researcher").strip() or "Researcher"
 
     lines = [
-        f"📡 *Welcome to STEM RADAR, {safe_user_name}!* 🚀\n",
-        "Your AI-powered intelligence platform collecting, analyzing, and organizing "
-        "the latest developments in Science, Technology, Engineering, and Mathematics.\n",
-        "📊 *Live Platform Telemetry:*",
-        f"• *Monitored Sources:* `{active_sources or 13}` verified feeds & APIs",
-        f"• *Indexed Articles:* `{total_articles}` research records",
-        "• *Intelligence Domains:* `23 Specialized Topics & Regions`",
+        f"*STEM RADAR* — {safe_user_name}\n",
+        "Technology, scientific research, academic opportunities, and STEM learning.\n",
+        f"Active sources: {active_sources or 13}",
+        f"Indexed records: {total_articles}",
+        "Coverage: 12 STEM disciplines, 4 regional and policy domains",
     ]
 
     if verified_opps > 0:
-        lines.append(f"• *Student Hub:* `{verified_opps}` verified scholarships & awards")
+        lines.append(f"Verified opportunities: {verified_opps}")
 
     if user_saved > 0:
-        lines.append(f"• *Your Bookmarks:* `{user_saved}` articles saved")
+        lines.append(f"Saved items: {user_saved}")
 
-    lines.append("\n*Tap a section below to explore:*")
+    lines.append("\nSelect a section:")
     return "\n".join(lines)
 
 
 def format_ai_hub_intro() -> str:
-    """Format introduction for the AI Intelligence suite."""
+    """Format introduction for AI tools."""
     return (
-        "🧠 *STEM RADAR — AI Intelligence Hub*\n\n"
-        "Leverage specialized AI models to extract insights from technical publications:\n\n"
-        "• *Executive Summaries:* 3-bullet core takeaways and impact analysis.\n"
-        "• *Concept Explanations:* Multi-tier breakdowns for any engineering or scientific concept.\n"
-        "• *Technology Impact:* Economic, industry, and academic horizon assessment.\n"
-        "• *STEM Content Kit:* Formatted posts, carousels, and glossaries for educators & researchers.\n\n"
-        "Select an AI tool below or pass `/explain <concept>` at any time:"
+        "*AI Analysis Tools*\n\n"
+        "- Summarize Latest: Key points and context from recent articles.\n"
+        "- Explain Concept: Beginner, intermediate, or advanced breakdowns.\n"
+        "- Impact Assessment: Technical, industry, and ethical considerations.\n"
+        "- Content Package: Outlines, scripts, and vocabulary from a topic.\n\n"
+        "Select a tool below, or run `/explain <concept>` directly."
     )
 
 
 def format_learn_hub_intro() -> str:
-    """Format introduction for the STEM Learning Academy."""
+    """Format introduction for Learn STEM."""
     return (
-        "🎓 *STEM Learning Academy*\n\n"
-        "Master complex technical disciplines through guided, step-by-step AI lessons:\n\n"
-        "• *Structured Paths:* Beginner, Intermediate, and Advanced engineering curricula.\n"
-        "• *Interactive Lessons:* Concept overview, architecture, code, and key takeaways.\n"
-        "• *Topic Roadmaps:* 4-phase structured engineering learning roadmaps.\n"
-        "• *Comprehension Quizzes:* Test your technical knowledge with instant scoring.\n"
-        "• *Concept Comparisons:* Contrast architectural paradigms (e.g., Transformers vs RNNs).\n\n"
-        "Choose a difficulty path or discipline below to begin learning:"
+        "*Learn STEM*\n\n"
+        "Structured lessons, engineering roadmaps, quizzes, and concept comparisons "
+        "across core science and engineering fields.\n\n"
+        "Choose a difficulty level or topic below, or run `/learn <topic>`."
     )
 
 
 def format_projects_hub_intro() -> str:
-    """Format introduction for the STEM Projects & Labs Hub."""
+    """Format introduction for the STEM Projects Hub."""
     return (
-        "💡 *STEM Portfolio Project Generator — Engineering Labs*\n\n"
-        "Build practical, production-grade engineering systems that prove your technical depth:\n\n"
-        "• *Portfolio-Ready Specs:* Real problem statements, architecture, and tech stacks.\n"
-        "• *Step-by-Step Milestones:* Incremental implementation phases with verifiable goals.\n"
-        "• *Testing & Benchmarking:* Concrete verification steps and performance metrics.\n"
-        "• *Pitfall Prevention:* Avoid common architectural, memory, and hardware traps.\n"
-        "• *Recruiter Impact:* Targeted portfolio talking points for engineering interviews.\n\n"
-        "Choose a track or discipline below, or run `/project <topic>` for any custom lab:"
+        "*STEM Projects*\n\n"
+        "Practical engineering project specifications with architecture notes, "
+        "implementation milestones, verification tests, and common pitfalls.\n\n"
+        "Select a level or discipline below, or run `/project <topic>`."
     )
 
 
 def format_search_intro() -> str:
-    """Format search instruction screen with keyword hints and multi-modal discovery options."""
+    """Format search instruction screen."""
     return (
-        "🔍 *Search STEM RADAR Intelligence & Web Discovery*\n\n"
-        "Search indexed technical intelligence, live scientific repositories, or synthesize AI briefings:\n\n"
-        "• `/search <keyword>` — Instant multi-domain database search (Articles, arXiv, Scholarships)\n"
-        "• `/websearch <query>` — Live web & academic discovery via Semantic Scholar, Google & Brave\n"
-        "• `/search_ai <topic>` — Grounded multi-source AI synthesis with citations & takeaways\n\n"
-        "_Example:_ `/search humanoid robotics`\n"
-        "_Example:_ `/search_ai quantum key distribution`\n\n"
-        "Or tap one of the popular topic shortcuts below:"
+        "*Search*\n\n"
+        "Search indexed records, live web sources, or generate a cited synthesis:\n\n"
+        "- `/search <query>` — Search indexed articles, papers, and scholarships\n"
+        "- `/websearch <query>` — Live web and academic search\n"
+        "- `/search_ai <topic>` — Cited multi-source summary\n\n"
+        "Examples:\n"
+        "`/search humanoid robotics`\n"
+        "`/search_ai quantum key distribution`\n\n"
+        "Or select a topic below:"
     )
 
 
 def format_discover_hub_intro() -> str:
     """Format introduction for the Discover Hub."""
     return (
-        "🧭 *STEM RADAR — Daily Discovery & Pulse*\n\n"
-        "Your real-time lens into high-impact breakthroughs, technology momentum, and strategic intelligence:\n\n"
-        "• *Executive Briefing:* Personalized 3-minute morning intelligence brief.\n"
-        "• *Trending Breakthroughs:* High-impact stories ranked by composite scoring.\n"
-        "• *Technology Radar:* Emerging technology mapped across 4 horizons (Adopt, Trial, Assess, Hold).\n"
-        "• *Domain Velocity:* Publishing momentum across 12 foundational STEM disciplines.\n\n"
-        "Select a discovery channel below:"
+        "*Discover*\n\n"
+        "- Daily Briefing: Curated summary based on your subscriptions.\n"
+        "- Trending: High-signal developments ranked by recency and impact.\n"
+        "- Technology Radar: Technologies grouped by adoption stage (Adopt, Trial, Assess, Hold).\n"
+        "- Domain Velocity: Recent publishing momentum across STEM fields.\n\n"
+        "Select a view:"
     )
 
 
 def format_stem_tech_hub_intro() -> str:
-    """Format introduction for the STEM & Technology Disciplines Hub."""
+    """Format introduction for the STEM & Technology Hub."""
     return (
-        "🔬 *STEM & Technology Disciplines*\n\n"
-        "Explore peer-reviewed research, engineering breakthroughs, and technical reporting "
-        "across 12 foundational STEM disciplines.\n\n"
-        "Select a discipline below to view curated intelligence:"
+        "*STEM & Technology*\n\n"
+        "Browse recent articles and technical reports across 12 STEM disciplines "
+        "and regional policy feeds.\n\n"
+        "Select a category:"
     )
 
 
 def format_research_hub_intro() -> str:
     """Format introduction for the Research & Innovation Hub."""
     return (
-        "🔬 *Research & Innovation Hub*\n\n"
-        "Explore peer-reviewed scientific breakthroughs, preprint arXiv literature, and AI paper breakdowns:\n\n"
-        "• *arXiv Literature:* Pre-print scientific research in AI, Robotics, Systems & Natural Sciences.\n"
-        "• *Paper Deep Dives:* 6-dimension empirical breakdowns (Problem, Method, Findings, Limits, Questions).\n"
-        "• *Technology Radar:* Emerging technology maturity and horizon tracking.\n"
-        "• *Concept Explanations:* Multi-tier breakdowns for complex mathematical and algorithmic principles.\n"
-        "• *Technology Impact:* Economic, industry, and academic horizon assessment.\n\n"
-        "⚠️ *Academic Integrity Policy:*\n"
-        "_AI-generated summaries are analytical study aids and do not substitute for reading "
-        "original publications._\n\n"
-        "Select a research channel below or use `/research <topic>` or `/explain <concept>` anytime:"
+        "*Research & Innovation*\n\n"
+        "Browse recent arXiv preprints, structured paper summaries, and concept explanations.\n\n"
+        "_Note: AI-assisted paper summaries are study aids and do not replace reading "
+        "the original publication._\n\n"
+        "Select a section below, or run `/research <topic>` or `/explain <concept>`."
     )
 
 
 def format_myspace_intro(user_name: str = "Researcher", stats: Optional[Dict[str, int]] = None) -> str:
-    """Format introduction for the My Space personal control center."""
+    """Format introduction for My Space."""
     safe_name = re.sub(r"[*_`]", "", user_name or "Researcher").strip() or "Researcher"
     user_saved = stats.get("user_saved_articles", 0) if stats else 0
     user_watchlists = stats.get("user_watchlist_keywords", 0) if stats else 0
@@ -601,16 +582,13 @@ def format_myspace_intro(user_name: str = "Researcher", stats: Optional[Dict[str
     user_notifs = stats.get("user_notifications_received", 0) if stats else 0
 
     lines = [
-        f"👤 *My Space — Personal Hub, {safe_name}*\n",
-        "Your personal control center to manage saved research, topic subscriptions, "
-        "active keyword watchlists, and privacy settings.\n",
-        "📊 *Your Personal Status:*",
-        f"• *Saved Items:* `{user_saved}` articles & papers bookmarked",
-        f"• *Active Watchlists:* `{user_watchlists}` tracked technology keywords",
-        f"• *Learning Lab Mastery:* `{user_quizzes}` quizzes completed",
-        f"• *Intelligence Delivered:* `{user_notifs}` briefings & notifications received",
-        "• *Telemetry & Tracking:* Active",
-        "\nSelect a personal management section below:",
+        f"*My Space* — {safe_name}\n",
+        "Manage saved items, topic subscriptions, keyword watchlists, notifications, and data controls.\n",
+        f"Saved items: {user_saved}",
+        f"Watchlist keywords: {user_watchlists}",
+        f"Quizzes completed: {user_quizzes}",
+        f"Notifications delivered: {user_notifs}",
+        "\nSelect an option:",
     ]
     return "\n".join(lines)
 
@@ -619,35 +597,34 @@ def format_onboarding_welcome(user_name: str = "Researcher") -> str:
     """Format welcoming message for first-time onboarding."""
     safe_name = re.sub(r"[*_`]", "", user_name or "Researcher").strip() or "Researcher"
     return (
-        f"👋 *Welcome to STEM RADAR, {safe_name}!* 🚀\n\n"
-        "Your AI-powered intelligence platform collecting, analyzing, and organizing "
-        "the latest developments in Science, Technology, Engineering, and Mathematics.\n\n"
-        "Take **30 seconds** to personalize your feed so you only see what matters most to you!"
+        f"*Welcome to STEM RADAR do, {safe_name}*\n\n"
+        "STEM RADAR tracks developments across science, engineering, research papers, "
+        "and verified academic opportunities.\n\n"
+        "Take *30 seconds* to select your topics so briefings and feeds focus on your interests."
     )
 
 
 def format_onboarding_interests() -> str:
     """Format message for onboarding topic selection."""
     return (
-        "🎯 *Step 1 of 2: What STEM domains interest you most?*\n\n"
-        "Tap to toggle the disciplines you'd like prioritized in your daily briefings, "
-        "recommendations, and alerts.\n\n"
-        "You can choose multiple topics:"
+        "*Step 1 of 2 — Select your STEM topics*\n\n"
+        "Choose one or more disciplines to prioritize in your briefings and alerts. "
+        "You can change these later in Settings."
     )
 
 
 def format_onboarding_goals() -> str:
     """Format message for onboarding goal/track selection."""
     return (
-        "🎯 *Step 2 of 2: What best describes your primary goal?*\n\n"
-        "This helps us tailor opportunity suggestions, educational roadmaps, and difficulty levels:\n\n"
-        "• *Student:* Focus on verified scholarships, university admissions & free courses.\n"
-        "• *Researcher:* Focus on arXiv literature, paper breakdowns & scientific breakthroughs.\n"
-        "• *Engineer:* Focus on production architectures, robotics & developer tools.\n"
-        "• *Self-Learner:* Focus on interactive lessons, quizzes & roadmaps."
+        "*Step 2 of 2 — Primary focus*\n\n"
+        "Choose what best matches how you plan to use STEM RADAR:\n\n"
+        "- Student: Scholarships, university admissions, and free courses.\n"
+        "- Researcher: arXiv preprints and structured paper summaries.\n"
+        "- Engineer: Systems engineering, robotics, and developer tooling.\n"
+        "- Self-Learner: Guided lessons, roadmaps, and quizzes."
     )
 
 
 def format_empty_state(title: str, message: str, action_hint: str = "Run `/collect` to fetch updates.") -> str:
     """Format a consistent empty state card with guidance."""
-    return f"📭 *{title}*\n\n{message}\n\n💡 *Next Step:* {action_hint}"
+    return _ds_empty_state(title=title, message=message, action_hint=action_hint)

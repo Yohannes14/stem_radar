@@ -40,12 +40,12 @@ async def learn_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Deliver an interactive STEM lesson adapted to beginner, intermediate, or advanced level."""
     if not context.args:
         text = (
-            "🎓 *STEM RADAR Learning Academy*\n\n"
-            "Choose a core domain below to start learning, or type `/learn <topic>`.\n\n"
+            "*Learn STEM*\n\n"
+            "Select a topic below, or run `/learn <topic>`.\n\n"
             "Examples:\n"
-            "• `/learn Artificial Intelligence`\n"
-            "• `/learn advanced Humanoid Kinematics`\n"
-            "• `/learn beginner Quantum Computing`"
+            "- `/learn Artificial Intelligence`\n"
+            "- `/learn advanced Humanoid Kinematics`\n"
+            "- `/learn beginner Quantum Computing`"
         )
         if update.effective_message:
             await update.effective_message.reply_text(
@@ -62,7 +62,7 @@ async def learn_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"🧠 *Preparing {level}-level lesson for '{topic}'...*",
+            f"Preparing {level}-level lesson for '{topic}'...",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -98,12 +98,12 @@ async def roadmap_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     """Generate a 4-phase end-to-end curriculum roadmap for any STEM topic."""
     if not context.args:
         text = (
-            "🗺️ *STEM Learning Roadmaps*\n\n"
-            "Select a featured topic or type `/roadmap <topic>` to generate a 4-phase master curriculum.\n\n"
+            "*Learning Roadmaps*\n\n"
+            "Select a topic below, or run `/roadmap <topic>` to generate a 4-phase study plan.\n\n"
             "Examples:\n"
-            "• `/roadmap Robotics`\n"
-            "• `/roadmap Deep Learning`\n"
-            "• `/roadmap Embedded Systems`"
+            "- `/roadmap Robotics`\n"
+            "- `/roadmap Deep Learning`\n"
+            "- `/roadmap Embedded Systems`"
         )
         if update.effective_message:
             await update.effective_message.reply_text(
@@ -115,7 +115,7 @@ async def roadmap_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"🗺️ *Synthesizing 4-phase engineering roadmap for '{topic}'...*",
+            f"Generating 4-phase roadmap for '{topic}'...",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -147,7 +147,7 @@ async def quiz_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"📝 *Generating interactive technical quiz for '{topic}' ({level})...*",
+            f"Preparing quiz for '{topic}' ({level})...",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -169,14 +169,14 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     """Compare two technical concepts or architectures side-by-side."""
     if not context.args:
         text = (
-            "⚖️ *Technical Concept Comparison*\n\n"
-            "Compare two frameworks, architectures, or concepts side-by-side.\n\n"
+            "*Concept Comparison*\n\n"
+            "Compare two frameworks, architectures, or protocols side by side.\n\n"
             "Usage: `/compare <concept A> vs <concept B>`\n\n"
             "Examples:\n"
-            "• `/compare PyTorch vs JAX`\n"
-            "• `/compare REST vs gRPC`\n"
-            "• `/compare Monolith vs Microservices`\n"
-            "• `/compare Transformer vs Mamba State Space`"
+            "- `/compare PyTorch vs JAX`\n"
+            "- `/compare REST vs gRPC`\n"
+            "- `/compare Monolith vs Microservices`\n"
+            "- `/compare Transformer vs Mamba State Space`"
         )
         if update.effective_message:
             await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
@@ -197,7 +197,7 @@ async def compare_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"⚖️ *Comparing '{concept_a}' vs '{concept_b}'...*",
+            f"Comparing '{concept_a}' vs '{concept_b}'...",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -229,7 +229,7 @@ async def project_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"🚀 *Designing portfolio project for '{topic}' ({level})...*",
+            f"Designing {level}-level project for '{topic}'...",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -258,7 +258,7 @@ async def vocabulary_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"📚 *Curating technical vocabulary glossary for '{topic}'...*",
+            f"Preparing technical glossary for '{topic}'...",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -321,14 +321,14 @@ async def education_callback_router(update: Update, context: ContextTypes.DEFAUL
         q = quiz.questions[min(q_idx, total_q - 1)]
 
         is_correct = chosen_opt == q.correct_option_index
-        icon = "✅ Correct!" if is_correct else "❌ Incorrect"
+        result_label = "*Correct*" if is_correct else "*Incorrect*"
         correct_letter = chr(ord("A") + q.correct_option_index)
 
         feedback_lines = [
-            f"{icon}\n",
-            f"*Your choice:* Option {chr(ord('A') + chosen_opt)}",
-            f"*Correct answer:* Option {correct_letter}\n",
-            f"💡 *Explanation:*\n_{sanitize_markdown(q.explanation)}_",
+            f"{result_label}\n",
+            f"Your choice: Option {chr(ord('A') + chosen_opt)}",
+            f"Correct answer: Option {correct_letter}\n",
+            f"*Explanation*\n{sanitize_markdown(q.explanation)}",
         ]
 
         # Record score in database
@@ -341,9 +341,9 @@ async def education_callback_router(update: Update, context: ContextTypes.DEFAUL
         # Next question button if available
         buttons = []
         if q_idx + 1 < total_q:
-            buttons.append([InlineKeyboardButton("➡️ Next Question", callback_data=f"qz_next:{topic}:{q_idx + 1}")])
+            buttons.append([InlineKeyboardButton("Next Question", callback_data=f"qz_next:{topic}:{q_idx + 1}")])
         else:
-            buttons.append([InlineKeyboardButton("📊 View Learning Progress", callback_data="ed_prog")])
+            buttons.append([InlineKeyboardButton("View Progress", callback_data="ed_prog")])
 
         if query.message:
             await query.message.reply_text(

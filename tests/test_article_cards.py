@@ -74,42 +74,28 @@ def mock_news_update():
 
 def test_reading_time_estimator():
     """Verify reading time calculation based on word count."""
-    assert estimate_reading_time("") == "~1 min read"
+    assert estimate_reading_time("") == "1 min read"
     short_text = "This is a brief text snippet."
-    assert estimate_reading_time(short_text) == "~1 min read"
+    assert estimate_reading_time(short_text) == "1 min read"
 
     long_text = "word " * 450
-    assert estimate_reading_time(long_text) == "~2 min read"
+    assert estimate_reading_time(long_text) == "2 min read"
 
 
 def test_format_article_view_card_structure(sample_article):
-    """Verify that format_article_view includes all required fields from Section 5."""
+    """Verify that format_article_view renders a clean editorial card."""
     card = format_article_view(sample_article, index=0, total=1)
 
-    # 1. Category & Source header
     assert "Artificial Intelligence" in card
     assert "MIT Technology Review" in card
-
-    # 2. Date & Reading time
-    assert "⏱️" in card
+    assert "Source: MIT Technology Review" in card
     assert "min read" in card
-
-    # 3. Title
     assert "Sparse Neural Network Kernel" in card
-
-    # 4. Summary & Why it matters
-    assert "📝 *Summary:*" in card
-    assert "💡 *Why It Matters:*" in card
-
-    # 5. Hashtags
-    assert "#ArtificialIntelligence" in card
-
-    # 6. Read original link
     assert "https://technologyreview.com/sparse-kernel" in card
 
 
 def test_get_article_keyboard_action_suite(sample_article):
-    """Verify that get_article_keyboard includes all 5 actions plus pagination and navigation."""
+    """Verify that get_article_keyboard includes all actions plus pagination and navigation."""
     keyboard = get_article_keyboard(
         article_id=sample_article.id,
         url=sample_article.url,
@@ -120,37 +106,36 @@ def test_get_article_keyboard_action_suite(sample_article):
         title=sample_article.title,
     )
 
-    # Row 1: Read Original + Explain with AI
+    # Row 1: Read Original + Explain
     row1 = keyboard.inline_keyboard[0]
     assert len(row1) == 2
-    assert row1[0].text == "Read Original 🔗"
+    assert row1[0].text == "Read Original"
     assert row1[0].url == sample_article.url
-    assert row1[1].text == "Explain with AI 🧠"
+    assert row1[1].text == "Explain"
     assert row1[1].callback_data == f"ai_exp:{sample_article.id}"
 
-    # Row 2: Bookmark + Share + Related
+    # Row 2: Save + Share + Related
     row2 = keyboard.inline_keyboard[1]
     assert len(row2) == 3
-    assert row2[0].text == "Bookmark ⭐"
+    assert row2[0].text == "Save"
     assert row2[0].callback_data == f"save:{sample_article.id}"
-    assert row2[1].text == "Share 📤"
+    assert row2[1].text == "Share"
     assert "https://t.me/share/url" in row2[1].url
-    assert row2[2].text == "Related 🔍"
+    assert row2[2].text == "Related"
     assert row2[2].callback_data == f"rel:{sample_article.id}"
 
     # Row 3: Pagination
     row3 = keyboard.inline_keyboard[2]
     assert len(row3) == 3
-    assert row3[0].callback_data == "nav:ai:0"  # Prev
-    assert row3[1].text == "2/5"  # Counter
-    assert row3[2].callback_data == "nav:ai:2"  # Next
+    assert row3[0].callback_data == "nav:ai:0"
+    assert row3[1].text == "2 / 5"
+    assert row3[2].callback_data == "nav:ai:2"
 
     # Row 4: Navigation
     row4 = keyboard.inline_keyboard[3]
-    assert len(row4) == 3
+    assert len(row4) == 2
     assert row4[0].callback_data == "show_cats"
-    assert row4[1].callback_data == "nav:ai:1"
-    assert row4[2].callback_data == "menu:home"
+    assert row4[1].callback_data == "menu:home"
 
 
 def test_explanation_and_search_keyboards():
@@ -166,14 +151,14 @@ def test_explanation_and_search_keyboards():
     search_kb = get_search_pagination_keyboard(query="robotics", page=0, total_pages=3)
     assert len(search_kb.inline_keyboard) == 2
     pag_row = search_kb.inline_keyboard[0]
-    assert pag_row[0].text == "1/3"
+    assert pag_row[0].text == "1 / 3"
     assert pag_row[1].callback_data == "s_nav:robotics:1"
 
 
 def test_format_related_and_search_pages(sample_article):
     """Verify related articles formatter and search page formatters."""
     related_text = format_related_articles(sample_article, [sample_article])
-    assert "Articles & Papers Related to:" in related_text
+    assert "Related to:" in related_text
     assert sample_article.title in related_text
 
     search_text = format_search_results_page(
@@ -183,9 +168,9 @@ def test_format_related_and_search_pages(sample_article):
         total_pages=2,
         total_count=10,
     )
-    assert 'Search Results for "sparse"' in search_text
-    assert "Page `1` of `2`" in search_text
-    assert "`10` total matches" in search_text
+    assert 'Search Results — "sparse"' in search_text
+    assert "Page 1 of 2" in search_text
+    assert "10 matches" in search_text
 
 
 @pytest.mark.asyncio
@@ -200,7 +185,7 @@ async def test_callback_router_handles_ai_explain(mock_news_update, sample_artic
     mock_news_update.callback_query.answer.assert_called_once()
     mock_news_update.callback_query.message.edit_text.assert_called_once()
     edit_call = mock_news_update.callback_query.message.edit_text.call_args[1]
-    assert "AI Concept Breakdown" in edit_call["text"]
+    assert "Concept Explanation" in edit_call["text"]
 
 
 @pytest.mark.asyncio
@@ -218,7 +203,7 @@ async def test_callback_router_handles_related_articles(mock_news_update, sample
 
     mock_news_update.callback_query.message.edit_text.assert_called_once()
     edit_call = mock_news_update.callback_query.message.edit_text.call_args[1]
-    assert "Articles & Papers Related to:" in edit_call["text"]
+    assert "Related to:" in edit_call["text"]
 
 
 @pytest.mark.asyncio
@@ -235,8 +220,8 @@ async def test_search_command_with_query_renders_paginated_results(mock_news_upd
 
     mock_news_update.effective_message.reply_text.assert_called_once()
     reply_call = mock_news_update.effective_message.reply_text.call_args[1]
-    assert 'Search Results for "kernel"' in reply_call["text"]
-    assert "Page `1` of `3`" in reply_call["text"]
+    assert 'Search Results — "kernel"' in reply_call["text"]
+    assert "Page 1 of 3" in reply_call["text"]
 
 
 @pytest.mark.asyncio
@@ -269,7 +254,7 @@ async def test_search_command_real_news_service_signature_integration(test_sessi
 
     mock_news_update.effective_message.reply_text.assert_called_once()
     reply_call = mock_news_update.effective_message.reply_text.call_args[1]
-    assert 'Search Results for "transformer"' in reply_call["text"]
+    assert 'Search Results — "transformer"' in reply_call["text"]
     assert "Real-Time Sparse Transformer Optimization" in reply_call["text"]
 
 

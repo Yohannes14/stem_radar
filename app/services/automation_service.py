@@ -158,11 +158,11 @@ class AutomationService:
 
                 # Calculate evidence-based momentum
                 if count >= 4 and avg_score >= 60.0:
-                    momentum = "🔥 Surging"
+                    momentum = "Surging"
                 elif count >= 2 or avg_score >= 50.0:
-                    momentum = "📈 Rising"
+                    momentum = "Rising"
                 else:
-                    momentum = "⚖️ Stable"
+                    momentum = "Stable"
 
                 results[slug] = {
                     "slug": slug,

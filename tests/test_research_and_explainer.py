@@ -84,15 +84,15 @@ async def test_deep_research_paper_analysis(sample_arxiv_paper):
     assert len(analysis.further_research_questions) >= 1
 
     formatted = format_paper_analysis(analysis)
-    assert "Scientific Research Paper Analysis" in formatted
-    assert "Research Problem:" in formatted
-    assert "Methodology:" in formatted
-    assert "Main Findings:" in formatted
-    assert "Limitations & Boundary Conditions:" in formatted
-    assert "Practical Applications:" in formatted
-    assert "Open Questions:" in formatted
-    assert "Academic Integrity Disclaimer:" in formatted
-    assert "does not substitute for reading and peer-reviewing the full original research publication" in formatted
+    assert "Research Paper Analysis" in formatted
+    assert "Research problem" in formatted
+    assert "Methodology" in formatted
+    assert "Main findings" in formatted
+    assert "Limitations" in formatted
+    assert "Practical applications" in formatted
+    assert "Open questions" in formatted
+    assert "AI-assisted summary" in formatted
+    assert "does not substitute for reading the original research paper" in formatted
 
 
 @pytest.mark.asyncio
@@ -117,8 +117,8 @@ async def test_multi_tier_concept_explanations():
     assert "algorithmic" in adv.core_definition.lower() or "paradigm" in adv.core_definition.lower()
 
     formatted_adv = format_concept_explanation(adv)
-    assert "ADVANCED" in formatted_adv
-    assert "Key Components:" in formatted_adv
+    assert "Advanced" in formatted_adv
+    assert "Key components:" in formatted_adv
 
 
 def test_paper_and_concept_keyboards():
@@ -128,20 +128,20 @@ def test_paper_and_concept_keyboards():
     assert paper_kb.inline_keyboard[0][0].callback_data == "ai_exp:101"
     assert paper_kb.inline_keyboard[0][1].callback_data == "rel:101"
     assert paper_kb.inline_keyboard[1][0].callback_data == "save:101"
-    assert "Bookmark" in paper_kb.inline_keyboard[1][0].text
+    assert paper_kb.inline_keyboard[1][0].text == "Save"
     assert paper_kb.inline_keyboard[1][1].callback_data == "menu:arxiv_papers"
     assert paper_kb.inline_keyboard[2][0].callback_data == "back_art:101"
     assert paper_kb.inline_keyboard[2][1].callback_data == "menu:home"
 
     saved_kb = get_paper_analysis_keyboard(article_id=101, is_saved=True)
-    assert "Saved ✅" in saved_kb.inline_keyboard[1][0].text
+    assert saved_kb.inline_keyboard[1][0].text == "Saved"
 
     concept_kb = get_concept_mode_keyboard(concept_name="Quantum Entanglement", current_mode="intermediate")
     assert len(concept_kb.inline_keyboard) == 2
     mode_row = concept_kb.inline_keyboard[0]
     assert "Beginner" in mode_row[0].text
     assert "Intermediate" in mode_row[1].text
-    assert "•" in mode_row[1].text  # Selected mark
+    assert "•" in mode_row[1].text
     assert "Advanced" in mode_row[2].text
 
 
@@ -156,11 +156,11 @@ def test_article_keyboard_identifies_paper_action(sample_arxiv_paper):
         is_paper=True,
     )
     first_row = kb.inline_keyboard[0]
-    assert first_row[1].text == "Analyze Paper 🔬"
+    assert first_row[1].text == "Analyze Paper"
     assert first_row[1].callback_data == f"ai_paper:{sample_arxiv_paper.id}"
 
     fourth_row = kb.inline_keyboard[3]
-    assert fourth_row[0].text == "📄 Research Hub"
+    assert fourth_row[0].text == "Research Hub"
     assert fourth_row[0].callback_data == "menu:research"
 
 
@@ -174,18 +174,17 @@ async def test_explain_command_with_switcher(mock_explainer_update):
     with patch.object(settings, "allowed_user_ids", [334455]):
         await explain_command(mock_explainer_update, context)
 
-    # Initial loading message sent
     mock_explainer_update.effective_message.reply_text.assert_called_once()
     status_msg = mock_explainer_update.effective_message.reply_text.return_value
 
-    # Edited in-place with concept explanation and mode keyboard
     status_msg.edit_text.assert_called_once()
     edit_call = status_msg.edit_text.call_args
     text = edit_call[0][0]
     markup = edit_call[1]["reply_markup"]
 
-    assert "Technical Concept Breakdown" in text
-    assert len(markup.inline_keyboard) == 2  # Mode row + Home
+    assert "Direct Drive Actuators" in text
+    assert "Definition" in text
+    assert len(markup.inline_keyboard) == 2
 
 
 @pytest.mark.asyncio
@@ -199,7 +198,7 @@ async def test_callback_router_handles_paper_analysis(mock_explainer_update, sam
 
     mock_explainer_update.callback_query.message.edit_text.assert_called_once()
     edit_call = mock_explainer_update.callback_query.message.edit_text.call_args[1]
-    assert "Scientific Research Paper Analysis" in edit_call["text"]
+    assert "Research Paper Analysis" in edit_call["text"]
 
 
 @pytest.mark.asyncio
@@ -212,7 +211,7 @@ async def test_callback_router_switches_concept_mode(mock_explainer_update):
 
     mock_explainer_update.callback_query.message.edit_text.assert_called_once()
     edit_call = mock_explainer_update.callback_query.message.edit_text.call_args[1]
-    assert "ADVANCED" in edit_call["text"]
+    assert "Advanced" in edit_call["text"]
 
 
 @pytest.mark.asyncio
@@ -247,9 +246,8 @@ async def test_paper_analysis_with_code_repository():
 def test_research_hub_intro_and_keyboards():
     """Verify Research Hub introduction and sub-discipline keyboard buttons."""
     intro = format_research_hub_intro()
-    assert "Research & Innovation Hub" in intro
-    assert "Academic Integrity Policy:" in intro
-    assert "do not substitute for reading original publications" in intro
+    assert "Research & Innovation" in intro
+    assert "do not replace reading the original publication" in intro
 
     res_kb = get_research_hub_keyboard()
     callbacks = [btn.callback_data for row in res_kb.inline_keyboard for btn in row]
@@ -328,7 +326,7 @@ async def test_callback_router_handles_arxiv_category_and_nav(mock_explainer_upd
 async def test_save_callback_preserves_paper_analysis_view(mock_explainer_update, sample_arxiv_paper):
     """Verify toggling bookmark on paper analysis re-renders paper analysis keyboard."""
     mock_explainer_update.callback_query.data = f"save:{sample_arxiv_paper.id}"
-    mock_explainer_update.callback_query.message.text = "🔬 Scientific Research Paper Analysis\n\nTitle..."
+    mock_explainer_update.callback_query.message.text = "Research Paper Analysis\n\nTitle..."
 
     with patch.object(settings, "allowed_user_ids", [334455]):
         with patch("app.bot.handlers.news.news_service.toggle_save_article", AsyncMock(return_value=True)):
@@ -339,7 +337,6 @@ async def test_save_callback_preserves_paper_analysis_view(mock_explainer_update
 
     mock_explainer_update.callback_query.message.edit_reply_markup.assert_called_once()
     new_markup = mock_explainer_update.callback_query.message.edit_reply_markup.call_args[1]["reply_markup"]
-    # Check that it retained the paper analysis keyboard with "Saved ✅"
     assert new_markup.inline_keyboard[0][0].callback_data == f"ai_exp:{sample_arxiv_paper.id}"
-    assert "Saved ✅" in new_markup.inline_keyboard[1][0].text
+    assert new_markup.inline_keyboard[1][0].text == "Saved"
     assert new_markup.inline_keyboard[1][1].callback_data == "menu:arxiv_papers"

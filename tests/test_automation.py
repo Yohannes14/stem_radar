@@ -248,7 +248,7 @@ async def test_briefing_command_renders_briefing(mock_automation_update, monkeyp
     await briefing_command(mock_automation_update, MagicMock())
     mock_automation_update.effective_message.reply_text.assert_called_once()
     reply = mock_automation_update.effective_message.reply_text.call_args[0][0]
-    assert "Daily Executive Briefing" in reply
+    assert "Daily STEM Briefing" in reply
     assert "Ada" in reply
 
 
@@ -262,7 +262,8 @@ async def test_watchlist_command_interactions(mock_automation_update, monkeypatc
     context.args = []
     await watchlist_command(mock_automation_update, context)
     reply1 = mock_automation_update.effective_message.reply_text.call_args[0][0]
-    assert "Your STEM Watchlist is Empty" in reply1
+    assert "Watchlist" in reply1
+    assert "not tracking any keywords" in reply1
 
     # 2. /watchlist add humanoid
     context.args = ["add", "humanoid"]
@@ -275,7 +276,7 @@ async def test_watchlist_command_interactions(mock_automation_update, monkeypatc
     context.args = []
     await watchlist_command(mock_automation_update, context)
     reply3 = mock_automation_update.effective_message.reply_text.call_args[0][0]
-    assert "Your Active STEM Watchlist" in reply3
+    assert "Active Watchlist" in reply3
     assert "#humanoid" in reply3
 
     # 4. /watchlist remove humanoid
@@ -309,7 +310,7 @@ async def test_trends_command_renders_feed(mock_automation_update, monkeypatch, 
     await trends_command(mock_automation_update, MagicMock())
     mock_automation_update.effective_message.reply_text.assert_called_once()
     reply = mock_automation_update.effective_message.reply_text.call_args[0][0]
-    assert "Trending STEM Breakthroughs" in reply
+    assert "Trending STEM Developments" in reply
     assert "Breakthrough SOTA Model Unveiled" in reply
 
 

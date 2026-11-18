@@ -76,7 +76,7 @@ async def watchlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         if len(args) < 2:
             if update.effective_message:
                 await update.effective_message.reply_text(
-                    "⚠️ *Usage:* `/watchlist add <keyword>`\n\n_Example:_ `/watchlist add humanoid`",
+                    "Usage: `/watchlist add <keyword>`\n\nExample: `/watchlist add humanoid`",
                     parse_mode=ParseMode.MARKDOWN,
                 )
             return
@@ -87,9 +87,11 @@ async def watchlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             item, created = await repo.add_watchlist_keyword(user.id, keyword)
 
         if created:
-            reply_text = f"✅ Added *#{item.keyword}* to your STEM watchlist!\nWe will alert you when matches appear."
+            reply_text = (
+                f"Added `#{item.keyword}` to your watchlist. You will be notified when matching articles arrive."
+            )
         else:
-            reply_text = f"ℹ️ *#{item.keyword}* is already in your watchlist ({item.match_count} matches so far)."
+            reply_text = f"`#{item.keyword}` is already in your watchlist ({item.match_count} matches so far)."
 
         if update.effective_message:
             await update.effective_message.reply_text(reply_text, parse_mode=ParseMode.MARKDOWN)
@@ -100,7 +102,8 @@ async def watchlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         if len(args) < 2:
             if update.effective_message:
                 await update.effective_message.reply_text(
-                    "⚠️ *Usage:* `/watchlist remove <keyword>`", parse_mode=ParseMode.MARKDOWN
+                    "Usage: `/watchlist remove <keyword>`",
+                    parse_mode=ParseMode.MARKDOWN,
                 )
             return
 
@@ -110,9 +113,9 @@ async def watchlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             removed = await repo.remove_watchlist_keyword(user.id, keyword)
 
         if removed:
-            reply_text = f"🗑️ Removed *#{keyword.lower()}* from your watchlist."
+            reply_text = f"Removed `#{keyword.lower()}` from your watchlist."
         else:
-            reply_text = f"⚠️ Keyword *#{keyword.lower()}* was not found in your watchlist."
+            reply_text = f"Keyword `#{keyword.lower()}` was not found in your watchlist."
 
         if update.effective_message:
             await update.effective_message.reply_text(reply_text, parse_mode=ParseMode.MARKDOWN)
@@ -124,7 +127,7 @@ async def watchlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             repo = Repository(session)
             count = await repo.clear_user_watchlist(user.id)
 
-        reply_text = f"🗑️ Cleared all {count} keywords from your watchlist."
+        reply_text = f"Cleared {count} keywords from your watchlist."
         if update.effective_message:
             await update.effective_message.reply_text(reply_text, parse_mode=ParseMode.MARKDOWN)
         return
@@ -132,7 +135,7 @@ async def watchlist_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     # Invalid subcommand
     if update.effective_message:
         await update.effective_message.reply_text(
-            "⚠️ Unknown watchlist option. Use `/watchlist`, `/watchlist add <keyword>`, or `/watchlist clear`.",
+            "Unknown watchlist option. Use `/watchlist`, `/watchlist add <keyword>`, or `/watchlist clear`.",
             parse_mode=ParseMode.MARKDOWN,
         )
 

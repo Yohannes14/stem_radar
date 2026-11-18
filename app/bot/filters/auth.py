@@ -56,7 +56,7 @@ def authorized_only(func: Callable):
                 user_id,
             )
             msg = (
-                "⛔ *Access Restricted*\n\n"
+                "*Access Restricted*\n\n"
                 "This STEM RADAR instance is private.\n\n"
                 f"Your Telegram User ID: `{user_id}`\n\n"
                 "To authorize your account, add this ID to your `.env` file:\n"
@@ -71,8 +71,8 @@ def authorized_only(func: Callable):
         is_allowed, retry_after = check_rate_limit(user_id, max_requests=30, window_seconds=60)
         if not is_allowed:
             msg = (
-                "⏳ *Rate Limit Exceeded*\n\n"
-                f"You are sending requests too quickly. Please wait `{retry_after}` seconds before trying again."
+                "*Rate Limit Exceeded*\n\n"
+                f"Too many requests in a short period. Please wait {retry_after} seconds before trying again."
             )
             if update.effective_message:
                 await update.effective_message.reply_text(msg, parse_mode="Markdown")
@@ -95,7 +95,7 @@ def authorized_only(func: Callable):
                 if db_user and db_user.is_banned:
                     logger.warning("Banned user %d attempted access", user_id)
                     banned_msg = (
-                        "⛔ *Account Suspended*\n\n"
+                        "*Account Suspended*\n\n"
                         "Your access to STEM RADAR has been disabled for violating platform usage policies."
                     )
                     if update.effective_message:
@@ -139,7 +139,7 @@ def admin_only(func: Callable):
                 user.username or user.first_name,
             )
             msg = (
-                "⛔ *Admin Access Required*\n\n"
+                "*Admin Access Required*\n\n"
                 "This command is restricted to platform administrators.\n"
                 "Contact the platform administrator if you require elevated access."
             )

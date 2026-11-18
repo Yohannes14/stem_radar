@@ -68,10 +68,7 @@ async def send_article_view(
             if source_type == "arxiv"
             else "No articles found in this category yet."
         )
-        msg = (
-            f"📭 *{empty_title}*\n\n"
-            "Run `/collect` to fetch the latest scientific preprints and technical feeds right now!"
-        )
+        msg = f"*{empty_title}*\n\nRun `/collect` to fetch recent preprints and technical feeds."
         empty_markup = get_research_hub_keyboard() if source_type == "arxiv" else get_category_keyboard()
         await safe_edit_or_reply(
             update,
@@ -275,18 +272,18 @@ async def collect_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            "⏳ *Collecting intelligence from all sources...*\nThis might take a few moments.",
+            "Collecting updates from active sources...",
             parse_mode=ParseMode.MARKDOWN,
         )
 
     results = await news_service.collect_from_all_sources()
     total_saved = sum(results.values())
 
-    summary_lines = [f"✅ *Intelligence Collection Complete!*\n\nSaved *{total_saved}* new articles:\n"]
+    summary_lines = [f"*Collection Complete*\n\nSaved {total_saved} new articles:\n"]
     for slug, count in results.items():
-        summary_lines.append(f"• `{slug}`: +{count} new")
+        summary_lines.append(f"- `{slug}`: +{count}")
 
-    summary_lines.append("\nView latest intelligence with `/news` or `/ai`.")
+    summary_lines.append("\nView recent articles with `/news` or `/ai`.")
     final_text = "\n".join(summary_lines)
 
     if status_msg:
@@ -300,16 +297,15 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Unified search across STEM news, research papers, scholarships, and academic resources."""
     if not context.args:
         text = (
-            "🔍 *STEM RADAR — Unified Search Engine*\n\n"
-            "Search across verified STEM news, arXiv research papers, global scholarships, "
-            "accredited university admissions, and open educational courses.\n\n"
-            "*Usage:* `/search <keyword>`\n\n"
-            "*Examples:*\n"
-            "• `/search quantum` — Quantum computing breakthroughs & papers\n"
-            "• `/search robotics` — Robotics engineering & lab research\n"
-            "• `/search scholarship` — Open funding awards & deadlines\n"
-            "• `/search algorithms` — Free courses & academic materials\n\n"
-            "Or tap a quick search topic below:"
+            "*Search*\n\n"
+            "Search indexed articles, arXiv papers, scholarships, universities, and courses.\n\n"
+            "Usage: `/search <keyword>`\n\n"
+            "Examples:\n"
+            "- `/search quantum`\n"
+            "- `/search robotics`\n"
+            "- `/search scholarship`\n"
+            "- `/search algorithms`\n\n"
+            "Or select a topic below:"
         )
         markup = get_search_shortcuts_keyboard()
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
@@ -326,13 +322,13 @@ async def websearch_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     """Execute live external web discovery across academic and web providers."""
     if not context.args:
         text = (
-            "📡 *STEM RADAR — Live Web Discovery*\n\n"
-            "Search across live external academic and web providers (Semantic Scholar, Brave, Google Search).\n\n"
-            "*Usage:* `/websearch <topic or query>`\n\n"
-            "*Examples:*\n"
-            "• `/websearch reinforcement learning robotics`\n"
-            "• `/websearch erasmus mundus scholarships 2026`\n"
-            "• `/websearch neuromorphic computing breakthroughs`\n"
+            "*Live Web Search*\n\n"
+            "Search external web and academic providers.\n\n"
+            "Usage: `/websearch <query>`\n\n"
+            "Examples:\n"
+            "- `/websearch reinforcement learning robotics`\n"
+            "- `/websearch erasmus mundus scholarships 2026`\n"
+            "- `/websearch neuromorphic computing`"
         )
         markup = get_back_home_keyboard(back_target="menu:search", home_target="menu:home")
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
@@ -349,14 +345,13 @@ async def search_ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     """Synthesize grounded AI search overview across multiple sources with direct citations."""
     if not context.args:
         text = (
-            "🧠 *STEM RADAR — AI Search Assistant*\n\n"
-            "Synthesize multi-source research summaries, key findings, and discovery recommendations "
-            "with verified source citations.\n\n"
-            "*Usage:* `/search_ai <topic or query>`\n\n"
-            "*Examples:*\n"
-            "• `/search_ai solid state battery breakthroughs`\n"
-            "• `/search_ai humanoid robotics manipulation benchmarks`\n"
-            "• `/search_ai fully funded masters scholarships germany`\n"
+            "*Cited Search Summary*\n\n"
+            "Synthesize key findings from multiple sources with numbered citations.\n\n"
+            "Usage: `/search_ai <topic>`\n\n"
+            "Examples:\n"
+            "- `/search_ai solid state batteries`\n"
+            "- `/search_ai humanoid manipulation benchmarks`\n"
+            "- `/search_ai funded masters scholarships germany`"
         )
         markup = get_back_home_keyboard(back_target="menu:search", home_target="menu:home")
         await safe_edit_or_reply(update, text, reply_markup=markup, parse_mode=ParseMode.MARKDOWN)
@@ -411,11 +406,11 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not context.args:
         if update.effective_message:
             await update.effective_message.reply_text(
-                "💡 *Usage:* `/explain <concept>` or `/explain <beginner|intermediate|advanced> <concept>`\n\n"
+                "Usage: `/explain <concept>` or `/explain <beginner|intermediate|advanced> <concept>`\n\n"
                 "Examples:\n"
-                "• `/explain Quantum Computing`\n"
-                "• `/explain beginner Transformer Architecture`\n"
-                "• `/explain advanced Direct Drive Actuators`",
+                "- `/explain Quantum Computing`\n"
+                "- `/explain beginner Transformer Architecture`\n"
+                "- `/explain advanced Direct Drive Actuators`",
                 parse_mode=ParseMode.MARKDOWN,
             )
         return
@@ -429,7 +424,7 @@ async def explain_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"🧠 *Generating {mode}-level technical breakdown for '{concept_name}'...*",
+            f"Preparing {mode}-level explanation for '{concept_name}'...",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -458,7 +453,7 @@ async def impact_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"📊 *Analyzing technology impact for:*\n_{target_article.title[:80]}..._",
+            f"Analyzing impact for: _{target_article.title[:80]}_",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -478,7 +473,7 @@ async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not articles:
         if update.effective_message:
             await update.effective_message.reply_text(
-                "No articles found. Run `/collect` first!", parse_mode=ParseMode.MARKDOWN
+                "No articles are available yet. Run `/collect` first.", parse_mode=ParseMode.MARKDOWN
             )
         return
 
@@ -486,7 +481,7 @@ async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     status_msg = None
     if update.effective_message:
         status_msg = await update.effective_message.reply_text(
-            f"🎨 *Generating STEM content package for:*\n_{target_article.title[:80]}..._",
+            f"Generating content package for: _{target_article.title[:80]}_",
             parse_mode=ParseMode.MARKDOWN,
         )
 
@@ -583,13 +578,12 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         user = update.effective_user
         if user:
             is_now_saved = await news_service.toggle_save_article(user.id, article_id)
-            status_text = "Article added to bookmarks ⭐" if is_now_saved else "Article removed from bookmarks 🗑️"
+            status_text = "Saved to your library." if is_now_saved else "Removed from saved items."
             await query.answer(status_text)
             article = await news_service.get_article_by_id(article_id)
             if article and query.message and query.message.reply_markup:
-                # Re-render keyboard with toggled saved status
                 msg_text = query.message.text or ""
-                if "Scientific Research Paper Analysis" in msg_text:
+                if "Research Paper Analysis" in msg_text:
                     new_markup = get_paper_analysis_keyboard(article.id, is_saved=is_now_saved)
                 else:
                     is_paper = bool(
@@ -619,9 +613,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if article:
             concept_name = article.categories[0].name if article.categories else article.title[:45]
             explanation = await ai_service.explain_concept(concept_name, mode="intermediate")
-            exp_text = f"🧠 *AI Concept Breakdown for:*\n_{article.title[:75]}..._\n\n" + format_concept_explanation(
-                explanation
-            )
+            exp_text = f"*Concept Explanation*\n_{article.title[:75]}_\n\n" + format_concept_explanation(explanation)
             markup = get_explanation_keyboard(article.id, current_mode="intermediate")
             await safe_edit_or_reply(
                 update,
@@ -641,7 +633,7 @@ async def callback_router(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             concept_name = article.categories[0].name if article.categories else article.title[:45]
             explanation = await ai_service.explain_concept(concept_name, mode=mode)
             exp_text = (
-                f"🧠 *AI Concept Breakdown ({mode.capitalize()}):*\n_{article.title[:75]}..._\n\n"
+                f"*Concept Explanation ({mode.capitalize()})*\n_{article.title[:75]}_\n\n"
                 + format_concept_explanation(explanation)
             )
             markup = get_explanation_keyboard(article.id, current_mode=mode)
@@ -882,7 +874,7 @@ async def quick_ai_summary_command(update: Update, context: ContextTypes.DEFAULT
     article = await news_service.get_article_by_id(article_id)
     if not article:
         await message.reply_text(
-            "⚠️ *Article Not Found*\n\nThis article could not be retrieved from intelligence archives.",
+            "*Article Not Found*\n\nThis article could not be retrieved from the database.",
             parse_mode=ParseMode.MARKDOWN,
         )
         return

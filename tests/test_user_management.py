@@ -265,7 +265,7 @@ async def test_feedback_command_handling(mock_mgmt_update, mock_mgmt_context, te
         mock_mgmt_update.effective_message.reply_text.reset_mock()
         await feedback_command(mock_mgmt_update, mock_mgmt_context)
         reply2 = mock_mgmt_update.effective_message.reply_text.call_args[0][0]
-        assert "Thank You for Your Feedback" in reply2
+        assert "Feedback Received" in reply2
 
 
 @pytest.mark.asyncio
@@ -276,13 +276,13 @@ async def test_privacy_and_export_commands(mock_mgmt_update, mock_mgmt_context, 
         await privacy_command(mock_mgmt_update, mock_mgmt_context)
         reply_p = mock_mgmt_update.effective_message.reply_text.call_args[0][0]
         assert "Privacy Policy & Data Protection" in reply_p
-        assert "What We Never Do:" in reply_p
+        assert "What we do not do" in reply_p
 
         # 2. /export
         mock_mgmt_update.effective_message.reply_text.reset_mock()
         await export_command(mock_mgmt_update, mock_mgmt_context)
         reply_e = mock_mgmt_update.effective_message.reply_text.call_args[0][0]
-        assert "Exported Personal Data Profile" in reply_e
+        assert "Exported Personal Data" in reply_e
 
 
 @pytest.mark.asyncio
@@ -300,7 +300,7 @@ async def test_delete_account_command(mock_mgmt_update, mock_mgmt_context, test_
         mock_mgmt_update.effective_message.reply_text.reset_mock()
         await delete_account_command(mock_mgmt_update, mock_mgmt_context)
         reply2 = mock_mgmt_update.effective_message.reply_text.call_args[0][0]
-        assert "All User Data Successfully Deleted" in reply2
+        assert "User Data Deleted" in reply2
 
 
 @pytest.mark.asyncio

@@ -28,13 +28,12 @@ async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     args = context.args or []
     if not args:
         msg = (
-            "💬 *STEM RADAR Feedback & Issue Reporting*\n\n"
-            "We value your suggestions and bug reports!\n\n"
-            "*Usage:* `/feedback <your message>`\n\n"
-            "*Examples:*\n"
-            "• `/feedback Please add more quantum computing feeds`\n"
-            "• `/feedback The quiz question on robotics had a typo`\n"
-            "• `/feedback Love the daily briefing feature!`"
+            "*Feedback & Issue Reporting*\n\n"
+            "Send suggestions or report issues directly using:\n"
+            "`/feedback <your message>`\n\n"
+            "Examples:\n"
+            "- `/feedback Add more quantum computing feeds`\n"
+            "- `/feedback Typo in the robotics quiz question`"
         )
         if update.effective_message:
             await update.effective_message.reply_text(
@@ -50,11 +49,7 @@ async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         repo = Repository(session)
         await repo.save_user_feedback(telegram_id=user.id, message=feedback_text)
 
-    reply = (
-        "✅ *Thank You for Your Feedback!*\n\n"
-        "Your message has been securely submitted to the engineering team. "
-        "We continuously review feedback to improve platform intelligence."
-    )
+    reply = "*Feedback Received*\n\nYour message has been recorded for review."
     if update.effective_message:
         await update.effective_message.reply_text(
             reply,
@@ -70,21 +65,20 @@ async def feedback_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 async def privacy_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Display platform privacy policy, data collection scope, and user rights."""
     privacy_policy = (
-        "🛡️ *STEM RADAR Privacy Policy & Data Protection*\n\n"
-        "*1. Data Collection Scope:*\n"
-        "• Telegram User ID, Username, and First Name (used solely for message delivery & personalization).\n"
-        "• Selected STEM domain preferences and notification quiet hours.\n"
-        "• Bookmarked articles and watchlist keywords you explicitly save.\n"
-        "• Interactive quiz progress and completed lesson records.\n\n"
-        "*2. What We Never Do:*\n"
-        "• We *never* sell, share, or monetize your personal data.\n"
-        "• We *never* track your activity outside this bot interaction.\n"
-        "• We *never* expose your saved items or preferences to other users.\n\n"
-        "*3. Your Rights & Controls:*\n"
-        "• `/export` — Export a complete machine-readable copy of your stored data.\n"
-        "• `/delete_account` — Permanently purge your stored preferences, bookmarks, and learning history.\n"
-        "• `/settings` — Toggle or update notifications and subscriptions at any time.\n\n"
-        "_STEM RADAR adheres to standard privacy-by-design and GDPR transparency principles._"
+        "*Privacy Policy & Data Protection*\n\n"
+        "*Data we store*\n"
+        "- Telegram User ID, username, and first name for message delivery and personalization.\n"
+        "- Selected STEM domain subscriptions and quiet hour preferences.\n"
+        "- Saved articles and watchlist keywords you explicitly add.\n"
+        "- Completed lesson counts and quiz history.\n\n"
+        "*What we do not do*\n"
+        "- We do not sell, share, or monetize your personal data.\n"
+        "- We do not track activity outside this bot.\n"
+        "- We do not expose your saved items or settings to other users.\n\n"
+        "*Your data controls*\n"
+        "- `/export` — Export a machine-readable JSON copy of your stored data.\n"
+        "- `/delete_account` — Permanently delete your preferences, saved items, and history.\n"
+        "- `/settings` — Update notifications and subscriptions at any time."
     )
     if update.effective_message:
         await update.effective_message.reply_text(
@@ -111,9 +105,9 @@ async def export_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     formatted_json = json.dumps(data, indent=2)
     response_text = (
-        f"📦 *Your Exported Personal Data Profile*\n\n"
+        f"*Exported Personal Data*\n\n"
         f"```json\n{formatted_json}\n```\n\n"
-        "To permanently delete this data, use `/delete_account`."
+        "To permanently delete this data, run `/delete_account`."
     )
     if update.effective_message:
         await update.effective_message.reply_text(
@@ -136,13 +130,13 @@ async def delete_account_command(update: Update, context: ContextTypes.DEFAULT_T
     args = context.args or []
     if not args or args[0].lower() != "confirm":
         msg = (
-            "⚠️ *Confirm Permanent Data Deletion*\n\n"
-            "This action will permanently delete:\n"
-            "• All your bookmarked and saved articles\n"
-            "• All your keyword alerts and watchlists\n"
-            "• All your domain subscriptions and quiet hour settings\n"
-            "• All your educational quiz history and progress\n\n"
-            "To confirm deletion, type:\n"
+            "*Confirm Permanent Data Deletion*\n\n"
+            "This action permanently deletes:\n"
+            "- Saved articles and papers\n"
+            "- Watchlist keywords and alerts\n"
+            "- Domain subscriptions and quiet hour settings\n"
+            "- Learning and quiz progress\n\n"
+            "To confirm deletion, run:\n"
             "`/delete_account confirm`"
         )
         if update.effective_message:
@@ -159,9 +153,9 @@ async def delete_account_command(update: Update, context: ContextTypes.DEFAULT_T
         await repo.delete_user_data(user.id)
 
     confirm_msg = (
-        "🗑️ *All User Data Successfully Deleted*\n\n"
-        "Your preferences, saved articles, watchlists, and learning progress have been completely wiped.\n\n"
-        "You can restart fresh at any time with `/start`."
+        "*User Data Deleted*\n\n"
+        "Your preferences, saved items, watchlists, and learning progress have been permanently removed.\n\n"
+        "You can start again anytime with `/start`."
     )
     if update.effective_message:
         await update.effective_message.reply_text(
@@ -181,7 +175,7 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not args or not args[0].isdigit():
         if update.effective_message:
             await update.effective_message.reply_text(
-                "⚠️ *Usage:* `/ban <telegram_user_id>`\nExample: `/ban 123456789`",
+                "Usage: `/ban <telegram_user_id>`\nExample: `/ban 123456789`",
                 parse_mode=ParseMode.MARKDOWN,
             )
         return
@@ -193,7 +187,7 @@ async def ban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await repo.get_or_create_user(target_id)
         await repo.set_user_ban_status(target_id, is_banned=True)
 
-    msg = f"⛔ *User {target_id} has been banned.* Their requests will be rejected."
+    msg = f"*User {target_id} has been banned.* Their requests will be rejected."
     if update.effective_message:
         await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
 
@@ -205,7 +199,7 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not args or not args[0].isdigit():
         if update.effective_message:
             await update.effective_message.reply_text(
-                "⚠️ *Usage:* `/unban <telegram_user_id>`\nExample: `/unban 123456789`",
+                "Usage: `/unban <telegram_user_id>`\nExample: `/unban 123456789`",
                 parse_mode=ParseMode.MARKDOWN,
             )
         return
@@ -217,9 +211,9 @@ async def unban_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         success = await repo.set_user_ban_status(target_id, is_banned=False)
 
     if success:
-        msg = f"✅ *User {target_id} has been unbanned.* Access restored."
+        msg = f"*User {target_id} has been unbanned.* Access restored."
     else:
-        msg = f"⚠️ *User {target_id} was not found.*"
+        msg = f"User {target_id} was not found."
 
     if update.effective_message:
         await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)

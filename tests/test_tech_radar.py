@@ -132,26 +132,26 @@ def test_format_tech_radar_horizons():
 
     # Adopt
     text_adopt = format_tech_radar("adopt")
-    assert "ADOPT Horizon" in text_adopt
+    assert "STEM Technology Radar — ADOPT" in text_adopt
     assert "LLM Orchestration & Vector RAG" in text_adopt
     assert "PyTorch 2.x" in text_adopt
     assert "FlashAttention-2" in text_adopt
 
     # Trial
     text_trial = format_tech_radar("trial")
-    assert "TRIAL Horizon" in text_trial
+    assert "STEM Technology Radar — TRIAL" in text_trial
     assert "Vision-Language-Action (VLA)" in text_trial
     assert "Locomotion" in text_trial
 
     # Assess
     text_assess = format_tech_radar("assess")
-    assert "ASSESS Horizon" in text_assess
+    assert "STEM Technology Radar — ASSESS" in text_assess
     assert "Quantum Error Mitigation" in text_assess
     assert "Brain-Computer Interfaces" in text_assess
 
     # Hold
     text_hold = format_tech_radar("hold")
-    assert "HOLD Horizon" in text_hold
+    assert "STEM Technology Radar — HOLD" in text_hold
     assert "Monolithic RNNs" in text_hold
     assert "Proprietary Closed Formats" in text_hold
 
@@ -161,21 +161,21 @@ def test_format_tech_radar_with_velocities_and_articles():
     velocities = {
         "ai": {
             "name": "Artificial Intelligence",
-            "momentum": "🔥 Surging",
+            "momentum": "Surging",
             "count": 12,
             "paper_count": 5,
         },
         "robotics": {
             "name": "Robotics",
-            "momentum": "📈 Rising",
+            "momentum": "Rising",
             "count": 4,
             "paper_count": 2,
         },
     }
     text = format_tech_radar("all", domain_velocities=velocities)
-    assert "Empirical Domain Velocity Signals:" in text
-    assert "Artificial Intelligence*: 🔥 Surging (`12` articles, `5` papers)" in text
-    assert "Robotics*: 📈 Rising (`4` articles, `2` papers)" in text
+    assert "Empirical Domain Velocity" in text
+    assert "Artificial Intelligence*: Surging (12 articles, 5 papers)" in text
+    assert "Robotics*: Rising (4 articles, 2 papers)" in text
 
 
 def test_format_trend_velocity():
@@ -183,7 +183,7 @@ def test_format_trend_velocity():
     velocities = {
         "ai": {
             "name": "Artificial Intelligence",
-            "momentum": "🔥 Surging",
+            "momentum": "Surging",
             "count": 10,
             "paper_count": 4,
             "avg_score": 75.5,
@@ -191,12 +191,12 @@ def test_format_trend_velocity():
         }
     }
     formatted = format_trend_velocity(velocities)
-    assert "STEM Domain Trend Velocity & Momentum Analysis" in formatted
+    assert "STEM Domain Velocity" in formatted
     assert "Artificial Intelligence" in formatted
-    assert "Momentum: *🔥 Surging*" in formatted
-    assert "Indexed Articles: `10` (Research Papers: `4`)" in formatted
-    assert "Avg Intelligence Score: `75.5/100`" in formatted
-    assert "Top Signal: _DeepSeek-V3 Open Model Benchmark_" in formatted
+    assert "Momentum: Surging" in formatted
+    assert "Articles: 10 (Papers: 4)" in formatted
+    assert "Avg score: 75.5/100" in formatted
+    assert "Top headline: DeepSeek-V3 Open Model Benchmark" in formatted
 
 
 # ------------------ 3. Velocity Calculation Engine ------------------
@@ -247,7 +247,7 @@ async def test_calculate_domain_velocity_with_database(test_session_factory):
         assert ai_data["count"] == 4
         assert ai_data["paper_count"] == 2
         assert ai_data["avg_score"] > 0
-        assert ai_data["momentum"] in ("🔥 Surging", "📈 Rising")
+        assert ai_data["momentum"] in ("Surging", "Rising")
 
 
 # ------------------ 4. Project Idea Generator & Fields ------------------
@@ -271,12 +271,12 @@ async def test_project_recommendation_domain_aware_fields():
 
     # General Formatting
     formatted = format_project_recommendation(rob_proj)
-    assert "Portfolio Project:" in formatted
-    assert "Required Skills:" in formatted
-    assert "Components & Materials:" in formatted
-    assert "Estimated Budget & Assumptions:" in formatted
-    assert "System Architecture:" in formatted
-    assert "Recommended Tech Stack:" in formatted
+    assert "Project:" in formatted
+    assert "Required Skills" in formatted
+    assert "Components & Materials" in formatted
+    assert "Estimated cost:" in formatted
+    assert "System architecture" in formatted
+    assert "Tech stack" in formatted
 
 
 # ------------------ 5. Commands and Interactive Callbacks ------------------
@@ -286,7 +286,7 @@ async def test_project_recommendation_domain_aware_fields():
 async def test_radar_command_execution(mock_radar_update, mock_radar_context):
     """Test /radar command replies with radar text and interactive keyboard."""
     with patch.object(automation_service, "calculate_domain_velocity", new_callable=AsyncMock) as mock_vel:
-        mock_vel.return_value = {"ai": {"name": "AI", "momentum": "🔥 Surging", "count": 5, "paper_count": 2}}
+        mock_vel.return_value = {"ai": {"name": "AI", "momentum": "Surging", "count": 5, "paper_count": 2}}
         await radar_command(mock_radar_update, mock_radar_context)
 
     mock_radar_update.effective_message.reply_text.assert_called_once()
@@ -303,7 +303,7 @@ async def test_velocity_command_execution(mock_radar_update, mock_radar_context)
         mock_vel.return_value = {
             "robotics": {
                 "name": "Robotics",
-                "momentum": "📈 Rising",
+                "momentum": "Rising",
                 "count": 3,
                 "paper_count": 1,
                 "avg_score": 62.0,
@@ -314,7 +314,7 @@ async def test_velocity_command_execution(mock_radar_update, mock_radar_context)
 
     mock_radar_update.effective_message.reply_text.assert_called_once()
     text = mock_radar_update.effective_message.reply_text.call_args[0][0]
-    assert "Trend Velocity & Momentum Analysis" in text
+    assert "STEM Domain Velocity" in text
     assert "Robotics" in text
 
 
@@ -336,7 +336,7 @@ async def test_automation_callback_router_radar_horizon(mock_radar_update, mock_
     query.message.edit_text.assert_called_once()
     call_args = query.message.edit_text.call_args
     call_text = call_args[0][0] if call_args[0] else call_args[1].get("text", "")
-    assert "TRIAL Horizon" in call_text
+    assert "STEM Technology Radar — TRIAL" in call_text
 
 
 @pytest.mark.asyncio
@@ -353,7 +353,7 @@ async def test_main_menu_callback_router_projects_and_topics(mock_radar_update, 
     await main_menu_callback_router(mock_radar_update, mock_radar_context)
     query.message.edit_text.assert_called_once()
     text = query.message.edit_text.call_args[1]["text"]
-    assert "Portfolio Project Generator" in text
+    assert "STEM Projects" in text
 
     # 2. Tap prj_topic:Robotics
     query.data = "prj_topic:Robotics"
@@ -361,7 +361,7 @@ async def test_main_menu_callback_router_projects_and_topics(mock_radar_update, 
     await main_menu_callback_router(mock_radar_update, mock_radar_context)
     query.message.edit_text.assert_called_once()
     text2 = query.message.edit_text.call_args[1]["text"]
-    assert "Portfolio Project:" in text2
+    assert "Project:" in text2
     assert "robotics" in text2.lower()
 
 
@@ -379,7 +379,7 @@ async def test_main_menu_callback_router_learn_quiz_and_compare(mock_radar_updat
     await main_menu_callback_router(mock_radar_update, mock_radar_context)
     query.message.edit_text.assert_called_once()
     text = query.message.edit_text.call_args[1]["text"]
-    assert "Interactive STEM Quiz" in text or "Quiz" in text
+    assert "Quiz" in text
 
     # 2. Compare callback
     query.data = "menu:learn_compare"
@@ -387,4 +387,4 @@ async def test_main_menu_callback_router_learn_quiz_and_compare(mock_radar_updat
     await main_menu_callback_router(mock_radar_update, mock_radar_context)
     query.message.edit_text.assert_called_once()
     text2 = query.message.edit_text.call_args[1]["text"]
-    assert "Architectural Concept Comparison" in text2
+    assert "Concept Comparison" in text2

@@ -151,7 +151,7 @@ async def test_interests_command_renders_panel(mock_interests_update, test_sessi
     text = reply_call[0][0]
     markup = reply_call[1]["reply_markup"]
 
-    assert "My STEM Domain Subscriptions" in text
+    assert "Domain Subscriptions" in text
     assert len(markup.inline_keyboard) >= 5
 
 

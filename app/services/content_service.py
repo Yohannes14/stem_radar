@@ -63,13 +63,13 @@ class ContentService:
 
         # LinkedIn Post
         linkedin_post = (
-            f"🚀 Big news in {categories[0] if categories else 'STEM'}:\n\n"
+            f"Update in {categories[0] if categories else 'STEM'}:\n\n"
             f"{title}\n\n"
-            f"💡 What's happening?\n{desc[:180]}...\n\n"
-            f"🔍 Why it matters:\n"
-            f"• Accelerates research in real-world deployments\n"
-            f"• Highlights the shift toward efficient architectures\n\n"
-            f"Full reading: {url}\n\n"
+            f"Summary:\n{desc[:180]}...\n\n"
+            f"Why it matters:\n"
+            f"- Advances practical engineering and applied research\n"
+            f"- Highlights ongoing improvements in system efficiency\n\n"
+            f"Source: {url}\n\n"
             f"#STEM #Technology #Engineering #{categories[0].replace(' ', '') if categories else 'Innovation'}"
         )
 

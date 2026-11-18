@@ -7,6 +7,8 @@ from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
 from app.bot.filters.auth import authorized_only
+from app.bot.ui.design_system import sanitize_markdown
+from app.bot.ui.formatters import chunk_message, format_trending_feed
 from app.processors.ranking import ranker
 from app.services.content_service import content_service
 from app.services.news_service import NewsService
@@ -20,7 +22,7 @@ async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Generate structured STEM educational content opportunities from recent intelligence."""
     articles = await news_service.get_recent_news(limit=1, offset=0)
     if not articles:
-        msg = "📭 No articles found. Run `/collect` first to ingest fresh intelligence."
+        msg = "No articles are available yet. Run `/collect` to fetch recent updates."
         if update.effective_message:
             await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
         return
@@ -28,25 +30,28 @@ async def ideas_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     article = articles[0]
     opportunity = content_service.generate_opportunity(article)
 
-    slides_text = "\n".join([f"• {s}" for s in opportunity.carousel_slides])
-    vocab_text = ", ".join([f"`{v}`" for v in opportunity.vocabulary])
+    slides_text = "\n".join(f"- {sanitize_markdown(s)}" for s in opportunity.carousel_slides)
+    vocab_text = ", ".join(sanitize_markdown(v) for v in opportunity.vocabulary)
 
     msg = (
-        f"💡 *STEM Content Opportunity Finder*\n\n"
-        f"📌 *Topic:* {opportunity.article_title}\n"
-        f"📊 *Level:* `{opportunity.difficulty_level}`\n\n"
-        f"1️⃣ *NEWS DISCOVERY*\n{opportunity.news_discovery}\n\n"
-        f"2️⃣ *TECHNICAL EXPLANATION*\n{opportunity.technical_explanation}\n\n"
-        f"3️⃣ *EDUCATIONAL VALUE*\n{opportunity.educational_value}\n\n"
-        f"4️⃣ *TECHNICAL VOCABULARY*\n{vocab_text}\n\n"
-        f"5️⃣ *CAROUSEL OUTLINE (5 Slides)*\n{slides_text}\n\n"
-        f"6️⃣ *SHORT VIDEO SCRIPT*\n```text\n{opportunity.video_script}\n```\n\n"
-        f"7️⃣ *LINKEDIN POST TEMPLATE*\n```markdown\n{opportunity.linkedin_post}\n```\n\n"
-        f"🔗 [Original Source]({opportunity.url})"
+        f"*STEM Content Opportunity*\n\n"
+        f"Topic: {sanitize_markdown(opportunity.article_title)}\n"
+        f"Level: {sanitize_markdown(opportunity.difficulty_level)}\n\n"
+        f"*News Discovery*\n{sanitize_markdown(opportunity.news_discovery)}\n\n"
+        f"*Technical Explanation*\n{sanitize_markdown(opportunity.technical_explanation)}\n\n"
+        f"*Educational Value*\n{sanitize_markdown(opportunity.educational_value)}\n\n"
+        f"*Technical Vocabulary*\n{vocab_text}\n\n"
+        f"*Carousel Outline (5 Slides)*\n{slides_text}\n\n"
+        f"*Short Video Script*\n```text\n{opportunity.video_script}\n```\n\n"
+        f"*Post Template*\n```markdown\n{opportunity.linkedin_post}\n```\n\n"
+        f"[Original source]({opportunity.url})"
     )
 
     if update.effective_message:
-        await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
+        for chunk in chunk_message(msg, max_length=4000):
+            await update.effective_message.reply_text(
+                chunk, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
+            )
 
 
 @authorized_only
@@ -54,12 +59,11 @@ async def trending_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """Display high-impact trending technology intelligence scored by the ranking engine."""
     articles = await news_service.get_recent_news(limit=15, offset=0)
     if not articles:
-        msg = "📭 No articles found. Run `/collect` to fetch updates."
+        msg = "No articles are available yet. Run `/collect` to fetch recent updates."
         if update.effective_message:
             await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    # Score articles with the ranking engine
     scored_articles = []
     for a in articles:
         cats = [(c.slug, 1.0) for c in a.categories]
@@ -69,20 +73,13 @@ async def trending_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             published_at=a.published_at,
             categories=cats,
         )
-        scored_articles.append((score, a))
+        scored_articles.append((a, score))
 
-    scored_articles.sort(key=lambda x: x[0], reverse=True)
-    top_items = scored_articles[:5]
-
-    lines = ["🔥 *Trending STEM Intelligence (High-Impact Signals):*\n"]
-    for i, (score, a) in enumerate(top_items, 1):
-        source = a.source.name if a.source else "Tech"
-        lines.append(f"{i}. [{a.title}]({a.url})\n   Impact Score: `{score}/100` | _{source}_\n")
+    scored_articles.sort(key=lambda x: x[1], reverse=True)
+    text = format_trending_feed(scored_articles[:5])
 
     if update.effective_message:
-        await update.effective_message.reply_text(
-            "\n".join(lines), parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True
-        )
+        await update.effective_message.reply_text(text, parse_mode=ParseMode.MARKDOWN, disable_web_page_preview=True)
 
 
 @authorized_only
@@ -90,17 +87,18 @@ async def digest_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """Generate a daily technology intelligence brief."""
     articles = await news_service.get_recent_news(limit=5, offset=0)
     if not articles:
-        msg = "📭 No intelligence available for digest. Run `/collect` first."
+        msg = "No articles are available yet. Run `/collect` to fetch recent updates."
         if update.effective_message:
             await update.effective_message.reply_text(msg, parse_mode=ParseMode.MARKDOWN)
         return
 
-    lines = ["📡 *STEM RADAR Daily Intelligence Digest*\n"]
+    lines = ["*Daily Technology Digest*\n"]
     for i, a in enumerate(articles, 1):
-        cat = a.categories[0].name if a.categories else "STEM"
-        lines.append(f"{i}. *[{cat}]* [{a.title}]({a.url})")
+        source = sanitize_markdown(a.source.name if a.source else "Source")
+        cats = ", ".join(sanitize_markdown(c.name) for c in a.categories) if a.categories else "Technology"
+        lines.append(f"{i}. [{sanitize_markdown(a.title)}]({a.url})\n   {cats} · {source}\n")
 
-    lines.append("\nUse `/ideas` to generate educational content opportunities from today's top story.")
+    lines.append("Run `/ideas` to turn recent developments into educational content.")
 
     if update.effective_message:
         await update.effective_message.reply_text(

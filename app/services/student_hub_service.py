@@ -5,6 +5,13 @@ import re
 from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 
+from app.bot.ui.design_system import (
+    format_ai_notice,
+    format_date,
+    format_meta,
+    format_section,
+    sanitize_markdown,
+)
 from app.database.database import get_session_factory
 from app.database.models import AcademicResource, Opportunity, OpportunityReport, UniversityProfile
 from app.database.repository import Repository
@@ -380,14 +387,14 @@ class StudentHubService:
     def format_student_hub_intro(self) -> str:
         """Dashboard overview for the Student Hub."""
         return (
-            "🎓 *STEM RADAR — Student Hub*\n\n"
-            "Discover verified academic opportunities, global scholarship programs, "
-            "accredited university admissions, and legal learning resources.\n\n"
-            "• *Verified Scholarships:* Undergraduate, Master's, PhD, and Postdoc awards.\n"
-            "• *Application Deadlines:* Real-time tracking to ensure zero missed applications.\n"
-            "• *University Admissions:* Requirements, portals, and international guidelines.\n"
-            "• *Academic Resources:* Open courseware, textbooks, and research repositories.\n\n"
-            "Select an academic hub category below:"
+            "*Student Hub*\n\n"
+            "Verified STEM scholarships, university admission profiles, "
+            "application deadlines, and open educational resources.\n\n"
+            "- Scholarships: Undergraduate, Master's, PhD, and Postdoctoral funding.\n"
+            "- Deadlines: Chronological tracker for upcoming closing dates.\n"
+            "- Universities: Official admission portals and application guidelines.\n"
+            "- Courses & Materials: Open courseware, textbooks, and lecture notes.\n\n"
+            "Select a section:"
         )
 
     def format_scholarships_list(
@@ -401,71 +408,65 @@ class StudentHubService:
         type_label: str = "Scholarships",
     ) -> str:
         """Format an interactive paginated list of opportunities."""
-        if "Scholarship" in type_label:
-            emoji = "🎁"
-        elif "Internship" in type_label:
-            emoji = "💼"
-        elif "Grant" in type_label:
-            emoji = "💰"
-        else:
-            emoji = "🏆"
-
-        country_summary = f" | Country: `{country_filter.upper()}`" if country_filter != "all" else ""
+        country_summary = f" · Country: {country_filter.title()}" if country_filter != "all" else ""
         if not opportunities:
-            filter_summary = f"`Level: {level_filter}`, `Funding: {funding_filter}`{country_summary}"
+            filter_summary = f"Level: {level_filter}, Funding: {funding_filter}{country_summary}"
             return (
-                f"{emoji} *Verified STEM {type_label}*\n\n"
-                f"No open {type_label.lower()} found matching ({filter_summary}).\n\n"
-                "💡 *Know an opportunity?* Tap *Submit Opportunity* below to contribute for moderator verification!"
+                f"*Verified STEM {type_label}*\n\n"
+                f"No open {type_label.lower()} match your filters ({filter_summary}).\n\n"
+                "Reset filters below, or select Submit Opportunity to contribute a listing for review."
             )
 
+        funding_label = funding_filter.replace("_", " ").capitalize()
         lines = [
-            f"{emoji} *Verified STEM {type_label}*",
-            f"Showing Page `{page + 1}` of `{max(1, total_pages)}` | "
-            f"Level: `{level_filter.upper()}` | Funding: `{funding_filter.upper()}`{country_summary}\n",
+            f"*Verified STEM {type_label}*",
+            f"Page {page + 1} of {max(1, total_pages)} · "
+            f"Level: {level_filter.capitalize()} · Funding: {funding_label}{country_summary}\n",
         ]
 
         now = datetime.now(timezone.utc)
         for idx, opp in enumerate(opportunities, 1):
-            tier_badge = "🟢 Verified" if opp.verification_tier == "officially_verified" else "🟡 Secondary Source"
+            tier_badge = "Officially verified" if opp.verification_tier == "officially_verified" else "Secondary source"
             deadline_utc = ensure_utc(opp.application_deadline)
             is_expired = opp.status == "expired" or (
                 deadline_utc and (deadline_utc - now).days < 0 and not opp.is_rolling
             )
 
             if is_expired:
-                status_badge = "🔴 EXPIRED"
-                dl_str = f"⏰ Closed ({deadline_utc.strftime('%b %d, %Y') if deadline_utc else 'Past'})"
+                status_badge = "Expired"
+                dl_str = f"Closed ({format_date(deadline_utc, fallback='Past')})"
             elif deadline_utc:
                 days_left = (deadline_utc - now).days
                 if days_left > 0:
-                    urgency = "🟢" if days_left > 14 else ("🟡" if days_left > 3 else "🔴")
-                    dl_str = f"⏰ {urgency} {days_left}d left ({deadline_utc.strftime('%b %d, %Y')})"
+                    dl_str = f"{format_date(deadline_utc)} ({days_left}d left)"
                 else:
-                    dl_str = f"⏰ 🔴 Today ({deadline_utc.strftime('%b %d')})"
-                status_badge = "🟢 OPEN"
+                    dl_str = f"Closes today ({format_date(deadline_utc)})"
+                status_badge = "Open"
             else:
-                status_badge = "🔄 ROLLING"
-                dl_str = "⏰ Rolling Applications"
+                status_badge = "Rolling"
+                dl_str = "Rolling intake"
 
+            clean_title = sanitize_markdown(opp.title)
+            clean_provider = sanitize_markdown(opp.provider_name)
+            funding_clean = opp.funding_type.replace("_", " ").capitalize()
             lines.append(
-                f"*{idx}. {opp.title}*\n"
-                f"🏛️ _{opp.provider_name}_ ({opp.country})\n"
-                f"🎯 `{opp.study_level.upper()}` | 💰 `{opp.funding_type.replace('_', ' ').title()}` | {tier_badge}\n"
-                f"Status: `{status_badge}` | {dl_str}\n"
-                f"👉 /scholarship_{opp.id} (or tap card below)\n"
+                f"*{idx}. {clean_title}*\n"
+                f"Provider: {clean_provider} ({sanitize_markdown(opp.country)})\n"
+                f"{opp.study_level.capitalize()} · {funding_clean} · {tier_badge}\n"
+                f"Status: {status_badge} · Deadline: {dl_str}\n"
+                f"Details: /scholarship_{opp.id}\n"
             )
 
-        lines.append("💡 *Tip:* Tap an item below for full eligibility criteria and official links.")
+        lines.append("Select an item below for full eligibility criteria and official links.")
         return "\n".join(lines)
 
     def format_scholarship_card(self, opp: Opportunity) -> str:
         """Format complete single scholarship record with trust metadata and disclaimers."""
-        tier_str = "🟢 Officially Verified Source"
+        tier_str = "Officially verified"
         if opp.verification_tier == "secondary_verified":
-            tier_str = "🟡 Verified via Recognized Secondary Source"
+            tier_str = "Secondary source"
         elif opp.verification_tier == "unverified_submission":
-            tier_str = "⚪ Community Submission (Pending Audit)"
+            tier_str = "Unverified community submission (pending review)"
 
         now = datetime.now(timezone.utc)
         deadline_utc = ensure_utc(opp.application_deadline)
@@ -474,84 +475,84 @@ class StudentHubService:
         is_expired = opp.status == "expired" or (deadline_utc and (deadline_utc - now).days < 0 and not opp.is_rolling)
 
         if is_expired:
-            status_badge = "🔴 Expired / Closed (Intake Completed)"
-            dl_str = f"📅 *{deadline_utc.strftime('%B %d, %Y') if deadline_utc else 'Past'}* (`Lapsed / Closed`)"
+            status_badge = "Expired (Closed)"
+            dl_str = f"{format_date(deadline_utc, fallback='Past')} (Closed)"
         elif opp.is_rolling or not deadline_utc:
-            status_badge = "🟢 Active (Rolling Intake)"
-            dl_str = "🔄 *Rolling Applications (Check official portal for cut-off dates)*"
+            status_badge = "Open (Rolling)"
+            dl_str = "Rolling intake (confirm cut-off dates on official portal)"
         else:
             days_left = (deadline_utc - now).days
-            dl_format = deadline_utc.strftime("%B %d, %Y")
+            dl_format = format_date(deadline_utc)
             if days_left > 0:
-                status_badge = "🟢 Active & Open for Applications"
-                dl_str = f"📅 *{dl_format}* (`{days_left} days remaining`)"
+                status_badge = "Open"
+                dl_str = f"{dl_format} ({days_left} days remaining)"
             elif days_left == 0:
-                status_badge = "🟡 Closes Today"
-                dl_str = f"📅 *{dl_format}* (`Due Today!`)"
+                status_badge = "Closes today"
+                dl_str = f"{dl_format} (Due today)"
             else:
-                status_badge = "🔴 Expired / Closed"
-                dl_str = f"📅 *{dl_format}* (`Lapsed / Closed`)"
+                status_badge = "Expired (Closed)"
+                dl_str = f"{dl_format} (Closed)"
 
-        benefits = (
-            opp.benefits or "Refer to the official provider announcement for complete financial coverage details."
+        benefits = sanitize_markdown(
+            opp.benefits or "Refer to the official provider announcement for financial coverage details."
         )
-        required_docs = opp.required_documents or "Official transcripts, CV, and letters of recommendation."
-        verified_date = opp.last_verified_at.strftime("%b %d, %Y") if opp.last_verified_at else "Recently"
-        nationalities = opp.eligible_nationalities or "All International Applicants"
-        stem_fields = opp.stem_fields or "All STEM Disciplines"
+        required_docs = sanitize_markdown(
+            opp.required_documents or "Official transcripts, CV, and letters of recommendation."
+        )
+        verified_date = format_date(opp.last_verified_at, fallback="Recently")
+        nationalities = sanitize_markdown(opp.eligible_nationalities or "All international applicants")
+        stem_fields = sanitize_markdown(opp.stem_fields or "All STEM disciplines")
 
-        # Application window if opening date is recorded
-        window_line = ""
+        window_val = None
         if opens_utc and deadline_utc:
-            window_line = (
-                f"🗓️ *Application Window:* {opens_utc.strftime('%b %d, %Y')} – {deadline_utc.strftime('%b %d, %Y')}\n"
-            )
+            window_val = f"{format_date(opens_utc)} - {format_date(deadline_utc)}"
 
-        expired_alert = ""
-        if is_expired:
-            expired_alert = (
-                "⚠️ *Notice: This opportunity has expired or its deadline has passed. "
-                "Consult the official portal for future cycle announcements.*\n\n"
-            )
-
-        official_links_line = f"• *Announcement:* [Official Announcement]({opp.official_url})\n"
-        if opp.application_url:
-            official_links_line += f"• *Application Portal:* [Apply Online]({opp.application_url})\n"
-
-        return (
-            f"🎓 *{opp.title}*\n"
-            f"🏷️ *Trust Tier:* `{tier_str}`\n"
-            f"📊 *Status:* `{status_badge}`\n\n"
-            f"{expired_alert}"
-            f"🏛️ *Provider / Sponsor:* {opp.provider_name} ({opp.country})\n"
-            f"🌍 *Eligible Nationalities:* {nationalities}\n"
-            f"🎯 *Study Level:* `{opp.study_level.upper()}`\n"
-            f"🔬 *Eligible Disciplines:* `{stem_fields}`\n"
-            f"💰 *Funding Structure:* `{opp.funding_type.replace('_', ' ').upper()}`\n\n"
-            f"✨ *Benefits & Financial Coverage:*\n{benefits}\n\n"
-            f"📋 *Eligibility Criteria:*\n{opp.eligibility_criteria}\n\n"
-            f"📁 *Required Application Documents:*\n{required_docs}\n\n"
-            f"{window_line}"
-            f"⏰ *Application Deadline:*\n{dl_str}\n\n"
-            f"🔗 *Verified Official Links:*\n{official_links_line}\n"
-            f"🗓️ *Last Verified:* `{verified_date}`\n"
-            f"📰 *Attribution:* _{opp.source_attribution}_\n\n"
-            "⚠️ *Official Trust Disclaimer:*\n"
-            "_Eligibility must be confirmed directly against the official provider's rules. "
-            "STEM RADAR does not guarantee selection, funding, or award issuance._"
+        meta = format_meta(
+            [
+                ("Provider", f"{sanitize_markdown(opp.provider_name)} ({sanitize_markdown(opp.country)})"),
+                ("Status", f"{status_badge} · {tier_str}"),
+                ("Study level", opp.study_level.capitalize()),
+                ("Funding", opp.funding_type.replace("_", " ").capitalize()),
+                ("Eligible fields", stem_fields),
+                ("Eligible nationalities", nationalities),
+                ("Application window", window_val),
+                ("Deadline", dl_str),
+            ]
         )
+
+        links = [f"[Official Announcement]({opp.official_url})"]
+        if opp.application_url:
+            links.append(f"[Apply Online]({opp.application_url})")
+
+        sections = [f"*{sanitize_markdown(opp.title)}*", meta]
+        if is_expired:
+            sections.append(
+                "*Notice:* This deadline has passed. Consult the official portal for the next application cycle."
+            )
+
+        sections.extend(
+            [
+                format_section("Coverage & Benefits", benefits),
+                format_section("Eligibility", sanitize_markdown(opp.eligibility_criteria)),
+                format_section("Required Documents", required_docs),
+                format_section("Official Links", " · ".join(links)),
+                f"Last verified: {verified_date} · Source: {sanitize_markdown(opp.source_attribution)}",
+                format_ai_notice("opportunity"),
+            ]
+        )
+        return "\n\n".join(s for s in sections if s)
 
     def format_deadline_tracker(self, opportunities: List[Opportunity]) -> str:
         """Format timeline of upcoming scholarship and research deadlines."""
         if not opportunities:
             return (
-                "⏰ *Upcoming STEM Application Deadlines*\n\n"
-                "No upcoming fixed-deadline opportunities found. Check back soon or view rolling admissions!"
+                "*Upcoming Application Deadlines*\n\n"
+                "No upcoming fixed-deadline opportunities are listed right now. "
+                "Check rolling admissions or browse all scholarships."
             )
 
         lines = [
-            "⏰ *Upcoming STEM Application Deadlines*",
-            "Track critical submission cut-offs for global scholarships, fellowships, and grants:\n",
+            "*Upcoming Application Deadlines*\n",
         ]
 
         now = datetime.now(timezone.utc)
@@ -560,24 +561,23 @@ class StudentHubService:
             if deadline_utc:
                 days_left = (deadline_utc - now).days
                 if days_left > 1:
-                    urgency = "🟢" if days_left > 30 else ("🟡" if days_left > 7 else "🔴")
-                    time_str = f"{urgency} *In {days_left} days* ({deadline_utc.strftime('%b %d, %Y')})"
+                    time_str = f"In {days_left} days ({format_date(deadline_utc)})"
                 elif days_left == 1:
-                    time_str = "🔴 *Tomorrow!*"
+                    time_str = f"Tomorrow ({format_date(deadline_utc)})"
                 else:
-                    time_str = "🔴 *Due Today!*"
+                    time_str = f"Due today ({format_date(deadline_utc)})"
             else:
-                time_str = "🔄 *Rolling Applications*"
+                time_str = "Rolling intake"
 
             lines.append(
-                f"*{idx}. {opp.title}*\n"
-                f"🏛️ _{opp.provider_name}_ ({opp.country})\n"
-                f"🎯 `{opp.study_level.upper()}` | 💰 `{opp.funding_type.replace('_', ' ').title()}`\n"
-                f"⏳ Deadline: {time_str}\n"
-                f"👉 /scholarship_{opp.id}\n"
+                f"*{idx}. {sanitize_markdown(opp.title)}*\n"
+                f"Provider: {sanitize_markdown(opp.provider_name)} ({sanitize_markdown(opp.country)})\n"
+                f"{opp.study_level.capitalize()} · {opp.funding_type.replace('_', ' ').capitalize()}\n"
+                f"Deadline: {time_str}\n"
+                f"Details: /scholarship_{opp.id}\n"
             )
 
-        lines.append("💡 *Tip:* Submit at least 2 weeks before deadlines to account for referee letter delays.")
+        lines.append("Submit applications early to allow time for reference letters and document verification.")
         return "\n".join(lines)
 
     def format_universities_list(
@@ -590,51 +590,52 @@ class StudentHubService:
         """Format an interactive paginated list of accredited universities."""
         if not universities:
             return (
-                "🏛️ *University Admissions & Guidelines*\n\n"
-                f"No universities found matching country `{country_filter}`.\n\n"
-                "Tap *Reset Filters* below or browse all accredited institutions."
+                "*University Admissions*\n\n"
+                f"No universities found matching country '{country_filter}'.\n\n"
+                "Reset filters below or browse all listed institutions."
             )
 
         lines = [
-            "🏛️ *University Admissions & Academic Guidelines*",
-            f"Showing Page `{page + 1}` of `{max(1, total_pages)}` | Filter: `{country_filter.upper()}`\n",
+            "*University Admissions*",
+            f"Page {page + 1} of {max(1, total_pages)} · Country: {country_filter.title()}\n",
         ]
         for idx, u in enumerate(universities, 1):
-            city_txt = f", {u.city}" if u.city else ""
-            lines.append(f"*{idx}. {u.name}*\n📍 `{u.country}{city_txt}`\n👉 /university_{u.slug}\n")
-        lines.append(
-            "💡 *Tip:* Tap an institution below to view admission requirements, guidelines, and official portals."
-        )
+            city_txt = f", {sanitize_markdown(u.city)}" if u.city else ""
+            lines.append(
+                f"*{idx}. {sanitize_markdown(u.name)}*\n"
+                f"Location: {sanitize_markdown(u.country)}{city_txt}\n"
+                f"Details: /university_{u.slug}\n"
+            )
+        lines.append("Select an institution below for admission requirements and official portals.")
         return "\n".join(lines)
 
     def format_university_card(self, uni: UniversityProfile) -> str:
         """Format complete accredited university profile with official admission links."""
-        city_str = f", {uni.city}" if uni.city else ""
-        admissions = (
-            uni.admission_requirements or "Consult the official university admissions office for departmental cutoffs."
+        city_str = f", {sanitize_markdown(uni.city)}" if uni.city else ""
+        admissions = sanitize_markdown(
+            uni.admission_requirements or "Consult the official university admissions office for current requirements."
         )
-        procedures = (
+        procedures = sanitize_markdown(
             uni.application_procedures
             or "Submit application, academic transcripts, and credentials via the official portal."
         )
-        tuition = uni.tuition_and_funding or "Tuition rates vary by faculty, nationality, and scholarship eligibility."
-        verified_date = uni.last_verified_at.strftime("%b %d, %Y") if uni.last_verified_at else "Recently"
+        tuition = sanitize_markdown(
+            uni.tuition_and_funding or "Tuition rates vary by faculty, nationality, and scholarship eligibility."
+        )
+        verified_date = format_date(uni.last_verified_at, fallback="Recently")
 
-        lines = [
-            f"🏛️ *{uni.name}*",
-            f"📍 *Location:* `{uni.country}{city_str}`\n",
-            "📋 *Admission Requirements:*",
-            f"{admissions}\n",
-            "📝 *Application Procedures:*",
-            f"{procedures}\n",
-            "💵 *Tuition & Financial Aid:*",
-            f"{tuition}\n",
-            f"🗓️ *Last Verified:* `{verified_date}`\n",
-            "⚠️ *Official Trust Disclaimer:*\n"
-            "_Never rely on third-party estimates. Admission criteria, visa regulations, and fees "
-            "must always be verified directly on the university's official portal._",
+        sections = [
+            f"*{sanitize_markdown(uni.name)}*\nLocation: {sanitize_markdown(uni.country)}{city_str}",
+            format_section("Admission Requirements", admissions),
+            format_section("Application Procedures", procedures),
+            format_section("Tuition & Financial Aid", tuition),
+            f"Last verified: {verified_date}",
+            (
+                "_Confirm current admission criteria, visa requirements, and tuition "
+                "directly on the university's official portal._"
+            ),
         ]
-        return "\n".join(lines)
+        return "\n\n".join(s for s in sections if s)
 
     def format_academic_resources_list(
         self,
@@ -647,24 +648,24 @@ class StudentHubService:
         """Format an interactive paginated list of educational resources."""
         if not resources:
             return (
-                "📚 *Free STEM Courses & Study Materials*\n\n"
-                f"No resources found for (`Type: {type_filter}`, `Discipline: {discipline_filter}`).\n\n"
-                "Tap *Reset Filters* below or explore all open materials."
+                "*Free Courses & Study Materials*\n\n"
+                f"No resources found for Type: {type_filter}, Discipline: {discipline_filter}.\n\n"
+                "Reset filters below or browse all open materials."
             )
 
         lines = [
-            "📚 *Free STEM Courses & Study Materials*",
-            f"Showing Page `{page + 1}` of `{max(1, total_pages)}` | "
-            f"Type: `{type_filter.upper()}` | Discipline: `{discipline_filter.upper()}`\n",
+            "*Free Courses & Study Materials*",
+            f"Page {page + 1} of {max(1, total_pages)} · "
+            f"Type: {type_filter.capitalize()} · Discipline: {discipline_filter.capitalize()}\n",
         ]
         for idx, r in enumerate(resources, 1):
             lines.append(
-                f"*{idx}. {r.title}*\n"
-                f"🏛️ _{r.provider_institution}_ | `{r.stem_discipline}`\n"
-                f"⚖️ `{r.license_type}` | 🏷️ `{r.resource_type.replace('_', ' ').title()}`\n"
-                f"👉 /resource_{r.slug}\n"
+                f"*{idx}. {sanitize_markdown(r.title)}*\n"
+                f"{sanitize_markdown(r.provider_institution)} · {sanitize_markdown(r.stem_discipline)}\n"
+                f"{sanitize_markdown(r.license_type)} · {r.resource_type.replace('_', ' ').title()}\n"
+                f"Details: /resource_{r.slug}\n"
             )
-        lines.append("💡 *Tip:* Tap an item below for course curriculum, textbook links, and lecture materials.")
+        lines.append("Select a resource below for curriculum links and access details.")
         return "\n".join(lines)
 
     def format_pending_submissions_list(
@@ -676,26 +677,26 @@ class StudentHubService:
         """Format pending opportunity submissions for admin moderation."""
         if not opportunities:
             return (
-                "🛡️ *Admin Moderation Queue — Pending Submissions*\n\n"
-                "✅ *All caught up!* There are currently no unverified opportunity submissions waiting for review."
+                "*Moderation Queue — Pending Submissions*\n\n"
+                "No unverified opportunity submissions are waiting for review."
             )
 
         lines = [
-            "🛡️ *Admin Moderation Queue — Pending Submissions*",
-            f"Page `{page + 1}` of `{max(1, total_pages)}` | Pending: `{len(opportunities)}`\n",
+            "*Moderation Queue — Pending Submissions*",
+            f"Page {page + 1} of {max(1, total_pages)} · Pending: {len(opportunities)}\n",
         ]
 
         for idx, opp in enumerate(opportunities, 1):
-            dl_str = opp.application_deadline.strftime("%b %d, %Y") if opp.application_deadline else "Rolling"
+            dl_str = format_date(opp.application_deadline, fallback="Rolling")
             lines.append(
-                f"*{idx}. [#{opp.id}] {opp.title}*\n"
-                f"🏛️ Provider: _{opp.provider_name}_ ({opp.country})\n"
-                f"🎯 Level: `{opp.study_level.upper()}` | Funding: `{opp.funding_type}`\n"
-                f"⏰ Deadline: `{dl_str}` | Link: [Official Announcement]({opp.official_url})\n"
-                f"Attribution: _{opp.source_attribution}_\n"
-                f"👉 /mod_approve_{opp.id} | /mod_reject_{opp.id}\n"
+                f"*{idx}. [#{opp.id}] {sanitize_markdown(opp.title)}*\n"
+                f"Provider: {sanitize_markdown(opp.provider_name)} ({sanitize_markdown(opp.country)})\n"
+                f"Level: {opp.study_level.capitalize()} · Funding: {opp.funding_type}\n"
+                f"Deadline: {dl_str} · [Official Announcement]({opp.official_url})\n"
+                f"Source: {sanitize_markdown(opp.source_attribution)}\n"
+                f"/mod_approve_{opp.id} · /mod_reject_{opp.id}\n"
             )
-        lines.append("💡 *Actions:* Use the inline action buttons below or commands to approve/reject.")
+        lines.append("Use the action buttons below to approve or reject submissions.")
         return "\n".join(lines)
 
     def format_moderation_reports_list(
@@ -706,48 +707,48 @@ class StudentHubService:
     ) -> str:
         """Format community issue reports for admin moderation."""
         if not reports:
-            return (
-                "🚩 *Admin Moderation Queue — Community Issue Reports*\n\n"
-                "✅ *All clean!* There are no unresolved community issue reports pending review."
-            )
+            return "*Moderation Queue — Community Reports*\n\nNo open community issue reports are pending review."
 
         lines = [
-            "🚩 *Admin Moderation Queue — Community Issue Reports*",
-            f"Page `{page + 1}` of `{max(1, total_pages)}` | Pending Reports: `{len(reports)}`\n",
+            "*Moderation Queue — Community Reports*",
+            f"Page {page + 1} of {max(1, total_pages)} · Open reports: {len(reports)}\n",
         ]
 
         for idx, rep in enumerate(reports, 1):
-            opp_ref = f"Opportunity ID #{rep.opportunity_id}" if rep.opportunity_id else "General Submission"
+            opp_ref = f"Opportunity #{rep.opportunity_id}" if rep.opportunity_id else "General submission"
             lines.append(
-                f"*{idx}. [Report #{rep.id}] Type: `{rep.report_type.upper()}`*\n"
-                f"🎯 Target: {opp_ref} | Reporter User: `{rep.user_id}`\n"
-                f"📝 Details: _{rep.details}_\n"
-                f"📅 Reported: `{rep.created_at.strftime('%b %d, %Y %H:%M')}`\n"
-                f"👉 /mod_resolve_{rep.id} | /mod_dismiss_{rep.id}\n"
+                f"*{idx}. [Report #{rep.id}] {rep.report_type.upper()}*\n"
+                f"Target: {opp_ref} · Reporter: `{rep.user_id}`\n"
+                f"Details: {sanitize_markdown(rep.details)}\n"
+                f"Reported: {format_date(rep.created_at)}\n"
+                f"/mod_resolve_{rep.id} · /mod_dismiss_{rep.id}\n"
             )
-        lines.append("💡 *Actions:* Tap the actions below to resolve, dismiss, or expire opportunities.")
+        lines.append("Use the actions below to resolve, dismiss, or expire affected listings.")
         return "\n".join(lines)
 
     def format_academic_resource_card(self, res: AcademicResource) -> str:
         """Format vetted legal educational resource card with copyright and open licensing."""
-        desc = res.description or "High-quality academic reference and technical study material."
-        verified_date = res.last_verified_at.strftime("%b %d, %Y") if res.last_verified_at else "Recently"
+        desc = sanitize_markdown(res.description or "Open academic reference and technical study material.")
+        verified_date = format_date(res.last_verified_at, fallback="Recently")
 
-        lines = [
-            f"📖 *{res.title}*",
-            f"🏛️ *Institution / Provider:* {res.provider_institution}",
-            f"🔬 *Discipline:* `{res.stem_discipline}`",
-            f"🏷️ *Resource Type:* `{res.resource_type.replace('_', ' ').title()}`",
-            f"⚖️ *License:* `{res.license_type}`",
-            "🛡️ *Copyright Status:* `Verified Open Access / Free Legal Material`\n",
-            "📝 *Overview:*",
-            f"{desc}\n",
-            f"🗓️ *Last Verified:* `{verified_date}`\n",
-            "ℹ️ *Copyright Policy:*\n"
-            "_STEM RADAR strictly indexes authorized open educational resources, official university lecture "
-            "materials, and legal open-access publications. We never distribute pirated or restricted content._",
+        meta = format_meta(
+            [
+                ("Institution", sanitize_markdown(res.provider_institution)),
+                ("Discipline", sanitize_markdown(res.stem_discipline)),
+                ("Type", res.resource_type.replace("_", " ").title()),
+                ("License", sanitize_markdown(res.license_type)),
+                ("Copyright status", "Verified open access / free authorized material"),
+            ]
+        )
+
+        sections = [
+            f"*{sanitize_markdown(res.title)}*",
+            meta,
+            format_section("Overview", desc),
+            f"Last verified: {verified_date}",
+            "_STEM RADAR indexes authorized open educational resources and official university materials only._",
         ]
-        return "\n".join(lines)
+        return "\n\n".join(s for s in sections if s)
 
 
 student_hub_service = StudentHubService()
