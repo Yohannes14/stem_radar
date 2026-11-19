@@ -4,6 +4,12 @@ import argparse
 import asyncio
 import logging
 import sys
+from pathlib import Path
+
+# Ensure project root is in sys.path even when run directly as `python app/main.py`
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 from app.bot.bot import create_bot_app
 from app.config import setup_logging
